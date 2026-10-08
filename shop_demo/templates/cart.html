@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Giỏ hàng{% endblock %}
+{% block content %}
+<h1>🛒 Giỏ hàng</h1>
+{% if lines %}
+<table class="tbl">
+  <tr><th>Sản phẩm</th><th>Đơn giá</th><th>Số lượng</th><th>Thành tiền</th><th></th></tr>
+  {% for l in lines %}
+  <tr>
+    <td><a href="/products/{{ l.product.id }}">{{ l.product.name }}</a></td>
+    <td>{{ l.product.price|vnd }}</td>
+    <td>
+      <form action="/cart/update" method="post" class="row">
+        <input type="hidden" name="product_id" value="{{ l.product.id }}">
+        <input type="number" name="qty" value="{{ l.qty }}" min="0" max="10" class="qty">
+        <button class="btn small">Cập nhật</button>
+      </form>
+    </td>
+    <td><b>{{ l.amount|vnd }}</b></td>
+    <td>
+      <form action="/cart/remove" method="post"><input type="hidden" name="product_id" value="{{ l.product.id }}">
+        <button class="btn small danger" title="Xoá khỏi giỏ">🗑 Xoá</button></form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+<div class="two">
+  <div class="summary">
+    <h3>🎟️ Mã giảm giá</h3>
+    {% if coupon %}
+      <div class="flash">Đang áp dụng <b>{{ coupon }}</b> — {{ coupons[coupon] }}</div>
+      <form action="/cart/coupon" method="post"><input type="hidden" name="code" value=""><button class="btn outline small">Bỏ mã</button></form>
+    {% else %}
+      <form action="/cart/coupon" method="post" class="row">
+        <input name="code" placeholder="Nhập mã giảm giá" maxlength="20" style="flex:1">
+        <button class="btn small">Áp dụng</button>
+      </form>
+      <div class="coupons">
+        {% for c, desc in coupons.items() %}
+        <form action="/cart/coupon" method="post"><input type="hidden" name="code" value="{{ c }}">
+          <button class="cp" title="{{ desc }}"><b>{{ c }}</b><small>{{ desc }}</small></button></form>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <form action="/cart/clear" method="post" onsubmit="return confirm('Xoá toàn bộ giỏ hàng?')">
+      <button class="btn ghost small">Xoá toàn bộ giỏ hàng</button></form>
+  </div>
+  <div class="summary">
+    <div class="line"><span>Tạm tính</span><b>{{ subtotal|vnd }}</b></div>
+    <div class="line"><span>Phí vận chuyển</span><b>{{ fee|vnd if fee else 'Miễn phí' }}</b></div>
+    {% if discount %}<div class="line"><span>Giảm giá ({{ coupon }})</span><b class="green">-{{ discount|vnd }}</b></div>{% endif %}
+    {% if fee %}<div class="muted">Mua thêm {{ (free_from - subtotal)|vnd }} để được miễn phí vận chuyển</div>{% endif %}
+    <div class="line total"><span>Tổng cộng</span><span>{{ total|vnd }}</span></div>
+    <a class="btn block" href="/checkout">Tiến hành đặt hàng</a>
+    <a class="btn outline block" href="/">‹ Tiếp tục mua sắm</a>
+  </div>
+</div>
+{% else %}
+<div class="empty"><div>🛒</div><p>Giỏ hàng đang trống.</p><a class="btn" href="/">Tiếp tục mua sắm</a></div>
+{% endif %}
+{% endblock %}

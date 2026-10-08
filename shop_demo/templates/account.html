@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Tài khoản của tôi{% endblock %}
+{% block content %}
+<h1>👤 Tài khoản của tôi</h1>
+<div class="stats">
+  <div><b>{{ user.tier|upper }}</b><small>Hạng thành viên</small></div>
+  <div><b>{{ stats.n }}</b><small>Đơn hàng</small></div>
+  <div><b>{{ stats.spent|vnd }}</b><small>Tổng chi tiêu</small></div>
+  <div><b>{{ user.id }}</b><small>Mã khách hàng</small></div>
+</div>
+<div class="two">
+  <form action="/account" method="post" class="form">
+    <h3>Thông tin cá nhân</h3>
+    <label>Email <input value="{{ user.email }}" disabled></label>
+    <label>Họ tên <input name="full_name" required value="{{ user.full_name }}"></label>
+    <label>Số điện thoại <input name="phone" value="{{ user.phone or '' }}"></label>
+    <label>Địa chỉ mặc định <textarea name="address" rows="3">{{ user.address or '' }}</textarea></label>
+    <button class="btn">Lưu thay đổi</button>
+  </form>
+  <form action="/account/password" method="post" class="form">
+    <h3>Đổi mật khẩu</h3>
+    <label>Mật khẩu hiện tại <input type="password" name="old_password" required></label>
+    <label>Mật khẩu mới (tối thiểu 8 ký tự) <input type="password" name="new_password" minlength="8" required></label>
+    <button class="btn">Đổi mật khẩu</button>
+    <p class="muted">Lối tắt: <a href="/orders">Đơn hàng của tôi</a> · <a href="/wishlist">Sản phẩm yêu thích</a></p>
+  </form>
+</div>
+{% endblock %}

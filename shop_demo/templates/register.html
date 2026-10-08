@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Đăng ký{% endblock %}
+{% block content %}
+<div class="authbox">
+  <h1>Đăng ký</h1>
+  {% if error %}<div class="flash warn">{{ error }}</div>{% endif %}
+  <form method="post" action="/register" class="form">
+    <label>Họ tên <input name="full_name" required value="{{ form.full_name or '' }}"></label>
+    <label>Email <input type="email" name="email" required value="{{ form.email or '' }}"></label>
+    <label>Số điện thoại <input name="phone" value="{{ form.phone or '' }}"></label>
+    <label>Mật khẩu (tối thiểu 8 ký tự) <input type="password" name="password" minlength="8" required></label>
+    <button class="btn">Tạo tài khoản</button>
+  </form>
+</div>
+{% endblock %}

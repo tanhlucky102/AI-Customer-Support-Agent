@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Điện thoại chính hãng{% endblock %} · Demo Mobile</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="promo">🔥 Mừng sinh nhật Demo Mobile — Giảm giá đến 50%++ · Trả góp 0% · Thu cũ đổi mới trợ giá đến 3 triệu</div>
+<header class="topbar">
+  <div class="container bar">
+    <a class="brand" href="/"><span class="logo">📱</span><b>Demo</b>Mobile</a>
+    <div class="catdrop">
+      <a class="catbtn" href="/?category=Điện thoại">☰ Danh mục</a>
+      <div class="drop">
+        <div><h5>Sản phẩm</h5>{% for c in ['Điện thoại','Ốp lưng','Sạc & cáp','Tai nghe','Pin dự phòng','Dán màn hình'] %}<a href="/?category={{ c|urlencode }}">{{ CAT_ICON[c] }} {{ c }}</a>{% endfor %}</div>
+        <div><h5>Hãng điện thoại</h5>{% for br in ['Apple','Samsung','Xiaomi','OPPO','vivo','realme','HONOR'] %}<a href="/?brand={{ br }}">{{ br }}</a>{% endfor %}</div>
+        <div><h5>Mức giá</h5>{% for k, r in PRICE_RANGES.items() %}<a href="/?price={{ k }}">{{ r[0] }}</a>{% endfor %}</div>
+      </div>
+    </div>
+    <form class="search" action="/" method="get">
+      <input name="q" placeholder="Bạn muốn mua gì hôm nay?" value="{{ q or '' }}">
+      <button aria-label="Tìm">🔍</button>
+    </form>
+    <a class="hbtn" href="/orders"><span>📦</span><small>Tra cứu<br>đơn hàng</small></a>
+    <a class="hbtn" href="/wishlist"><span>❤️</span><small>Yêu<br>thích</small></a>
+    <a class="hbtn" href="/cart"><span>🛒</span><small>Giỏ<br>hàng</small>{% if cart_count %}<i class="badge">{{ cart_count }}</i>{% endif %}</a>
+    {% if user %}
+      <div class="hbtn acct"><a href="/account" class="acc-link"><span>👤</span><small>{{ user.full_name.split()[-1] }}</small></a>
+        <form action="/logout" method="post" class="inline" onsubmit="try{window.ATI&&ATI.reset&&ATI.reset()}catch(e){}">
+          <button class="out">Thoát</button></form></div>
+    {% else %}
+      <a class="hbtn login" href="/login"><span>👤</span><small>Đăng nhập</small></a>
+    {% endif %}
+  </div>
+  <nav class="menu"><div class="container">
+    {% for c in ['Điện thoại','Ốp lưng','Sạc & cáp','Tai nghe','Pin dự phòng','Dán màn hình'] %}
+      <a href="/?category={{ c|urlencode }}">{{ CAT_ICON[c] }} {{ c }}</a>
+    {% endfor %}
+    <a href="/?sort=hot" class="hot">🔥 Khuyến mãi</a>
+    <a href="/orders">Tra cứu đơn hàng</a>
+  </div></nav>
+</header>
+<main class="container">
+  {% if flash %}<div class="flash {{ flash.kind }}" data-flash>{{ flash.msg }}</div>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="foot">
+  <div class="container cols">
+    <div><h4>Tổng đài hỗ trợ</h4><p>Mua hàng: <a href="tel:18000000"><b>1800 0000</b></a><br>Bảo hành: <a href="tel:18001111"><b>1800 1111</b></a><br>Khiếu nại: <a href="tel:18002222"><b>1800 2222</b></a></p></div>
+    <div><h4>Chính sách</h4><p class="links"><a href="/policy/doi-tra">Chính sách đổi trả</a><a href="/policy/bao-hanh">Chính sách bảo hành</a><a href="/policy/van-chuyen">Chính sách vận chuyển</a><a href="/policy/tra-gop">Chính sách trả góp 0%</a></p></div>
+    <div><h4>Thanh toán</h4><p class="links"><a href="/policy/thanh-toan">💳 Phương thức thanh toán</a><a href="/policy/thanh-toan">🏦 Chuyển khoản</a><a href="/policy/thanh-toan">🚚 Thanh toán khi nhận hàng (COD)</a><a href="/account">👤 Tài khoản của tôi</a></p></div>
+    <div><h4>Về Demo Mobile</h4><p>Website mô phỏng phục vụ kiểm thử framework chatbot hỗ trợ khách hàng. Dữ liệu hoàn toàn giả lập, không có giao dịch thật.</p></div>
+  </div>
+</footer>
+<script src="/static/shop.js"></script>
+{% if cfg.SHOW_WIDGET %}
+<script src="{{ cfg.AGENT_SERVER_URL }}/widget/loader.js" data-shop-key="{{ cfg.PUBLIC_KEY }}"
+        data-token-url="/api/chat-token" async></script>
+{% endif %}
+</body>
+</html>

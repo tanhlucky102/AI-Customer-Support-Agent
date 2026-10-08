@@ -1,0 +1,50 @@
+# Secrets — KHÔNG BAO GIỜ commit
+.env
+.env.*
+!.env.example
+*.key
+*credentials*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+
+# Data & models
+data/raw/
+data/processed/
+models/
+*.db
+*.sqlite3
+
+# Eval artifacts
+eval/runs/
+eval/cache/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Shop demo
+shop_demo/shop.db
+
+# Chỉ đẩy phần web: bỏ tài liệu
+BAO_CAO_GIUA_KY.md
+PHAN_CONG.md
+_backup/

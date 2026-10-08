@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/">Trang chủ</a> › {{ title }}</p>
+<div class="layout">
+  <aside class="filters">
+    <div class="fgroup"><h4>Chính sách</h4>
+      {% for k, v in POLICIES.items() %}<a class="opt {{ 'on' if k == slug }}" href="/policy/{{ k }}">{{ v[0] }}</a>{% endfor %}
+    </div>
+  </aside>
+  <article class="doc">
+    <h1>{{ title }}</h1>
+    {% for h, body in sections %}<h3>{{ h }}</h3><p>{{ body }}</p>{% endfor %}
+  </article>
+</div>
+{% endblock %}

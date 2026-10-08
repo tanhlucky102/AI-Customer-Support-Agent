@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Đơn {{ order.id }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/orders">Đơn hàng của tôi</a> › {{ order.id }}</p>
+<h1>Đơn hàng {{ order.id }} <span class="st st-{{ order.status }}">{{ order.status|status_label }}</span></h1>
+
+{% if order.status in ('cancelled', 'returned') %}
+  <div class="flash warn">Đơn hàng này đã {{ 'huỷ' if order.status == 'cancelled' else 'được hoàn trả' }}.</div>
+{% else %}
+  {% set steps = ['pending', 'confirmed', 'shipping', 'delivered'] %}
+  {% set cur = steps.index(order.status) %}
+  <ol class="steps">
+    {% for st in steps %}<li class="{{ 'done' if loop.index0 <= cur }} {{ 'now' if loop.index0 == cur }}"><i>{{ '✓' if loop.index0 < cur else loop.index }}</i>{{ st|status_label }}</li>{% endfor %}
+  </ol>
+{% endif %}
+
+<div class="two">
+  <div>
+    <table class="tbl">
+      <tr><th>Sản phẩm</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th></tr>
+      {% for i in items %}<tr><td><a href="/products/{{ i.product_id }}">{{ i.name }}</a></td><td>{{ i.qty }}</td>
+        <td>{{ i.unit_price|vnd }}</td><td>{{ (i.qty * i.unit_price)|vnd }}</td></tr>{% endfor %}
+    </table>
+    <div class="summary">
+      <div class="line"><span>Phí vận chuyển</span><b>{{ order.shipping_fee|vnd if order.shipping_fee else 'Miễn phí' }}</b></div>
+      {% if order.discount %}<div class="line"><span>Giảm giá{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</span><b class="green">-{{ order.discount|vnd }}</b></div>{% endif %}
+      <div class="line total"><span>Tổng cộng</span><span>{{ order.total|vnd }}</span></div>
+    </div>
+  </div>
+  <aside class="summary">
+    <h3>Thông tin</h3>
+    <div>Ngày đặt: {{ order.placed_at }}</div>
+    <div>Dự kiến giao: {{ order.eta or '—' }}</div>
+    <div>Mã vận đơn: {{ order.tracking_code or 'Chưa có' }}</div>
+    <div>Thanh toán: {{ order.payment_method|payment_label }}</div>
+    <hr>
+    <div>Người nhận: {{ order.ship_name }} — {{ order.ship_phone }}</div>
+    <div>Địa chỉ: {{ order.ship_address }}</div>
+    <hr>
+    <form action="/orders/{{ order.id }}/reorder" method="post"><button class="btn block">🔁 Mua lại đơn này</button></form>
+    {% if order.status in ('pending', 'confirmed') %}
+    <form action="/orders/{{ order.id }}/cancel" method="post" onsubmit="return confirm('Huỷ đơn này?')">
+      <button class="btn danger block">Huỷ đơn</button></form>
+    {% endif %}
+    {% if order.status in NEXT_STATUS %}
+    <form action="/orders/{{ order.id }}/advance" method="post">
+      <button class="btn alt block">[Demo] Chuyển sang “{{ STATUS_LABEL[NEXT_STATUS[order.status]] }}”</button></form>
+      <p class="muted">Nút demo giả lập kho/vận chuyển để bạn thử hỏi chatbot ở từng trạng thái.</p>
+    {% endif %}
+  </aside>
+</div>
+<p><a href="/orders">‹ Quay lại danh sách</a></p>
+{% endblock %}

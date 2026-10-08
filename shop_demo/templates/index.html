@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_card.html" import card with context %}
+{% block content %}
+{% if not filtered %}
+<section class="hero">
+  <div class="slides">
+    <div class="slide s1"><div><small>SIÊU PHẨM 2026</small><h2>iPhone 16 Pro Max</h2><p>Titan siêu bền · Chip A18 Pro · Trả góp 0%</p><a class="btn white" href="/?brand=Apple">Mua ngay</a></div><span class="big">📱</span></div>
+    <div class="slide s2"><div><small>GALAXY AI</small><h2>Samsung Galaxy S25 Ultra</h2><p>Thu cũ đổi mới trợ giá đến 3 triệu</p><a class="btn white" href="/?brand=Samsung">Khám phá</a></div><span class="big">✨</span></div>
+    <div class="slide s3"><div><small>GIÁ SỐC</small><h2>Điện thoại giảm đến 50%</h2><p>Xiaomi · OPPO · vivo · realme · HONOR</p><a class="btn white" href="/?sort=hot">Săn deal</a></div><span class="big">🔥</span></div>
+  </div>
+  <div class="side">
+    <a class="sb b1" href="/?sort=hot"><b>Thu cũ đổi mới</b><small>Trợ giá lên đời</small></a>
+    <a class="sb b2" href="/policy/tra-gop"><b>Trả góp 0%</b><small>Duyệt nhanh 5 phút</small></a>
+    <a class="sb b3" href="/policy/van-chuyen"><b>Freeship</b><small>Đơn từ 500.000₫</small></a>
+  </div>
+</section>
+{% endif %}
+
+<div class="brands">
+  {% for b in brands %}
+    <a class="bchip {{ 'on' if b in sel_brands }}" href="{{ qs(request, toggle=('brand', b)) }}">{{ b }}</a>
+  {% endfor %}
+</div>
+
+{% if not filtered %}
+<section class="hotsale">
+  <div class="hs-head"><h2>⚡ HOT SALE CUỐI TUẦN</h2><div class="cd" id="cd"><b>00</b>:<b>00</b>:<b>00</b></div></div>
+  <div class="hs-row">
+    {% for p in products[:5] %}{{ card(p) }}{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="layout">
+  <aside class="filters">
+    <div class="fgroup"><h4>Loại sản phẩm</h4>
+      <a class="opt {{ '' if category else 'on' }}" href="{{ qs(request, drop=['category']) }}">Tất cả</a>
+      {% for c in categories %}<a class="opt {{ 'on' if c == category }}" href="{{ qs(request, set={'category': c}) }}">{{ CAT_ICON[c] }} {{ c }}</a>{% endfor %}
+    </div>
+    <div class="fgroup"><h4>Mức giá</h4>
+      {% for k, r in PRICE_RANGES.items() %}<a class="opt {{ 'on' if k == price }}" href="{{ qs(request, drop=['price']) if k == price else qs(request, set={'price': k}) }}">{{ r[0] }}</a>{% endfor %}
+    </div>
+    <div class="fgroup"><h4>Hệ điều hành</h4>
+      {% for o in ['iOS', 'Android'] %}<a class="opt {{ 'on' if o == os }}" href="{{ qs(request, drop=['os']) if o == os else qs(request, set={'os': o}) }}">{{ o }}</a>{% endfor %}
+    </div>
+    <div class="fgroup"><h4>Dung lượng</h4>
+      {% for g in [64, 128, 256, 512, 1024] %}<a class="opt {{ 'on' if g == storage }}" href="{{ qs(request, drop=['storage']) if g == storage else qs(request, set={'storage': g}) }}">{{ g if g < 1024 else '1TB' }}{{ 'GB' if g < 1024 }}</a>{% endfor %}
+    </div>
+    {% if filtered %}<a class="btn block ghost" href="/">✕ Xoá bộ lọc</a>{% endif %}
+  </aside>
+
+  <section>
+    <div class="sortbar">
+      <b>{{ total }} sản phẩm{% if q %} cho “{{ q }}”{% endif %}</b>
+      <div class="sorts">
+        {% for k, s in SORTS.items() %}<a class="{{ 'on' if k == sort }}" href="{{ qs(request, set={'sort': k}) }}">{{ s[0] }}</a>{% endfor %}
+      </div>
+    </div>
+    <div class="grid">
+      {% for p in products %}{{ card(p) }}{% else %}<p>Không tìm thấy sản phẩm phù hợp.</p>{% endfor %}
+    </div>
+    {% if more %}
+    <div class="more"><a class="btn outline" href="{{ qs(request) }}{{ '&' if '?' in qs(request) else '?' }}show={{ show + step }}">Xem thêm {{ more }} sản phẩm</a></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

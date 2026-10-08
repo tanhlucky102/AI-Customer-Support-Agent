@@ -1,0 +1,26 @@
+{# macro thẻ sản phẩm — import "with context" để dùng favs/request #}
+{% macro card(p) %}
+<article class="card">
+  {% if p.old_price and p.old_price > p.price %}
+    <span class="off">Giảm {{ ((p.old_price - p.price) * 100 // p.old_price) }}%</span>{% endif %}
+  <form action="/wishlist/toggle" method="post" class="heart">
+    <input type="hidden" name="product_id" value="{{ p.id }}">
+    <input type="hidden" name="next" value="{{ request.url.path }}{{ '?' ~ request.url.query if request.url.query }}">
+    <button title="{{ 'Bỏ yêu thích' if p.id in favs else 'Yêu thích' }}">{{ '❤️' if p.id in favs else '🤍' }}</button>
+  </form>
+  <a href="/products/{{ p.id }}" class="pic {{ '' if product_image(p) else ('phone' if p.category == 'Điện thoại' else 'acc') }}" style="--h:{{ (p.id * 47) % 360 }}">
+    {% set img = product_image(p) %}
+    {% if img %}<img src="{{ img }}" alt="{{ p.name }}" loading="lazy">
+    {% elif p.category == 'Điện thoại' %}<i class="cam"></i>{% else %}<em>{{ CAT_ICON[p.category] }}</em>{% endif %}
+  </a>
+  {% if p.category == 'Điện thoại' %}<span class="tag">Trả góp 0%</span>{% endif %}
+  <h3><a href="/products/{{ p.id }}">{{ p.name }}</a></h3>
+  {% if p.screen %}<div class="chips"><span>{{ p.screen }}"</span><span>{{ p.ram_gb }}GB RAM</span><span>{{ p.storage_gb }}GB</span></div>{% endif %}
+  <div class="prices"><b>{{ p.price|vnd }}</b>{% if p.old_price and p.old_price > p.price %}<s>{{ p.old_price|vnd }}</s>{% endif %}</div>
+  <div class="meta"><span class="stars">★ {{ p.rating }}</span><span>Đã bán {{ p.sold }}</span></div>
+  {% if p.stock > 0 %}
+  <form action="/cart/add" method="post"><input type="hidden" name="product_id" value="{{ p.id }}">
+    <button class="btn block">Thêm vào giỏ</button></form>
+  {% else %}<span class="muted">Hết hàng</span>{% endif %}
+</article>
+{% endmacro %}

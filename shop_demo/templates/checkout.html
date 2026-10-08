@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Đặt hàng{% endblock %}
+{% block content %}
+<h1>Đặt hàng</h1>
+<div class="two">
+  <form action="/checkout" method="post" class="form">
+    <label>Người nhận <input name="ship_name" required value="{{ user.full_name }}"></label>
+    <label>Số điện thoại <input name="ship_phone" required pattern="[0-9+ ]{9,15}" value="{{ user.phone or '' }}"></label>
+    <label>Địa chỉ giao hàng <textarea name="ship_address" required rows="3">{{ user.address or '' }}</textarea></label>
+    <fieldset><legend>Thanh toán</legend>
+      {% for k, v in payments.items() %}
+      <label class="radio"><input type="radio" name="payment_method" value="{{ k }}" {{ 'checked' if loop.first }}> {{ v }}</label>
+      {% endfor %}
+      <p class="muted">Thanh toán mô phỏng — không có giao dịch thật.</p>
+    </fieldset>
+    <button class="btn big">Xác nhận đặt hàng</button>
+    <a href="/cart">‹ Quay lại giỏ hàng</a>
+  </form>
+  <aside class="summary">
+    <h3>Đơn hàng của bạn</h3>
+    {% for l in lines %}<div class="line"><span>{{ l.qty }} × {{ l.product.name }}</span><span>{{ l.amount|vnd }}</span></div>{% endfor %}
+    <hr>
+    <div class="line"><span>Tạm tính</span><span>{{ subtotal|vnd }}</span></div>
+    <div class="line"><span>Vận chuyển</span><span>{{ fee|vnd if fee else 'Miễn phí' }}</span></div>
+    {% if discount %}<div class="line"><span>Giảm giá ({{ coupon }})</span><span class="green">-{{ discount|vnd }}</span></div>{% endif %}
+    <div class="line total"><span>Tổng</span><span>{{ total|vnd }}</span></div>
+    <hr>
+    {% if coupon %}
+      <form action="/cart/coupon" method="post"><input type="hidden" name="code" value=""><input type="hidden" name="next" value="/checkout">
+        <button class="btn outline small">Bỏ mã {{ coupon }}</button></form>
+    {% else %}
+      <form action="/cart/coupon" method="post" class="row"><input type="hidden" name="next" value="/checkout">
+        <input name="code" placeholder="Mã giảm giá" maxlength="20" style="flex:1"><button class="btn small">Áp dụng</button></form>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

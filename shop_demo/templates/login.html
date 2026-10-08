@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập{% endblock %}
+{% block content %}
+<div class="authbox">
+  <h1>Đăng nhập</h1>
+  {% if error %}<div class="flash warn">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="form">
+    <input type="hidden" name="next" value="{{ next }}">
+    <label>Email <input type="email" name="email" required autofocus></label>
+    <label>Mật khẩu <input type="password" name="password" required></label>
+    <button class="btn">Đăng nhập</button>
+  </form>
+  <p class="muted">Chưa có tài khoản? <a href="/register">Đăng ký</a></p>
+  <div class="hint"><b>Tài khoản demo</b> (mật khẩu <code>demo1234</code>):<br>
+    an@demo.vn — có đơn <code>SO10293</code><br>binh@demo.vn</div>
+</div>
+{% endblock %}

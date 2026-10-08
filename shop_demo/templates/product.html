@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ p.name }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/">Trang chủ</a> › <a href="/?category={{ p.category|urlencode }}">{{ p.category }}</a> › {{ p.name }}</p>
+<div class="detail">
+  <div class="gallery">
+    {% set img = product_image(p) %}
+    <div class="pic big {{ '' if img else ('phone' if p.category == 'Điện thoại' else 'acc') }}" style="--h:{{ (p.id * 47) % 360 }}">
+      {% if img %}<img src="{{ img }}" alt="{{ p.name }}">
+      {% elif p.category == 'Điện thoại' %}<i class="cam"></i>{% else %}<em>{{ CAT_ICON[p.category] }}</em>{% endif %}
+    </div>
+  </div>
+  <div class="info">
+    <h1>{{ p.name }}</h1>
+    <div class="meta"><span class="stars">★ {{ p.rating }}</span><span>Đã bán {{ p.sold }}</span><span>Mã: {{ p.sku }}</span></div>
+    <div class="pricebox">
+      <b>{{ p.price|vnd }}</b>
+      {% if p.old_price and p.old_price > p.price %}<s>{{ p.old_price|vnd }}</s>
+        <span class="off static">Giảm {{ ((p.old_price - p.price) * 100 // p.old_price) }}%</span>{% endif %}
+    </div>
+    {% if p.category == 'Điện thoại' %}<div class="tag big">Trả góp 0% · Thu cũ đổi mới trợ giá đến 3 triệu</div>{% endif %}
+    <table class="spec">
+      <tr><td>Thương hiệu</td><td>{{ p.brand }}</td></tr>
+      {% if p.screen %}
+      <tr><td>Màn hình</td><td>{{ p.screen }} inch</td></tr>
+      <tr><td>RAM</td><td>{{ p.ram_gb }} GB</td></tr>
+      <tr><td>Bộ nhớ trong</td><td>{{ p.storage_gb }} GB</td></tr>
+      <tr><td>Hệ điều hành</td><td>{{ p.os }}</td></tr>
+      {% endif %}
+      <tr><td>Tình trạng</td><td>{% if p.stock > 0 %}Còn {{ p.stock }} sản phẩm{% else %}<b>Hết hàng</b>{% endif %}</td></tr>
+    </table>
+    <p class="muted">{{ p.description }}</p>
+    {% if p.stock > 0 %}
+    <form action="/cart/add" method="post" class="row buy">
+      <input type="hidden" name="product_id" value="{{ p.id }}">
+      <input type="number" name="qty" value="1" min="1" max="{{ [p.stock, 10]|min }}" class="qty">
+      <button class="btn big" name="buy_now" value="1">MUA NGAY<small>Giao nhanh tận nơi hoặc nhận tại cửa hàng</small></button>
+      <button class="btn outline" formaction="/cart/add">Thêm vào giỏ</button>
+      <button class="btn ghost" formaction="/wishlist/toggle" name="next" value="/products/{{ p.id }}" title="Yêu thích">{{ '❤️ Đã thích' if p.id in favs else '🤍 Yêu thích' }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

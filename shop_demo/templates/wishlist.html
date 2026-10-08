@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "_card.html" import card with context %}
+{% block title %}Sản phẩm yêu thích{% endblock %}
+{% block content %}
+<h1>❤️ Sản phẩm yêu thích</h1>
+{% if products %}
+<div class="grid wide">{% for p in products %}{{ card(p) }}{% endfor %}</div>
+{% else %}
+<div class="empty"><div>🤍</div><p>Bạn chưa có sản phẩm yêu thích nào. Bấm vào biểu tượng trái tim trên sản phẩm để lưu lại.</p><a class="btn" href="/">Khám phá sản phẩm</a></div>
+{% endif %}
+{% endblock %}

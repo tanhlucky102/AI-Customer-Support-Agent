@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Đơn hàng của tôi{% endblock %}
+{% block content %}
+<h1>Đơn hàng của tôi</h1>
+<div class="filters">
+  <a class="chip {{ '' if status else 'on' }}" href="/orders">Tất cả</a>
+  {% for k, v in STATUS_LABEL.items() %}<a class="chip {{ 'on' if k == status }}" href="/orders?status={{ k }}">{{ v }}</a>{% endfor %}
+</div>
+{% if orders %}
+<table class="tbl">
+  <tr><th>Mã đơn</th><th>Ngày đặt</th><th>Trạng thái</th><th>Dự kiến giao</th><th>Tổng tiền</th><th></th></tr>
+  {% for o in orders %}
+  <tr>
+    <td><a href="/orders/{{ o.id }}">{{ o.id }}</a></td>
+    <td>{{ o.placed_at }}</td>
+    <td><span class="st st-{{ o.status }}">{{ o.status|status_label }}</span></td>
+    <td>{{ o.eta or '—' }}</td>
+    <td>{{ o.total|vnd }}</td>
+    <td><a class="btn small outline" href="/orders/{{ o.id }}">Xem</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p>Chưa có đơn hàng nào. <a href="/">Mua sắm ngay</a></p>{% endif %}
+{% endblock %}
