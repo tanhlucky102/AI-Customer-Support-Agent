@@ -17,6 +17,8 @@ from starlette.middleware.sessions import SessionMiddleware
 import config
 from api import router as api_router
 from db import get_db, init_db
+from demo_chat import create_demo_chat_router
+from offers import COUPONS, EVENT_BANNER_TITLE, coupon_discount
 from security import hash_password, sign_chat_token, verify_password
 
 PAGE_SIZE = 12
@@ -35,8 +37,7 @@ PAYMENT_LABEL = {"cod": "Thanh toán khi nhận hàng (COD)", "bank": "Chuyển 
 async def lifespan(_: FastAPI):
     init_db()
     if config.USING_DEV_KEYS:
-        print("[shop_demo] CẢNH BÁO: DEMO_SHOP_API_KEY / DEMO_SHOP_TOKEN_SECRET chưa có trong .env — "
-              "đang dùng khoá dev mặc định.")
+        print("[shop_demo] WARNING: using development API and token keys; set them in .env for deployment.")
     yield
 
 
@@ -52,7 +53,8 @@ templates.env.filters["status_label"] = lambda s: STATUS_LABEL.get(s, s)
 templates.env.filters["payment_label"] = lambda s: PAYMENT_LABEL.get(s, s)
 CAT_ICON = {"Điện thoại": "📱", "Ốp lưng": "🛡️", "Sạc & cáp": "🔌", "Tai nghe": "🎧", "Pin dự phòng": "🔋",
             "Dán màn hình": "✨"}
-templates.env.globals.update(STATUS_LABEL=STATUS_LABEL, NEXT_STATUS=NEXT_STATUS, cfg=config, CAT_ICON=CAT_ICON)
+templates.env.globals.update(STATUS_LABEL=STATUS_LABEL, NEXT_STATUS=NEXT_STATUS, cfg=config,
+                             CAT_ICON=CAT_ICON, EVENT_BANNER_TITLE=EVENT_BANNER_TITLE)
 
 
 # ---------- helpers ----------
@@ -100,27 +102,6 @@ def cart_lines(request: Request, db: sqlite3.Connection) -> tuple[list[dict], in
 
 def shipping_fee(subtotal: int) -> int:
     return 0 if subtotal == 0 or subtotal >= SHIPPING_FREE_FROM else SHIPPING_FEE
-
-
-COUPONS = {
-    "GIAM50K": "Giảm 50.000₫ cho đơn từ 500.000₫",
-    "GIAM5": "Giảm 5% (tối đa 300.000₫)",
-    "FREESHIP": "Miễn phí vận chuyển",
-    "WELCOME100": "Giảm 100.000₫ cho đơn từ 2.000.000₫",
-}
-
-
-def coupon_discount(code: str, subtotal: int, fee: int) -> tuple[int, str | None]:
-    """Trả về (số tiền giảm, lỗi)."""
-    if code == "GIAM50K":
-        return (50_000, None) if subtotal >= 500_000 else (0, "Mã GIAM50K áp dụng cho đơn từ 500.000₫.")
-    if code == "GIAM5":
-        return min(subtotal * 5 // 100, 300_000), None
-    if code == "FREESHIP":
-        return (fee, None) if fee else (0, "Đơn của bạn đã được miễn phí vận chuyển.")
-    if code == "WELCOME100":
-        return (100_000, None) if subtotal >= 2_000_000 else (0, "Mã WELCOME100 áp dụng cho đơn từ 2.000.000₫.")
-    return 0, "Mã giảm giá không hợp lệ."
 
 
 def cart_totals(request: Request, db: sqlite3.Connection) -> dict:
@@ -622,6 +603,7 @@ POLICIES = {
         ("Mô phỏng", "Website demo — không phát sinh giao dịch thật.")]),
 }
 templates.env.globals["POLICIES"] = POLICIES
+app.include_router(create_demo_chat_router(POLICIES, STATUS_LABEL))
 
 
 @app.get("/policy/{slug}")

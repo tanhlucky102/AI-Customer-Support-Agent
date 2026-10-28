@@ -1,0 +1,45 @@
+:root { font-family: Arial, sans-serif; color: #14213d; background: #fff; --accent: #2563eb; }
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; }
+button, input { font: inherit; }
+.chat-shell { display: flex; flex-direction: column; height: 100dvh; min-height: 260px; }
+.chat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; color: white; background: var(--accent); }
+.chat-header__title { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.chat-header strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-header span { font-size: 10px; opacity: .86; letter-spacing: .08em; }
+#chat-close { color: white; background: transparent; border: 0; font-size: 26px; line-height: 1; cursor: pointer; }
+.chat-auth { padding: 7px 16px; font-size: 11px; background: #eff6ff; color: #345; border-bottom: 1px solid #e2e8f0; }
+.chat-auth a { margin-left: 8px; color: #1d4ed8; font-weight: 700; }
+.chat-auth a[hidden] { display: none; }
+.chat-tools { display: flex; gap: 8px; padding: 7px 12px; border-bottom: 1px solid #e2e8f0; }
+.chat-tools button { border: 1px solid #bfdbfe; border-radius: 7px; background: #fff; color: #1d4ed8; padding: 4px 9px; font-size: 11px; cursor: pointer; }
+.chat-tools button:disabled { opacity: .5; cursor: default; }
+.chat-history { max-height: 150px; overflow-y: auto; padding: 6px 12px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+.chat-history[hidden] { display: none; }
+.chat-history button { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: #334155; text-align: left; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.chat-history button:hover { background: #dbeafe; }
+.chat-history p { margin: 5px 2px; color: #64748b; font-size: 11px; }
+.chat-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; }
+.message { max-width: 88%; min-width: 0; padding: 10px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 1px 3px #0f172a12; }
+.message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message--bot { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; }
+.message--user { align-self: flex-end; color: white; background: var(--accent); }
+.message__sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.message__sources a { color: #1d4ed8; font-size: 11px; text-decoration: none; border: 1px solid #bfdbfe; border-radius: 6px; padding: 3px 6px; }
+.message__sources a:hover { text-decoration: underline; }
+.message__feedback { display: flex; align-items: center; gap: 6px; margin-top: 9px; color: #64748b; font-size: 11px; }
+.message__feedback button { border: 1px solid #cbd5e1; border-radius: 6px; background: white; padding: 2px 6px; cursor: pointer; }
+.message__feedback button:disabled { opacity: .6; cursor: default; }
+.chat-suggestions { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; border-top: 1px solid #e2e8f0; }
+.chat-suggestions { scrollbar-width: none; }
+.chat-suggestions::-webkit-scrollbar { display: none; }
+.chat-suggestions:empty { display: none; }
+.chat-suggestions button { flex: none; border: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; border-radius: 999px; padding: 6px 9px; font-size: 11px; cursor: pointer; }
+.chat-suggestions button:disabled { opacity: .5; cursor: default; }
+.chat-status { padding: 6px 14px; font-size: 11px; color: #64748b; }
+.chat-status[hidden] { display: none; }
+.chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #e2e8f0; }
+.chat-form input { flex: 1; min-width: 0; border: 1px solid #cbd5e1; border-radius: 9px; padding: 9px 10px; outline: none; font-size: 13px; }
+.chat-form input:focus { border-color: var(--accent); }
+.chat-form button { border: 0; border-radius: 9px; color: #fff; background: var(--accent); padding: 0 13px; cursor: pointer; }
+.chat-form button:disabled { opacity: .55; cursor: default; }

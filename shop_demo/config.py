@@ -16,6 +16,8 @@ JWT_AUDIENCE = "ati-agent"
 
 AGENT_SERVER_URL = os.getenv("AGENT_SERVER_URL", "http://localhost:8000").rstrip("/")
 SHOW_WIDGET = os.getenv("SHOW_WIDGET", "1") != "0"
+# Chế độ demo dùng chatbot cục bộ; chuyển sang external khi Agent Server sẵn sàng.
+WIDGET_MODE = os.getenv("WIDGET_MODE", "demo").strip().lower()
 CHAT_TOKEN_TTL = int(os.getenv("CHAT_TOKEN_TTL_SECONDS", "900"))
 
 # Khoá bí mật: nếu .env chưa điền thì dùng giá trị dev cố định (KHÔNG dùng khi triển khai thật)
