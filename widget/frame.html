@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trợ lý khách hàng</title>
+  <link rel="stylesheet" href="/widget/frame.css">
+  <script src="/widget/frame.js" defer></script>
+</head>
+<body>
+  <div class="chat-shell">
+    <header class="chat-header">
+      <div class="chat-header__title"><strong id="chat-title">Trợ lý khách hàng</strong><span id="chat-mode">BẢN THỬ</span></div>
+      <button id="chat-close" type="button" aria-label="Đóng khung chat">×</button>
+    </header>
+    <div class="chat-auth"><span id="chat-auth">Vui lòng đăng nhập để dùng chatbot.</span><a id="chat-login" href="#" target="_top" hidden>Đăng nhập</a></div>
+    <nav class="chat-tools" aria-label="Quản lý hội thoại">
+      <button id="chat-new" type="button" disabled>+ Chat mới</button>
+      <button id="chat-history-toggle" type="button" aria-expanded="false" disabled>Lịch sử</button>
+    </nav>
+    <div id="chat-history" class="chat-history" hidden></div>
+    <main id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions"></main>
+    <div id="chat-suggestions" class="chat-suggestions" aria-label="Câu hỏi gợi ý"></div>
+    <div id="chat-status" class="chat-status" role="status" hidden></div>
+    <form id="chat-form" class="chat-form">
+      <input id="chat-input" name="message" type="text" maxlength="500" autocomplete="off" placeholder="Nhập câu hỏi..." aria-label="Câu hỏi của bạn" required>
+      <button id="chat-send" type="submit">Gửi</button>
+    </form>
+  </div>
+</body>
+</html>

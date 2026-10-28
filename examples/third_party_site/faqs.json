@@ -1,0 +1,18 @@
+{
+  "faqs": [
+    {
+      "id": "opening-hours",
+      "question": "Website này mở cửa lúc nào?",
+      "answer": "Đây là website thử nghiệm. Bộ phận hỗ trợ hoạt động từ 8:00 đến 17:00, thứ Hai đến thứ Sáu.",
+      "keywords": ["giờ mở cửa", "giờ hỗ trợ", "mấy giờ"],
+      "source_url": "http://localhost:8002/"
+    },
+    {
+      "id": "contact",
+      "question": "Làm sao liên hệ hỗ trợ?",
+      "answer": "Đây là website thử nghiệm. Hãy gửi câu hỏi qua biểu mẫu liên hệ của website.",
+      "keywords": ["liên hệ", "hỗ trợ", "contact"],
+      "source_url": "http://localhost:8002/"
+    }
+  ]
+}

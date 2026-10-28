@@ -1,0 +1,46 @@
+{
+  "shop_id": "demo_shop",
+  "public_key": "pk_demo_shop",
+  "title": "Trợ lý Demo Mobile",
+  "greeting": "Xin chào! Mình hỗ trợ sản phẩm, ưu đãi, sự kiện, chính sách và đơn hàng.",
+  "primary_color": "#2563eb",
+  "suggestions": [
+    "Chính sách đổi trả",
+    "Phí giao hàng là bao nhiêu?",
+    "Đơn hàng của tôi",
+    "Shop đang có sale gì không?",
+    "Shop có sự kiện gì không?"
+  ],
+  "faq": [
+    {
+      "slug": "doi-tra",
+      "title": "Chính sách đổi trả",
+      "keywords": ["đổi trả", "trả hàng", "hoàn trả", "hoàn tiền", "huỷ đơn", "hủy đơn"],
+      "answer": "Sản phẩm lỗi do nhà sản xuất được đổi 1 đổi 1 trong 30 ngày kể từ ngày nhận hàng nếu còn đầy đủ hộp, phụ kiện và hoá đơn. Hoàn tiền trong 3–7 ngày làm việc sau khi shop nhận lại hàng. Đơn ở trạng thái Chờ xác nhận hoặc Đã xác nhận có thể huỷ trong trang Đơn hàng của tôi."
+    },
+    {
+      "slug": "bao-hanh",
+      "title": "Chính sách bảo hành",
+      "keywords": ["bảo hành", "lỗi nhà sản xuất"],
+      "answer": "Điện thoại được bảo hành chính hãng 12 tháng; phụ kiện bảo hành 6 tháng và đổi mới trong 15 ngày nếu lỗi. Hư hỏng do rơi vỡ, vào nước hoặc tự sửa chữa không thuộc phạm vi bảo hành."
+    },
+    {
+      "slug": "van-chuyen",
+      "title": "Chính sách vận chuyển",
+      "keywords": ["vận chuyển", "giao hàng", "phí ship", "freeship", "mã vận đơn"],
+      "answer": "Miễn phí vận chuyển cho đơn từ 500.000₫; đơn dưới mức này có phí cố định 30.000₫. Dự kiến giao trong 3–5 ngày làm việc. Mã vận đơn hiển thị trong chi tiết đơn sau khi chuyển sang Đang giao."
+    },
+    {
+      "slug": "tra-gop",
+      "title": "Chính sách trả góp 0%",
+      "keywords": ["trả góp"],
+      "answer": "Trả góp 0% áp dụng cho điện thoại thanh toán qua thẻ tín dụng của ngân hàng liên kết. Kỳ hạn 3, 6, 9 hoặc 12 tháng; không có phí chuyển đổi."
+    },
+    {
+      "slug": "thanh-toan",
+      "title": "Phương thức thanh toán",
+      "keywords": ["thanh toán", "chuyển khoản", "cod"],
+      "answer": "Shop hỗ trợ thanh toán khi nhận hàng (COD) và chuyển khoản ngân hàng. Website demo không phát sinh giao dịch thật."
+    }
+  ]
+}

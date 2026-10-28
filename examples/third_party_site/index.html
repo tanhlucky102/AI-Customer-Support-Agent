@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Website thứ hai · thử widget</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
+    header { padding: 24px; background: #0f172a; color: white; }
+    main { max-width: 760px; margin: 64px auto; padding: 0 24px; }
+    h1 { font-size: 32px; }
+    p { line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <header>Website thử nghiệm khác origin</header>
+  <main>
+    <h1>Thử cùng một widget trên website thứ hai</h1>
+    <p>Trang tĩnh này minh họa cách nhúng widget từ server khác origin. Vì không có hệ thống đăng nhập và endpoint cấp JWT, chatbot sẽ yêu cầu đăng nhập và không cho gửi câu hỏi.</p>
+    <p>Khi đã cấp shop riêng, thêm <code>?shop_key=pk_...</code> vào URL để thử widget bằng public key mới.</p>
+  </main>
+  <script>
+    const widget = document.createElement('script');
+    widget.src = 'http://localhost:8000/widget/loader.js';
+    widget.dataset.shopKey = new URLSearchParams(location.search).get('shop_key') || 'pk_demo_shop';
+    widget.async = true;
+    document.body.appendChild(widget);
+  </script>
+</body>
+</html>

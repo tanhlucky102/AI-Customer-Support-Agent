@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Điện thoại chính hãng{% endblock %} · Demo Mobile</title>
   <link rel="stylesheet" href="/static/style.css">
+  {% if cfg.SHOW_WIDGET and cfg.WIDGET_MODE == 'demo' %}<link rel="stylesheet" href="/static/demo-chat.css">{% endif %}
 </head>
 <body>
 <div class="promo">🔥 Mừng sinh nhật Demo Mobile — Giảm giá đến 50%++ · Trả góp 0% · Thu cũ đổi mới trợ giá đến 3 triệu</div>
@@ -56,8 +57,32 @@
 </footer>
 <script src="/static/shop.js"></script>
 {% if cfg.SHOW_WIDGET %}
+{% if cfg.WIDGET_MODE == 'demo' %}
+<div id="demo-chat" class="demo-chat">
+  <section id="demo-chat-panel" class="demo-chat__panel" role="dialog" aria-label="Trợ lý Demo Mobile" aria-modal="false" hidden>
+    <div class="demo-chat__header">
+      <div><strong>💬 Trợ lý Demo Mobile</strong><small>Chính sách và đơn hàng giả lập</small></div>
+      <button type="button" class="demo-chat__close" aria-label="Đóng khung chat">×</button>
+    </div>
+    <div class="demo-chat__messages" role="log" aria-live="polite" aria-relevant="additions"></div>
+    {% if not user %}<div class="demo-chat__auth">Vui lòng <a href="/login">đăng nhập</a> để dùng chatbot.</div>{% endif %}
+    <div class="demo-chat__suggestions" aria-label="Câu hỏi gợi ý">
+      <button type="button" data-question="Chính sách đổi trả" {% if not user %}disabled{% endif %}>Đổi trả</button>
+      <button type="button" data-question="Phí giao hàng là bao nhiêu?" {% if not user %}disabled{% endif %}>Phí giao hàng</button>
+      <button type="button" data-question="Đơn hàng của tôi" {% if not user %}disabled{% endif %}>Đơn của tôi</button>
+    </div>
+    <form class="demo-chat__form">
+      <input name="message" type="text" maxlength="500" autocomplete="off" placeholder="Nhập câu hỏi..." aria-label="Câu hỏi của bạn" required {% if not user %}disabled{% endif %}>
+      <button type="submit" aria-label="Gửi câu hỏi" {% if not user %}disabled{% endif %}>Gửi</button>
+    </form>
+  </section>
+  <button type="button" class="demo-chat__launcher" aria-controls="demo-chat-panel" aria-expanded="false" aria-label="Mở trợ lý chat">💬 <span>Hỏi trợ lý</span></button>
+</div>
+<script defer src="/static/demo-chat.js"></script>
+{% elif cfg.WIDGET_MODE == 'external' %}
 <script src="{{ cfg.AGENT_SERVER_URL }}/widget/loader.js" data-shop-key="{{ cfg.PUBLIC_KEY }}"
         data-token-url="/api/chat-token" async></script>
+{% endif %}
 {% endif %}
 </body>
 </html>
