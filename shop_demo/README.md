@@ -10,7 +10,7 @@ python seed.py --reset        # 300 khách, 200 sản phẩm, 1.000 đơn
 uvicorn app:app --port 8001 --reload
 ```
 Mở http://localhost:8001 — đăng nhập `an@demo.vn` / `demo1234` (có đơn `SO10293`), hoặc `binh@demo.vn`.
-Điền `DEMO_SHOP_API_KEY`, `DEMO_SHOP_TOKEN_SECRET`, `DEMO_SHOP_SESSION_SECRET` trong `.env` (nếu trống sẽ dùng khoá dev).
+Điền `DEMO_SHOP_API_KEY`, `DEMO_SHOP_TOKEN_SECRET`, `DEMO_SHOP_SESSION_SECRET` trong `.env`. Nếu trống, server sinh khoá ngẫu nhiên cho mỗi lần chạy: website vẫn dùng được nhưng Agent Server không gọi được REST API, không xác minh được token chat, và phiên đăng nhập mất khi khởi động lại.
 
 ## Tính năng web
 Danh sách + tìm kiếm/lọc/sắp xếp sản phẩm, chi tiết, giỏ hàng, đặt hàng (trừ tồn kho), đăng ký/đăng nhập/đăng xuất,
@@ -31,6 +31,6 @@ Thiếu/sai key → 401. Đơn không tồn tại hoặc không thuộc khách �
 - `WIDGET_MODE=external`: widget từ `agent_server/` dùng AI Box (khi có key), FAQ, API sản phẩm/đơn hàng và lưu lịch sử theo khách. Cần đăng nhập trước khi hỏi. Xem [hướng dẫn Agent Server](../agent_server/README.md).
 - `WIDGET_MODE=demo` là chatbot quy tắc cũ ngay trên website, cũng yêu cầu đăng nhập nhưng không có AI và lịch sử. Đặt `SHOW_WIDGET=0` để tắt widget.
 - `GET /api/chat-token` (cần đăng nhập, nếu không → 401): JWT HS256 `{iss, sub, aud="ati-agent", iat, exp, jti}` (C3).
-  `security.sign_chat_token` là bản tạm, thay bằng `sdk.sign_user_token` của M1 khi có.
+  `security.sign_chat_token` gọi `sign_user_token` trong `sdk/ati_sdk.py` của framework.
 - Chế độ `external` chèn `<script src="{AGENT_SERVER_URL}/widget/loader.js" data-shop-key="pk_demo_shop" data-token-url="/api/chat-token">`;
   nút Đăng xuất gọi `ATI.reset()`.

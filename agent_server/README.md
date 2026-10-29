@@ -18,12 +18,14 @@ Luồng thử tương ứng với Chatbase: **Build** (cấp shop, đẩy FAQ qu
 
 ## Chạy trên cùng máy
 
-Tại thư mục gốc repo, tạo môi trường Python và cài dependency (nếu `.venv` đã có thì bỏ qua dòng đầu):
+Tại thư mục gốc repo, tạo môi trường Python và cài dependency. Chỉ bỏ qua bước này nếu `.venv` được tạo trên chính máy này; `.venv` chép từ máy khác không chạy được (`--clear` tạo lại từ đầu):
 
 ```powershell
-py -3 -m venv .venv
+py -3 -m venv --clear .venv
 .\.venv\Scripts\python.exe -m pip install -r shop_demo\requirements.txt -r agent_server\requirements.txt
 ```
+
+Chép `.env.example` thành `.env` rồi điền `DEMO_SHOP_API_KEY` và `DEMO_SHOP_TOKEN_SECRET`, mỗi khóa là một chuỗi ngẫu nhiên sinh bằng `.\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"`. Hai server đọc chung file này. Nếu thiếu, mỗi server tự sinh khóa ngẫu nhiên và in cảnh báo khi khởi động; khi đó Agent Server từ chối token chat và không gọi được API shop.
 
 **Terminal 1 — website shop:**
 
@@ -68,7 +70,7 @@ Xem [FAQ_INTEGRATION.md](FAQ_INTEGRATION.md) để lấy JSON mẫu, lệnh cấ
 
 ## Chạy khi Agent Server ở máy thành viên khác
 
-`localhost` trên máy bạn không phải `localhost` trên máy bạn ấy. Agent Server cần một URL HTTPS mà trình duyệt người dùng truy cập được. Khi thử có thể dùng HTTPS tunnel tạm; đặt `AGENT_SERVER_URL` của shop demo thành URL đó. Server cũng cần `WIDGET_ALLOWED_ORIGINS` gồm origin thực của website nhúng, thí dụ `https://shop.example.vn`.
+`localhost` trên máy bạn không phải `localhost` trên máy bạn ấy. Agent Server cần một URL HTTPS mà trình duyệt người dùng truy cập được. Khi thử có thể dùng HTTPS tunnel tạm; đặt `AGENT_SERVER_URL` của shop demo thành URL đó. Đặt cùng giá trị cho `AGENT_SERVER_URL` trên máy chạy Agent Server: server chỉ nhận `POST /v1/chat` có header `Origin` là chính nó, mà tunnel có thể đổi header `Host`. Server cũng cần `WIDGET_ALLOWED_ORIGINS` gồm origin thực của website nhúng, thí dụ `https://shop.example.vn`.
 
 Nếu thử tra đơn, Agent Server còn phải truy cập được API của shop demo. Đặt `DEMO_SHOP_API_URL` trên máy chạy Agent Server thành URL HTTPS của shop (hoặc địa chỉ mạng riêng mà hai máy kết nối được). `DEMO_SHOP_URL` là URL mà trình duyệt mở các liên kết nguồn. Hai máy cần cùng `DEMO_SHOP_TOKEN_SECRET`; Agent Server cần `DEMO_SHOP_API_KEY` trùng với shop. Giữ hai khóa này ở file `.env` riêng trên từng máy, không đặt trong script nhúng hoặc commit lên Git.
 
@@ -82,7 +84,7 @@ Khi website chạy HTTPS, script và iframe cũng cần URL HTTPS. Website có C
         data-token-url="/api/chat-token" async></script>
 ```
 
-`data-token-url` là **bắt buộc để gửi câu hỏi**; đó phải là endpoint **cùng origin** với website, trả `{ "token": "...", "customer_name": "..." }` theo session đăng nhập. JWT được ký bằng khóa riêng của shop do lệnh cấp shop tạo. Widget không đưa API key hoặc khóa ký vào trình duyệt. Khi khách đăng xuất, trang gọi `ATI.reset()` để xóa nội dung và token đang hiển thị; lịch sử trên server vẫn gắn với tài khoản để mở lại sau.
+`data-token-url` là **bắt buộc để gửi câu hỏi**; đó phải là endpoint **cùng origin** với website, trả `{ "token": "...", "customer_name": "..." }` theo session đăng nhập. JWT được ký bằng khóa riêng của shop do lệnh cấp shop tạo, dùng hàm `sign_user_token` trong `sdk/ati_sdk.py`. Widget không đưa API key hoặc khóa ký vào trình duyệt. Khi khách đăng xuất, trang gọi `ATI.reset()` để xóa nội dung và token đang hiển thị; lịch sử trên server vẫn gắn với tài khoản để mở lại sau.
 
 ## Hợp đồng API thử nghiệm
 
@@ -90,7 +92,7 @@ Khi website chạy HTTPS, script và iframe cũng cần URL HTTPS. Website có C
 |---|---|
 | `GET /healthz` | Kiểm tra server, trả `mode: llm` hoặc `mock` và model đang cấu hình |
 | `GET /v1/widget-config?shop_key=...` | Tên, màu, câu chào, gợi ý |
-| `POST /v1/chat` | Nhận `shop_key`, `message`, `conversation_id`; trả `text/event-stream` |
+| `POST /v1/chat` | Nhận `shop_key`, `message`, `conversation_id`; trả `text/event-stream`; chỉ nhận header `Origin` là chính Agent Server (khác thì 403); vượt giới hạn lượt chat thì trả 429 kèm `Retry-After`; các lượt trong cùng hội thoại được xử lý lần lượt |
 | `GET /v1/conversations?shop_key=...` | Danh sách hội thoại của khách đăng nhập |
 | `GET /v1/conversations/{id}?shop_key=...` | Tin nhắn trong một hội thoại thuộc khách đó |
 | `PUT /v1/shops/{shop_id}/faqs` | Backend khách thay toàn bộ FAQ của shop (Bearer write key) |
@@ -100,10 +102,10 @@ Khi website chạy HTTPS, script và iframe cũng cần URL HTTPS. Website có C
 | `POST /v1/feedback` | Ghi 👍/👎 trong bộ nhớ |
 | `GET /v1/demo-stats` | Xem bộ đếm phản hồi của bản thử |
 
-Các SSE event: `status` (`message`), `token` (`text`), `citations` (`sources: [{label, href}]`), `done` (`conversation_id`, `mode`), `error` (`message`). Mọi lệnh chat và đọc lịch sử đều cần `Authorization: Bearer <JWT>`; server kiểm tra chữ ký, hạn dùng, `iss` và `aud`, rồi lấy `customer_id` từ `sub`. Dữ liệu đơn hàng được lấy từ shop API theo `sub`, không lấy ID khách do trình duyệt gửi.
+Các SSE event: `status` (`message`), `token` (`text`), `citations` (`sources: [{label, href}]`), `done` (`conversation_id`, `mode`), `error` (`message`, gửi khi server gặp lỗi giữa chừng; lượt đó không được lưu vào lịch sử). Mọi lệnh chat và đọc lịch sử đều cần `Authorization: Bearer <JWT>`; server kiểm tra chữ ký, hạn dùng, `iss` và `aud`, rồi lấy `customer_id` từ `sub`. Dữ liệu đơn hàng được lấy từ shop API theo `sub`, không lấy ID khách do trình duyệt gửi.
 
 ## Kiểm thử lại
 
-Trong `agent_server/`, chạy `..\.venv\Scripts\python.exe -m unittest -v test_mock_server` để kiểm tra hợp đồng API và quyền tra đơn. Khi cả hai server đang chạy, dùng `..\.venv\Scripts\python.exe smoke_live.py` để thử kết nối thật. Nếu máy có Chrome, `node browser_smoke.mjs` mở trình duyệt headless, bấm câu hỏi gợi ý và lưu ảnh chụp vào thư mục tạm của Windows.
+Trong `agent_server/`, chạy `..\.venv\Scripts\python.exe -m unittest -v test_mock_server` để kiểm tra hợp đồng API, quyền tra đơn và giới hạn lượt chat. Trong `shop_demo/`, chạy `..\.venv\Scripts\python.exe -m unittest -v test_offers test_config`. Khi cả hai server đang chạy, dùng `..\.venv\Scripts\python.exe smoke_live.py` để thử kết nối thật. Nếu máy có Chrome, `node browser_smoke.mjs` mở trình duyệt headless, bấm câu hỏi gợi ý và lưu ảnh chụp vào thư mục tạm của Windows.
 
-**Giới hạn:** khách cần chủ động gọi API khi FAQ hoặc ưu đãi/sự kiện thay đổi; chưa có lịch tự kéo dữ liệu, Agent Core của nhóm, RAG, ticket, giới hạn tốc độ hay lưu phản hồi bền vững. Chế độ AI hiện phân loại ý định, chọn FAQ và thông số tìm sản phẩm; bản demo có API sản phẩm/đơn hàng/ưu đãi của `shop_demo`. Server trên máy cá nhân/tunnel tạm chỉ dành cho thử nghiệm.
+**Giới hạn:** khách cần chủ động gọi API khi FAQ hoặc ưu đãi/sự kiện thay đổi; chưa có lịch tự kéo dữ liệu, Agent Core của nhóm, RAG, ticket hay lưu phản hồi bền vững. Giới hạn lượt chat (`RATE_LIMIT_PER_SESSION_PER_MINUTE` cho mỗi khách, `RATE_LIMIT_PER_IP_PER_MINUTE`, `DAILY_CHAT_QUOTA_PER_SHOP`) chỉ đếm trong bộ nhớ của một tiến trình và đặt lại khi khởi động lại server. Chế độ AI hiện phân loại ý định, chọn FAQ và thông số tìm sản phẩm; bản demo có API sản phẩm/đơn hàng/ưu đãi của `shop_demo`. Server trên máy cá nhân/tunnel tạm chỉ dành cho thử nghiệm.

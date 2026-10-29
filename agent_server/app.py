@@ -2,13 +2,15 @@
 
 import asyncio
 import json
+import logging
+import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -19,20 +21,57 @@ from knowledge_store import (append_turn, conversation_owned, create_conversatio
                              verify_faq_key)
 from llm_engine import AI_BOX_MODEL, answer, enabled
 from mock_engine import verify_customer_token
+from rate_limit import ChatLimiter
 
 
 ROOT = Path(__file__).resolve().parent.parent
 WIDGET_DIR = ROOT / "widget"
+logger = logging.getLogger(__name__)
+# Public origin when the server sits behind a tunnel or proxy that rewrites the Host header.
+AGENT_ORIGIN = origin_of(os.getenv("AGENT_SERVER_URL", ""))
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    missing = [name for name in ("DEMO_SHOP_API_KEY", "DEMO_SHOP_TOKEN_SECRET") if not os.getenv(name)]
+    if missing:
+        print("[agent_server] WARNING: " + ", ".join(missing) + " missing in .env; demo shop chat "
+              "tokens are rejected and shop API calls fail until both servers share these keys.")
     yield
 
 
 app = FastAPI(title="ATI Widget Test Server", version="0.2.0", lifespan=lifespan)
 feedback_counts = {"yes": 0, "no": 0}  # In-memory and reset whenever this test server restarts.
+
+
+class ConversationLocks:
+    """One lock per conversation, so a second message waits until the first turn is saved."""
+
+    def __init__(self) -> None:
+        self.locks: dict[str, tuple[asyncio.Lock, int]] = {}
+
+    @asynccontextmanager
+    async def hold(self, conversation_id: str):
+        lock, users = self.locks.get(conversation_id, (asyncio.Lock(), 0))
+        self.locks[conversation_id] = (lock, users + 1)
+        try:
+            async with lock:
+                yield
+        finally:
+            lock, users = self.locks[conversation_id]
+            if users == 1:
+                del self.locks[conversation_id]
+            else:
+                self.locks[conversation_id] = (lock, users - 1)
+
+
+conversation_locks = ConversationLocks()
+chat_limiter = ChatLimiter(
+    per_customer_per_minute=int(os.getenv("RATE_LIMIT_PER_SESSION_PER_MINUTE") or "10"),
+    per_ip_per_minute=int(os.getenv("RATE_LIMIT_PER_IP_PER_MINUTE") or "30"),
+    daily_per_shop=int(os.getenv("DAILY_CHAT_QUOTA_PER_SHOP") or "500"),
+)
 
 
 class ChatRequest(BaseModel):
@@ -109,6 +148,13 @@ def require_customer(shop: dict, authorization: str | None) -> str:
     if not customer_id:
         raise HTTPException(401, "invalid_chat_token", headers={"WWW-Authenticate": "Bearer"})
     return customer_id
+
+
+def require_widget_origin(request: Request) -> None:
+    """Browsers send Origin on POST; only the widget iframe, served from this server, may call."""
+    origin = request.headers.get("origin")
+    if origin and origin not in (f"{request.url.scheme}://{request.url.netloc}", AGENT_ORIGIN):
+        raise HTTPException(403, "origin_not_allowed")
 
 
 def sse(event: str, data: dict) -> str:
@@ -246,7 +292,9 @@ async def get_offers(shop_id: str, authorization: str | None = Header(default=No
 
 
 @app.post("/v1/chat")
-async def chat(payload: ChatRequest, authorization: str | None = Header(default=None)):
+async def chat(payload: ChatRequest, request: Request,
+               authorization: str | None = Header(default=None)):
+    require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
     customer_id = require_customer(shop, authorization)
 
@@ -257,15 +305,28 @@ async def chat(payload: ChatRequest, authorization: str | None = Header(default=
     if payload.conversation_id and not conversation_owned(
             conversation_id, shop["shop_id"], customer_id):
         raise HTTPException(404, "unknown_conversation")
+    limited = chat_limiter.check(shop["shop_id"], customer_id,
+                                 request.client.host if request.client else "unknown")
+    if limited:
+        reason, retry_after = limited
+        raise HTTPException(429, reason, headers={"Retry-After": str(retry_after)})
 
     async def events():
         yield sse("status", {"message": "Đang xử lý câu hỏi..."})
-        history = (list_messages(conversation_id, shop["shop_id"], customer_id, limit=8)
-                   if payload.conversation_id else [])
-        status, reply, sources, mode = await answer(message, customer_id, shop, history or [])
-        if not payload.conversation_id:
-            create_conversation(conversation_id, shop["shop_id"], customer_id, message)
-        append_turn(conversation_id, shop["shop_id"], customer_id, message, reply, sources)
+        try:
+            async with conversation_locks.hold(conversation_id):
+                history = (list_messages(conversation_id, shop["shop_id"], customer_id, limit=8)
+                           if payload.conversation_id else [])
+                status, reply, sources, mode = await answer(message, customer_id, shop, history or [])
+                if not payload.conversation_id:
+                    create_conversation(conversation_id, shop["shop_id"], customer_id, message)
+                append_turn(conversation_id, shop["shop_id"], customer_id, message, reply, sources)
+        except Exception:
+            # Contract C4: end with an error event instead of a silently cut stream.
+            # The question itself is not logged because it may contain personal data.
+            logger.exception("chat failed for shop %s", shop["shop_id"])
+            yield sse("error", {"message": "Chatbot chưa xử lý được câu hỏi. Vui lòng thử lại sau."})
+            return
         yield sse("status", {"message": status})
         # Replies are chunked for the widget; LLM intent routing is not token streaming.
         for start in range(0, len(reply), 35):
@@ -301,8 +362,9 @@ async def conversation(conversation_id: str, shop_key: str,
 
 
 @app.post("/v1/feedback")
-async def feedback(payload: FeedbackRequest,
+async def feedback(payload: FeedbackRequest, request: Request,
                    authorization: str | None = Header(default=None)):
+    require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
     customer_id = require_customer(shop, authorization)
     if not conversation_owned(payload.conversation_id, shop["shop_id"], customer_id):

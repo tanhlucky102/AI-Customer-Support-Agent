@@ -6,12 +6,15 @@
 - Backend website cấp JWT chat ngắn hạn sau khi xác thực phiên đăng nhập. Widget chỉ nhận JWT; khóa AI, khóa đồng bộ FAQ và khóa gọi API shop không xuất hiện trong trình duyệt.
 - Agent Server xác minh chữ ký, `iss`, `aud`, `sub`, `iat`, `exp` của JWT ở mỗi yêu cầu chat hoặc đọc lịch sử. Mọi dữ liệu đơn hàng và hội thoại gắn với `sub`, không nhận `customer_id` từ trình duyệt.
 - Khi chưa đăng nhập, widget hiển thị lời nhắc và khóa ô nhập. API trả 401 nếu thiếu hoặc sai JWT.
+- Agent Server giới hạn số câu hỏi mỗi phút của từng khách và từng IP, cùng tổng số câu hỏi mỗi ngày của từng shop. Khi vượt, API trả 429 và widget báo khách thử lại sau hoặc liên hệ shop.
+- Agent Server chỉ nhận câu hỏi và phản hồi 👍/👎 từ widget của chính nó (header `Origin`, khác thì 403); trang được nhúng widget phải nằm trong danh sách origin của shop.
 
 ## 2. Lịch sử hội thoại
 
 - Lưu câu hỏi, câu trả lời và liên kết nguồn trong SQLite theo `shop_id`, `customer_id` và `conversation_id`; dữ liệu còn sau khi khởi động lại server.
 - Khách có thể tạo chat mới, xem danh sách chat trước và mở lại nội dung để tiếp tục hỏi trong cùng cuộc trò chuyện.
 - Khách khác hoặc shop khác không thể đọc, tiếp tục hay gửi phản hồi cho hội thoại không thuộc mình. Đăng xuất xóa nội dung và token đang hiển thị trong widget; lịch sử trên server được giữ để xem sau khi đăng nhập lại.
+- Nếu khách gửi câu mới khi câu trước trong cùng hội thoại chưa trả lời xong, server xử lý lần lượt, không chạy song song.
 - Model chỉ xem tối đa sáu tin nhắn gần nhất của **cùng hội thoại** để hiểu câu hỏi nối tiếp; không có bộ nhớ dài hạn/RAG.
 
 ## 3. Trả lời hỗ trợ

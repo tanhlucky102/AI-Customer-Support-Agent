@@ -19,8 +19,9 @@ load_dotenv(ROOT / ".env")
 DB_PATH = Path(os.getenv("KNOWLEDGE_DB") or Path(__file__).parent / "knowledge.db")
 DEMO_DATA = json.loads((Path(__file__).parent / "demo_data.json").read_text(encoding="utf-8"))
 DEMO_SHOP_URL = os.getenv("DEMO_SHOP_URL", "http://localhost:8001").rstrip("/")
-DEMO_TOKEN_SECRET = os.getenv("DEMO_SHOP_TOKEN_SECRET") or "dev-only-change-me-token-secret"
-# With no configured key, use an undisclosed process-local value so demo FAQ writes are disabled.
+# With no configured key, use an undisclosed process-local value: demo chat tokens are rejected
+# and demo FAQ writes are disabled instead of accepting a key published in the repository.
+DEMO_TOKEN_SECRET = os.getenv("DEMO_SHOP_TOKEN_SECRET") or secrets.token_urlsafe(32)
 DEMO_FAQ_WRITE_KEY = os.getenv("DEMO_FAQ_WRITE_KEY") or secrets.token_urlsafe(32)
 
 

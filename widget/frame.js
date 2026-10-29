@@ -259,6 +259,13 @@
       if (token) return callChat(question, pending, false);
       throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trên website.");
     }
+    if (response.status === 429) {
+      var limit = await response.json().catch(function () { return {}; });
+      var wait = Number(response.headers.get("Retry-After")) || 60;
+      throw new Error(limit.detail === "daily_quota_exceeded"
+        ? "Trợ lý đã hết lượt trả lời trong hôm nay. Vui lòng liên hệ trực tiếp với shop."
+        : "Bạn gửi câu hỏi hơi nhanh. Vui lòng thử lại sau khoảng " + wait + " giây.");
+    }
     if (!response.ok) throw new Error("Chatbot server trả lỗi HTTP " + response.status + ".");
     await consumeStream(response, pending);
   }

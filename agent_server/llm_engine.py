@@ -122,6 +122,19 @@ async def classify(message: str, faqs: list[dict], history: list[dict] | None = 
     return decision
 
 
+def _vnd_amount(value) -> int | None:
+    """Accept the VND amount whether the model writes 10000000, 1e7 or "10000000"."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, str) and value.strip().isdigit():
+        value = int(value.strip())
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    if isinstance(value, int) and 0 <= value <= 1_000_000_000:
+        return value
+    return None
+
+
 def _order_code(message: str) -> str | None:
     match = ORDER_ID.search(message)
     if match:
@@ -143,9 +156,12 @@ async def product_answer(decision: dict, shop: dict) -> tuple[str, str, list[dic
     category = decision.get("product_category")
     if category not in ("Điện thoại", "Ốp lưng", "Sạc & cáp", "Tai nghe"):
         category = None
-    max_price = decision.get("max_price")
-    if not isinstance(max_price, int) or isinstance(max_price, bool) or not 0 <= max_price <= 1_000_000_000:
-        max_price = None
+    raw_price = decision.get("max_price")
+    max_price = _vnd_amount(raw_price)
+    if raw_price is not None and max_price is None:
+        # Never drop the customer's price limit silently and list products above it.
+        return "Cần thêm thông tin sản phẩm", ("Bạn muốn tìm sản phẩm trong mức giá tối đa bao nhiêu? "
+                "Vui lòng ghi rõ số tiền, ví dụ 10.000.000 ₫."), []
     if not query and not category and max_price is None:
         return "Cần thêm thông tin sản phẩm", ("Bạn muốn hỏi sản phẩm nào? "
                 "Vui lòng cho mình tên mẫu hoặc loại sản phẩm để kiểm tra dữ liệu shop."), []

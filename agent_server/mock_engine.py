@@ -16,8 +16,7 @@ from knowledge_store import DEMO_DATA, list_faqs
 
 
 SHOP_API_URL = os.getenv("DEMO_SHOP_API_URL", "http://localhost:8001").rstrip("/")
-SHOP_API_KEY = os.getenv("DEMO_SHOP_API_KEY") or "dev-only-change-me-api-key"
-TOKEN_SECRET = os.getenv("DEMO_SHOP_TOKEN_SECRET") or "dev-only-change-me-token-secret"
+SHOP_API_KEY = os.getenv("DEMO_SHOP_API_KEY", "")  # Empty means the shop API answers 401.
 JWT_AUDIENCE = "ati-agent"
 ORDER_ID = re.compile(r"\bSO[\s#-]*(\d{5,})\b", re.IGNORECASE)
 STATUS_LABEL = {

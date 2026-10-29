@@ -73,43 +73,35 @@ def create_demo_chat_router(policies: dict, status_labels: dict) -> APIRouter:
 
         if order_match:
             order_id = "SO" + order_match.group(1)
-            if not customer_id:
-                reply = "Bạn cần đăng nhập để tra cứu đơn hàng. Sau khi đăng nhập, hãy hỏi lại mã đơn này."
-                sources = [{"label": "Đăng nhập", "href": "/login"}]
+            order = db.execute(
+                "SELECT id, status, total, eta, tracking_code FROM orders WHERE id = ? AND customer_id = ?",
+                (order_id, customer_id),
+            ).fetchone()
+            if not order:
+                reply = "Không tìm thấy đơn hàng này trong tài khoản của bạn. Vui lòng kiểm tra lại mã đơn."
             else:
-                order = db.execute(
-                    "SELECT id, status, total, eta, tracking_code FROM orders WHERE id = ? AND customer_id = ?",
-                    (order_id, customer_id),
-                ).fetchone()
-                if not order:
-                    reply = "Không tìm thấy đơn hàng này trong tài khoản của bạn. Vui lòng kiểm tra lại mã đơn."
-                else:
-                    reply = (f"Đơn {order['id']} hiện {status_labels.get(order['status'], order['status'])}. "
-                             f"Dự kiến giao: {order['eta'] or 'chưa có'}. Tổng tiền: {format_vnd(order['total'])}.")
-                    if order["tracking_code"]:
-                        reply += f" Mã vận đơn: {order['tracking_code']}."
-                    sources = [{"label": f"Xem đơn {order_id}", "href": f"/orders/{order_id}"}]
-                    if policy:
-                        reply += "\n\nTheo chính sách shop: " + policy[0]
-                        sources.extend(policy[1])
+                reply = (f"Đơn {order['id']} hiện {status_labels.get(order['status'], order['status'])}. "
+                         f"Dự kiến giao: {order['eta'] or 'chưa có'}. Tổng tiền: {format_vnd(order['total'])}.")
+                if order["tracking_code"]:
+                    reply += f" Mã vận đơn: {order['tracking_code']}."
+                sources = [{"label": f"Xem đơn {order_id}", "href": f"/orders/{order_id}"}]
+                if policy:
+                    reply += "\n\nTheo chính sách shop: " + policy[0]
+                    sources.extend(policy[1])
         elif policy:
             reply, sources = policy
         elif any(term in text for term in ("don cua toi", "don hang cua toi", "lich su don", "tra cuu don", "kiem tra don")):
-            if not customer_id:
-                reply = "Bạn cần đăng nhập để xem đơn hàng của mình."
-                sources = [{"label": "Đăng nhập", "href": "/login"}]
+            orders = db.execute(
+                "SELECT id, status FROM orders WHERE customer_id = ? ORDER BY placed_at DESC LIMIT 3",
+                (customer_id,),
+            ).fetchall()
+            if orders:
+                reply = "Các đơn gần đây:\n" + "\n".join(
+                    f"{row['id']}: {status_labels.get(row['status'], row['status'])}" for row in orders
+                ) + "\nBạn có thể gửi mã đơn để xem chi tiết."
             else:
-                orders = db.execute(
-                    "SELECT id, status FROM orders WHERE customer_id = ? ORDER BY placed_at DESC LIMIT 3",
-                    (customer_id,),
-                ).fetchall()
-                if orders:
-                    reply = "Các đơn gần đây:\n" + "\n".join(
-                        f"{row['id']}: {status_labels.get(row['status'], row['status'])}" for row in orders
-                    ) + "\nBạn có thể gửi mã đơn để xem chi tiết."
-                else:
-                    reply = "Tài khoản của bạn chưa có đơn hàng."
-                sources = [{"label": "Đơn hàng của tôi", "href": "/orders"}]
+                reply = "Tài khoản của bạn chưa có đơn hàng."
+            sources = [{"label": "Đơn hàng của tôi", "href": "/orders"}]
         elif text.strip() in ("chao", "xin chao", "hi", "hello", "help", "tro giup"):
             reply = "Xin chào! Mình có thể trả lời về đổi trả, bảo hành, giao hàng, thanh toán và tra đơn hàng của bạn."
         else:

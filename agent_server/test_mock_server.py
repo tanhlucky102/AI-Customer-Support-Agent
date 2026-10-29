@@ -1,9 +1,12 @@
 """Contract checks for the mock server's cross-site and identity boundaries."""
 
+import asyncio
 import base64
 import hashlib
 import hmac
 import json
+import subprocess
+import sys
 import time
 import tempfile
 import unittest
@@ -15,7 +18,11 @@ import httpx
 
 from app import app
 import knowledge_store
-from mock_engine import TOKEN_SECRET
+from knowledge_store import DEMO_TOKEN_SECRET
+from rate_limit import ChatLimiter
+
+sys.path.append(str(Path(__file__).resolve().parent.parent / "sdk"))
+from ati_sdk import sign_user_token  # noqa: E402
 
 
 def encoded(value: dict) -> str:
@@ -23,7 +30,7 @@ def encoded(value: dict) -> str:
 
 
 def token(customer_id: str, expires_in: int = 600, shop_id: str = "demo_shop",
-          secret: str = TOKEN_SECRET) -> str:
+          secret: str = DEMO_TOKEN_SECRET) -> str:
     now = int(time.time())
     unsigned = encoded({"alg": "HS256", "typ": "JWT"}) + "." + encoded({
         "iss": shop_id, "sub": customer_id, "aud": "ati-agent",
@@ -42,10 +49,17 @@ def reply_text(response: httpx.Response) -> str:
     return "".join(chunks)
 
 
+def done_event(response: httpx.Response) -> dict:
+    return next(json.loads(block.split("data: ", 1)[1]) for block in response.text.split("\n\n")
+                if block.startswith("event: done"))
+
+
 class MockServerContractTest(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.llm_patch = patch("llm_engine.AI_BOX_API_KEY", "")
         self.llm_patch.start()
+        self.limit_patch = patch("app.chat_limiter", ChatLimiter(10, 30, 500))
+        self.limit_patch.start()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_patch = patch.object(knowledge_store, "DB_PATH",
                                      Path(self.temp_dir.name) / "knowledge.db")
@@ -58,6 +72,7 @@ class MockServerContractTest(unittest.IsolatedAsyncioTestCase):
         await self.client.aclose()
         self.db_patch.stop()
         self.temp_dir.cleanup()
+        self.limit_patch.stop()
         self.llm_patch.stop()
 
     async def test_login_required_then_faq_stream_has_citation_and_done(self):
@@ -378,6 +393,134 @@ class MockServerContractTest(unittest.IsolatedAsyncioTestCase):
                                         headers={"Authorization": "Bearer private-write-key"})
         self.assertEqual(cleared.status_code, 200)
         self.assertEqual(knowledge_store.list_faqs("other_shop"), [])
+
+    async def test_chat_is_rate_limited_per_customer_and_daily_per_shop(self):
+        body = {"shop_key": "pk_demo_shop", "message": "Phí giao hàng là bao nhiêu?"}
+        with patch("app.chat_limiter", ChatLimiter(2, 100, 3)):
+            for _ in range(2):
+                response = await self.client.post("/v1/chat", json=body, headers={
+                    "Authorization": "Bearer " + token("C017")})
+                self.assertEqual(response.status_code, 200)
+            limited = await self.client.post("/v1/chat", json=body, headers={
+                "Authorization": "Bearer " + token("C017")})
+            self.assertEqual(limited.status_code, 429)
+            self.assertEqual(limited.json()["detail"], "customer_rate_limited")
+            self.assertGreater(int(limited.headers["Retry-After"]), 0)
+            other = await self.client.post("/v1/chat", json=body, headers={
+                "Authorization": "Bearer " + token("C018")})
+            self.assertEqual(other.status_code, 200)
+            quota = await self.client.post("/v1/chat", json=body, headers={
+                "Authorization": "Bearer " + token("C019")})
+            self.assertEqual(quota.status_code, 429)
+            self.assertEqual(quota.json()["detail"], "daily_quota_exceeded")
+
+    async def test_unexpected_failure_ends_stream_with_error_event(self):
+        auth = {"Authorization": "Bearer " + token("C017")}
+        with patch("app.answer", new=AsyncMock(side_effect=RuntimeError("internal detail"))), \
+                self.assertLogs("app", level="ERROR"):
+            response = await self.client.post("/v1/chat", json={
+                "shop_key": "pk_demo_shop", "message": "Phí giao hàng là bao nhiêu?"}, headers=auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("event: error", response.text)
+        self.assertNotIn("event: done", response.text)
+        self.assertNotIn("internal detail", response.text)
+        history = await self.client.get("/v1/conversations", params={"shop_key": "pk_demo_shop"},
+                                        headers=auth)
+        self.assertEqual(history.json()["conversations"], [])
+
+    async def test_llm_product_price_limit_is_never_dropped(self):
+        product = {"id": 7, "name": "Galaxy A16", "price": 4990000, "stock": 3}
+        fake = httpx.Response(200, json=[product],
+                              request=httpx.Request("GET", "http://localhost:8001/api/v1/products"))
+        decision = {"intent": "product", "product_query": "", "product_category": "Điện thoại",
+                    "max_price": 1e7, "product_field": "price"}
+        body = {"shop_key": "pk_demo_shop", "message": "Điện thoại nào dưới 10 triệu?"}
+        auth = {"Authorization": "Bearer " + token("C017")}
+        with patch("llm_engine.AI_BOX_API_KEY", "test-key"), patch(
+                "llm_engine.classify", new=AsyncMock(return_value=decision)), patch(
+                "llm_engine.shop_get", new=AsyncMock(return_value=fake)) as shop_get:
+            response = await self.client.post("/v1/chat", json=body, headers=auth)
+        self.assertIn("max_price=10000000", shop_get.await_args.args[0])
+        self.assertIn("Galaxy A16", reply_text(response))
+        with patch("llm_engine.AI_BOX_API_KEY", "test-key"), patch(
+                "llm_engine.classify", new=AsyncMock(return_value={**decision, "max_price": "10 triệu"})), patch(
+                "llm_engine.shop_get", new=AsyncMock(side_effect=AssertionError("should not call"))):
+            response = await self.client.post("/v1/chat", json=body, headers=auth)
+        self.assertIn("mức giá tối đa", reply_text(response))
+
+    async def test_chat_and_feedback_accept_only_the_widget_origin(self):
+        auth = {"Authorization": "Bearer " + token("C017")}
+        body = {"shop_key": "pk_demo_shop", "message": "Phí giao hàng là bao nhiêu?"}
+        evil = await self.client.post("/v1/chat", json=body,
+                                      headers={**auth, "Origin": "https://evil.example"})
+        self.assertEqual(evil.status_code, 403)
+        own = await self.client.post("/v1/chat", json=body,
+                                     headers={**auth, "Origin": "http://localhost:8000"})
+        self.assertEqual(own.status_code, 200)
+        feedback = await self.client.post("/v1/feedback", json={
+            "shop_key": "pk_demo_shop", "conversation_id": done_event(own)["conversation_id"],
+            "rating": "yes"}, headers={**auth, "Origin": "https://evil.example"})
+        self.assertEqual(feedback.status_code, 403)
+
+    async def test_turns_of_one_conversation_run_one_at_a_time(self):
+        auth = {"Authorization": "Bearer " + token("C017")}
+        first = await self.client.post("/v1/chat", json={
+            "shop_key": "pk_demo_shop", "message": "Phí giao hàng là bao nhiêu?"}, headers=auth)
+        conversation_id = done_event(first)["conversation_id"]
+        running = peak = 0
+
+        async def slow_answer(*_):
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            await asyncio.sleep(0.05)
+            running -= 1
+            return "Đã xử lý", "OK", [], "mock"
+
+        body = {"shop_key": "pk_demo_shop", "message": "Tiếp tục", "conversation_id": conversation_id}
+        with patch("app.answer", new=slow_answer):
+            replies = await asyncio.gather(*(self.client.post("/v1/chat", json=body, headers=auth)
+                                             for _ in range(3)))
+        self.assertEqual([reply.status_code for reply in replies], [200, 200, 200])
+        self.assertEqual(peak, 1)
+        detail = await self.client.get(f"/v1/conversations/{conversation_id}",
+                                       params={"shop_key": "pk_demo_shop"}, headers=auth)
+        self.assertEqual(len(detail.json()["messages"]), 8)
+
+    async def test_token_from_the_shop_sdk_is_accepted(self):
+        body = {"shop_key": "pk_demo_shop", "message": "Phí giao hàng là bao nhiêu?"}
+        sdk_token = sign_user_token("C017", shop_id="demo_shop", secret=DEMO_TOKEN_SECRET)
+        response = await self.client.post("/v1/chat", json=body,
+                                          headers={"Authorization": "Bearer " + sdk_token})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("30.000₫", reply_text(response))
+        other_shop = sign_user_token("C017", shop_id="other_shop", secret=DEMO_TOKEN_SECRET)
+        response = await self.client.post("/v1/chat", json=body,
+                                          headers={"Authorization": "Bearer " + other_shop})
+        self.assertEqual(response.status_code, 401)
+
+
+class ChatLimiterTest(unittest.TestCase):
+    def test_ip_limit_counts_all_customers_and_expires_after_a_minute(self):
+        limiter = ChatLimiter(per_customer_per_minute=10, per_ip_per_minute=2, daily_per_shop=0)
+        with patch("rate_limit.monotonic", side_effect=[0.0, 1.0, 2.0, 61.5]):
+            self.assertIsNone(limiter.check("demo_shop", "C1", "10.0.0.1"))
+            self.assertIsNone(limiter.check("demo_shop", "C2", "10.0.0.1"))
+            self.assertEqual(limiter.check("demo_shop", "C3", "10.0.0.1"), ("ip_rate_limited", 58))
+            self.assertIsNone(limiter.check("demo_shop", "C3", "10.0.0.1"))
+
+
+class SecretDefaultsTest(unittest.TestCase):
+    def test_missing_demo_secrets_are_never_public_defaults(self):
+        code = ("import os; os.environ['DEMO_SHOP_TOKEN_SECRET'] = os.environ['DEMO_SHOP_API_KEY'] = ''; "
+                "import knowledge_store, mock_engine; "
+                "print(knowledge_store.DEMO_TOKEN_SECRET, repr(mock_engine.SHOP_API_KEY))")
+        runs = [subprocess.run([sys.executable, "-c", code], cwd=Path(__file__).parent,
+                               capture_output=True, text=True, check=True).stdout.split()
+                for _ in range(2)]
+        self.assertNotEqual(runs[0][0], runs[1][0])
+        self.assertNotIn("dev-only", runs[0][0])
+        self.assertEqual(runs[0][1], "''")
 
 
 if __name__ == "__main__":

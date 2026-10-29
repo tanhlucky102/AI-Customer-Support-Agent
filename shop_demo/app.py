@@ -36,8 +36,9 @@ PAYMENT_LABEL = {"cod": "Thanh toán khi nhận hàng (COD)", "bank": "Chuyển 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    if config.USING_DEV_KEYS:
-        print("[shop_demo] WARNING: using development API and token keys; set them in .env for deployment.")
+    if config.MISSING_KEYS:
+        print("[shop_demo] WARNING: " + ", ".join(config.MISSING_KEYS) + " missing in .env; using random "
+              "per-process keys, so the Agent Server cannot call this API or verify chat tokens.")
     yield
 
 
