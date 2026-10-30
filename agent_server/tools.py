@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from agent_server import store
 from agent_server.commerce import ORDER_STATUSES, CommerceAdapter, CommerceError
-from rag.documents import CATEGORIES
 from shared.pii import mask_address, mask_email, mask_phone
 
 
@@ -25,8 +24,9 @@ class Args(BaseModel):
 
 
 class SearchArgs(Args):
+    # No category argument: in evaluation v2 the model's guessed category excluded the right
+    # document (a battery-safety guide filed under product guides was searched as "warranty").
     query: str = Field(min_length=2, max_length=300)
-    category: Literal[CATEGORIES] | None = None  # type: ignore[valid-type]
 
 
 class OrderArgs(Args):
@@ -106,7 +106,7 @@ def schema(model: type[Args]) -> dict:
 
 
 async def search_knowledge_base(ctx: TurnContext, args: SearchArgs) -> Outcome:
-    hits = await asyncio.to_thread(ctx.search, args.query, ctx.shop["shop_id"], args.category)
+    hits = await asyncio.to_thread(ctx.search, args.query, ctx.shop["shop_id"], None)
     if not hits:
         return Outcome({"no_results": True,
                         "note": "Nothing in this shop's documents answers this. Do not guess."})
@@ -206,8 +206,9 @@ TOOLS = [
          "payment, installment, membership, account, store and contact information, and product "
          "how-to guides. Use it for every question whose answer is a rule, fee, procedure or "
          "instruction rather than the customer's own data. `query` must be a complete, "
-         "self-contained question in Vietnamese that resolves references from earlier turns "
-         "(e.g. 'thời hạn đổi trả điện thoại lỗi', not 'còn cái kia thì sao'). Results are "
+         "self-contained question in Vietnamese with diacritics that resolves references from "
+         "earlier turns and keeps the customer's own key words (product, symptom, fee), e.g. "
+         "'thời hạn đổi trả điện thoại lỗi', not 'còn cái kia thì sao'. Results are "
          "numbered; cite them as [n]. `no_results` means the documents do not cover it.",
          SearchArgs, "Đang tra cứu tài liệu của shop...", None, search_knowledge_base),
     Tool("get_order_status",

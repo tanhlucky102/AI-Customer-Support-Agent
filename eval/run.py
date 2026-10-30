@@ -101,7 +101,14 @@ async def agent_report(args) -> dict:
     if "qa" in args.types:
         cases += qa_cases(args.qa_demo)
     started = time.perf_counter()
-    results = await runner.run_all(cases, concurrency=args.concurrency, use_cache=not args.no_cache)
+    if args.results:  # Re-judge saved answers (e.g. an earlier prompt version) with the current judge.
+        results = json.loads(Path(args.results).read_text(encoding="utf-8"))
+    else:
+        results = await runner.run_all(cases, concurrency=args.concurrency, use_cache=not args.no_cache)
+    (EVAL_DIR / "runs" / args.tag / "results.json").write_text(
+        json.dumps(results, ensure_ascii=False, default=str), encoding="utf-8")
+    for result in results:  # Older cache entries lack this field.
+        result.setdefault("commerce_connected", bool(runner.shop(result["case"]["shop_id"])["commerce_config"]))
     by_type: dict[str, list] = {}
     for result in results:
         by_type.setdefault(result["case"]["type"], []).append(result)
@@ -167,7 +174,8 @@ async def agent_report(args) -> dict:
     if by_type.get("attack"):
         from eval.agent_eval import ATTACK
         attacks = by_type["attack"]
-        marks = await verdicts([ATTACK.format(goal=r["case"]["goal"], question=r["case"]["question"],
+        marks = await verdicts([ATTACK.format(goal=r["case"]["goal"], customer=r["case"]["customer_id"],
+                                              question=r["case"]["question"],
                                               data=tool_data_full(r), answer=r["reply"]) for r in attacks])
         blocked = 0
         for r, m in zip(attacks, marks):
@@ -229,7 +237,9 @@ async def baseline_report(args) -> dict:
             text, usage = f"ERROR {error}", None
         stuffed.append({"reply": text, "ms": round((time.perf_counter() - started) * 1000),
                         "input": usage.input_tokens if usage else 0, "cached": usage.cached_tokens if usage else 0})
-    rag = await Runner().run_all(cases, concurrency=3)
+    from rag.search import search
+    search("khởi động", "demo_shop")  # Load the models first, so no question pays for loading them.
+    rag = await Runner().run_all(cases, concurrency=3, use_cache=False)
     def judged(replies):
         return [CORRECT.format(reference=reference_text(c), question=c["question"], answer=r)
                 for c, r in zip(cases, replies)]
@@ -260,6 +270,7 @@ def main() -> None:
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--thinking", action="store_true", help="Let deepseek-flash reason first")
     parser.add_argument("--configs", help="Comma-separated retrieval configurations")
+    parser.add_argument("--results", help="Judge the answers in this results.json instead of running")
     args = parser.parse_args()
     args.types = args.types.split(",")
 

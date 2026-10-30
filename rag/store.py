@@ -99,9 +99,13 @@ def tsrank_candidates(shop_id: str, query: list[str], limit: int, category: str 
     if not query:
         return []
     with connect() as db:
-        return db.execute("""SELECT c.id, c.section_id, ts_rank_cd(c.content_tsv, q) AS score
-            FROM kb_chunks c JOIN kb_documents d ON d.id = c.doc_id, %s::tsquery q
-            WHERE c.shop_id = %s AND c.content_tsv @@ q AND (%s::text IS NULL OR d.category = %s)
+        # The query is already folded into the same lexemes as the index, so it is cast directly
+        # instead of going through to_tsquery (which would split the 'doi_tra' bigrams).
+        return db.execute("""SELECT c.id, c.section_id, ts_rank_cd(c.content_tsv, query.q) AS score
+            FROM kb_chunks c JOIN kb_documents d ON d.id = c.doc_id
+            CROSS JOIN (SELECT %s::tsquery AS q) AS query
+            WHERE c.shop_id = %s AND c.content_tsv @@ query.q
+              AND (%s::text IS NULL OR d.category = %s)
             ORDER BY score DESC LIMIT %s""",
                           (" | ".join(query), shop_id, category, category, limit)).fetchall()
 

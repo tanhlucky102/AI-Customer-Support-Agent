@@ -1,7 +1,7 @@
 """One command to prepare the whole demo (run from the repository root):
 
-    python scripts/setup_demo.py                  # with LLM context sentences (needs AI_BOX_API_KEY)
-    python scripts/setup_demo.py --no-contextual  # faster, no AI Box calls
+    python scripts/setup_demo.py               # no AI Box calls needed
+    python scripts/setup_demo.py --contextual  # also write LLM context sentences for every chunk
 
 It is idempotent. Steps:
   1. create missing secrets in .env (shared by the Agent Server and the demo websites);
@@ -49,7 +49,7 @@ def ensure_env() -> list[str]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--no-contextual", action="store_true")
+    parser.add_argument("--contextual", action="store_true", help="Contextual Retrieval (off by default)")
     args = parser.parse_args()
 
     added = ensure_env()
@@ -90,7 +90,7 @@ def main() -> None:
     print("shops:", [(shop, "level 1" if (store.shop_by_id(shop) or {}).get("commerce_config") else "level 0")
                      for shop in ("demo_shop", "second_shop", "sample_store")])
 
-    contextual = not args.no_contextual and LLMProvider().enabled
+    contextual = args.contextual and LLMProvider().enabled
     for shop_id in ("demo_shop", "second_shop"):
         shop = store.shop_by_id(shop_id)
         stats = asyncio.run(ingest_dir(shop_id, shop["shop_url"], ROOT / "data" / "kb" / shop_id,

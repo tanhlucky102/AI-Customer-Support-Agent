@@ -23,7 +23,7 @@ class SearchConfig:
     candidates: int = 20
     rrf_k: int = 60
     # τ: minimum reranker probability, or minimum cosine similarity when reranking is off.
-    tau: float = 0.2
+    tau: float = 0.1
     tau_no_rerank: float = 0.45
 
     @classmethod
@@ -31,7 +31,7 @@ class SearchConfig:
         keyword = env("RAG_KEYWORD", "bm25")
         return cls(vector=env_flag("RAG_VECTOR", True), keyword=None if keyword == "none" else keyword,
                    rerank=env_flag("RAG_RERANK", True), candidates=env_int("RAG_CANDIDATES", 20),
-                   tau=env_float("RAG_TAU", 0.2), tau_no_rerank=env_float("RAG_TAU_NO_RERANK", 0.45))
+                   tau=env_float("RAG_TAU", 0.1), tau_no_rerank=env_float("RAG_TAU_NO_RERANK", 0.45))
 
 
 def rrf(rankings: list[list[str]], k: int) -> dict[str, float]:

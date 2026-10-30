@@ -81,6 +81,13 @@ class SearchTest(unittest.TestCase):
             self.assertIn(key, hits[0])
         self.assertEqual(len({hit["section_id"] for hit in hits}), len(hits))
 
+    def test_every_keyword_branch_runs(self):
+        from rag.search import SearchConfig
+        for keyword in ("bm25", "tsrank"):
+            hits = search("kích hoạt eSIM", "demo_shop", config=SearchConfig(
+                vector=False, keyword=keyword, rerank=False), apply_threshold=False)
+            self.assertEqual(hits[0]["doc"], "kich-hoat-esim", keyword)
+
     def test_reingest_skips_unchanged_documents(self):
         from agent_server.store import DEMO_SHOP_URL
         stats = support.ingest_kb("demo_shop", DEMO_SHOP_URL)
