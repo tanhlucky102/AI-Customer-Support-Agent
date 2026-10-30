@@ -1,48 +1,69 @@
-"""Third-party widget prototype with a shop-scoped FAQ sync API."""
+"""Agent Server: embeddable widget, shop-scoped content APIs and the streaming agent chat API.
+
+Run from the repository root:  uvicorn agent_server.app:app --port 8000
+"""
 
 import asyncio
 import json
 import logging
-import os
+import threading
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from knowledge_store import (append_turn, conversation_owned, create_conversation,
-                             init_db, list_conversations, list_faqs, list_messages,
-                             list_offers, origin_of, replace_faqs, replace_offers,
-                             shop_by_id, shop_by_public_key,
-                             verify_faq_key)
-from llm_engine import AI_BOX_MODEL, answer, enabled
-from mock_engine import verify_customer_token
-from rate_limit import ChatLimiter
+from agent_server import agent
+from agent_server.auth import verify_customer_token
+from agent_server.commerce import adapter_for
+from agent_server.rate_limit import ChatLimiter
+from agent_server.store import (append_turn, conversation_owned, create_conversation, init_db,
+                                list_conversations, list_faqs, list_messages, list_offers,
+                                list_tickets, origin_of, replace_faqs, replace_offers, save_trace,
+                                shop_by_id, shop_by_public_key, verify_faq_key)
+from agent_server.tools import TurnContext
+from rag.search import search
+from shared.llm import LLMProvider
+from shared.pii import PiiFilter
+from shared.settings import ROOT, env, env_flag, env_int
 
-
-ROOT = Path(__file__).resolve().parent.parent
 WIDGET_DIR = ROOT / "widget"
 logger = logging.getLogger(__name__)
+logger.addFilter(PiiFilter())
 # Public origin when the server sits behind a tunnel or proxy that rewrites the Host header.
-AGENT_ORIGIN = origin_of(os.getenv("AGENT_SERVER_URL", ""))
+AGENT_ORIGIN = origin_of(env("AGENT_SERVER_URL"))
+
+
+def warm_up() -> None:
+    """Load the embedding model and reranker before the first question arrives."""
+    try:
+        from rag.models import embedder, reranker
+        embedder().encode(["khởi động"])
+        if env_flag("RAG_RERANK", True):
+            reranker().score("khởi động", ["khởi động"])
+    except Exception:
+        logger.exception("RAG warm-up failed; models load on first use")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    missing = [name for name in ("DEMO_SHOP_API_KEY", "DEMO_SHOP_TOKEN_SECRET") if not os.getenv(name)]
+    missing = [name for name in ("DEMO_SHOP_API_KEY", "DEMO_SHOP_TOKEN_SECRET") if not env(name)]
     if missing:
         print("[agent_server] WARNING: " + ", ".join(missing) + " missing in .env; demo shop chat "
               "tokens are rejected and shop API calls fail until both servers share these keys.")
+    if env_flag("RAG_WARMUP", True):
+        threading.Thread(target=warm_up, daemon=True).start()
     yield
 
 
-app = FastAPI(title="ATI Widget Test Server", version="0.2.0", lifespan=lifespan)
-feedback_counts = {"yes": 0, "no": 0}  # In-memory and reset whenever this test server restarts.
+app = FastAPI(title="ATI Agent Server", version="1.0.0", lifespan=lifespan)
+feedback_counts = {"yes": 0, "no": 0}  # In-memory and reset whenever the server restarts.
+llm = LLMProvider()
 
 
 class ConversationLocks:
@@ -68,19 +89,18 @@ class ConversationLocks:
 
 conversation_locks = ConversationLocks()
 chat_limiter = ChatLimiter(
-    per_customer_per_minute=int(os.getenv("RATE_LIMIT_PER_SESSION_PER_MINUTE") or "10"),
-    per_ip_per_minute=int(os.getenv("RATE_LIMIT_PER_IP_PER_MINUTE") or "30"),
-    daily_per_shop=int(os.getenv("DAILY_CHAT_QUOTA_PER_SHOP") or "500"),
+    per_customer_per_minute=env_int("RATE_LIMIT_PER_SESSION_PER_MINUTE", 10),
+    per_ip_per_minute=env_int("RATE_LIMIT_PER_IP_PER_MINUTE", 30),
+    daily_per_shop=env_int("DAILY_CHAT_QUOTA_PER_SHOP", 500),
 )
 
 
 class ChatRequest(BaseModel):
+    # customer_id must never be accepted from the browser.
+    model_config = ConfigDict(extra="forbid")
     shop_key: str = Field(min_length=1, max_length=100)
     message: str = Field(min_length=1, max_length=500)
     conversation_id: str | None = Field(default=None, max_length=100)
-
-    class Config:
-        extra = "forbid"  # customer_id must never be accepted from the browser.
 
 
 class FeedbackRequest(BaseModel):
@@ -90,24 +110,21 @@ class FeedbackRequest(BaseModel):
 
 
 class FaqItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     id: str = Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
     question: str = Field(min_length=3, max_length=300)
     answer: str = Field(min_length=1, max_length=3000)
     keywords: list[str] = Field(default_factory=list, max_length=20)
     source_url: str | None = Field(default=None, max_length=1000)
 
-    class Config:
-        extra = "forbid"
-
 
 class FaqSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     faqs: list[FaqItem] = Field(max_length=500)
-
-    class Config:
-        extra = "forbid"
 
 
 class OfferItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     id: str = Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
     kind: Literal["promotion", "event"]
     title: str = Field(min_length=3, max_length=200)
@@ -116,15 +133,10 @@ class OfferItem(BaseModel):
     ends_at: datetime | None = None
     source_url: str | None = Field(default=None, max_length=1000)
 
-    class Config:
-        extra = "forbid"
-
 
 class OfferSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     offers: list[OfferItem] = Field(max_length=100)
-
-    class Config:
-        extra = "forbid"
 
 
 def require_shop_key(shop_key: str) -> dict:
@@ -161,10 +173,13 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def mode() -> str:
+    return "agent" if llm.enabled else "fallback"
+
+
 @app.get("/healthz")
 async def healthz():
-    return {"ok": True, "mode": "llm" if enabled() else "mock",
-            "model": AI_BOX_MODEL if enabled() else None}
+    return {"ok": True, "mode": mode(), "model": llm.model if llm.enabled else None}
 
 
 @app.get("/widget/loader.js")
@@ -182,7 +197,7 @@ async def loader_css():
 @app.get("/widget/frame")
 async def frame(shop_key: str = Query(...), parent_origin: str = Query(...)):
     shop = require_shop_key(shop_key)
-    allowed_origins = json.loads(shop["allowed_origins"])
+    allowed_origins = shop["allowed_origins"]
     if parent_origin not in allowed_origins:
         raise HTTPException(403, "origin_not_allowed")
     policy = ("default-src 'self'; script-src 'self'; style-src 'self'; "
@@ -209,24 +224,29 @@ async def frame_css():
 @app.get("/v1/widget-config")
 async def widget_config(shop_key: str):
     shop = require_shop_key(shop_key)
-    greeting = shop["greeting"]
-    if enabled() and shop["shop_id"] == "demo_shop":
-        greeting = "Xin chào! Mình hỗ trợ sản phẩm, ưu đãi, sự kiện, chính sách và đơn hàng."
     return {
         "shop_id": shop["shop_id"],
         "title": shop["title"],
-        "greeting": greeting,
+        "greeting": shop["greeting"],
         "primary_color": shop["primary_color"],
-        "suggestions": json.loads(shop["suggestions"]),
+        "suggestions": shop["suggestions"],
         "shop_url": shop["shop_url"],
-        "mode": "llm" if enabled() else "mock",
+        "mode": mode(),
     }
+
+
+async def reindex_faqs(shop: dict, faqs: list[dict]) -> None:
+    from rag.ingest import index_faqs
+    try:
+        await index_faqs(shop["shop_id"], shop["shop_url"], faqs)
+    except Exception:
+        logger.exception("FAQ indexing failed for shop %s", shop["shop_id"])
 
 
 @app.put("/v1/shops/{shop_id}/faqs")
 async def sync_faqs(shop_id: str, payload: FaqSnapshot,
                     authorization: str | None = Header(default=None)):
-    """A customer's backend pushes its complete FAQ snapshot to our server."""
+    """A customer's backend pushes its complete FAQ snapshot; it is indexed for search."""
     require_write_key(shop_id, authorization)
     shop = shop_by_id(shop_id)
     if not shop:
@@ -246,6 +266,7 @@ async def sync_faqs(shop_id: str, payload: FaqSnapshot,
         if faq["source_url"] and origin_of(faq["source_url"]) != expected_origin:
             raise HTTPException(422, "source_url_must_match_shop_origin")
     count, revision = replace_faqs(shop_id, faqs)
+    await reindex_faqs(shop, faqs)
     return {"shop_id": shop_id, "count": count, "revision": revision}
 
 
@@ -291,6 +312,19 @@ async def get_offers(shop_id: str, authorization: str | None = Header(default=No
     return {"shop_id": shop_id, **list_offers(shop_id)}
 
 
+@app.get("/v1/shops/{shop_id}/tickets")
+async def get_tickets(shop_id: str, authorization: str | None = Header(default=None)):
+    """Handover tickets for the shop's staff (same write key as content pushes)."""
+    require_write_key(shop_id, authorization)
+    return {"shop_id": shop_id, "tickets": list_tickets(shop_id)}
+
+
+def turn_context(shop: dict, customer_id: str, conversation_id: str) -> TurnContext:
+    return TurnContext(shop=shop, customer_id=customer_id, conversation_id=conversation_id,
+                       turn_key=f"{conversation_id}:{uuid.uuid4().hex}", adapter=adapter_for(shop),
+                       search=search)
+
+
 @app.post("/v1/chat")
 async def chat(payload: ChatRequest, request: Request,
                authorization: str | None = Header(default=None)):
@@ -312,29 +346,51 @@ async def chat(payload: ChatRequest, request: Request,
         raise HTTPException(429, reason, headers={"Retry-After": str(retry_after)})
 
     async def events():
-        yield sse("status", {"message": "Đang xử lý câu hỏi..."})
+        started = time.perf_counter()
+        first_ms = None
+        trace = {"conversation_id": conversation_id, "shop_id": shop["shop_id"], "mode": "error"}
         try:
             async with conversation_locks.hold(conversation_id):
                 history = (list_messages(conversation_id, shop["shop_id"], customer_id, limit=8)
                            if payload.conversation_id else [])
-                status, reply, sources, mode = await answer(message, customer_id, shop, history or [])
                 if not payload.conversation_id:
                     create_conversation(conversation_id, shop["shop_id"], customer_id, message)
-                append_turn(conversation_id, shop["shop_id"], customer_id, message, reply, sources)
-        except Exception:
+                ctx = turn_context(shop, customer_id, conversation_id)
+                done = None
+                async for event in agent.run(ctx, history or [], message, llm=llm):
+                    if first_ms is None:
+                        first_ms = round((time.perf_counter() - started) * 1000)
+                    kind = event["type"]
+                    if kind == "done":
+                        done = event
+                    elif kind == "error":
+                        raise RuntimeError(event.get("detail") or event["message"])
+                    else:
+                        yield sse(kind, {key: value for key, value in event.items() if key != "type"})
+                message_id = append_turn(conversation_id, shop["shop_id"], customer_id, message,
+                                         done["reply"], done["sources"])
+                tools_called = [{key: call[key] for key in ("name", "args", "ok")}
+                                for call in done["tools"]]  # Tool outputs may hold personal data.
+                trace.update(message_id=message_id, mode=done["mode"], model=done.get("model"),
+                             llm_calls=done["llm_calls"], tools_called=tools_called,
+                             latency_first_token_ms=done.get("first_token_ms"),
+                             **{key: done["usage"][key] for key in
+                                ("input_tokens", "output_tokens", "cached_tokens")})
+        except Exception as error:
             # Contract C4: end with an error event instead of a silently cut stream.
             # The question itself is not logged because it may contain personal data.
             logger.exception("chat failed for shop %s", shop["shop_id"])
+            trace["error"] = type(error).__name__
             yield sse("error", {"message": "Chatbot chưa xử lý được câu hỏi. Vui lòng thử lại sau."})
             return
-        yield sse("status", {"message": status})
-        # Replies are chunked for the widget; LLM intent routing is not token streaming.
-        for start in range(0, len(reply), 35):
-            yield sse("token", {"text": reply[start:start + 35]})
-            await asyncio.sleep(0.025)
-        if sources:
-            yield sse("citations", {"sources": sources})
-        yield sse("done", {"conversation_id": conversation_id, "mode": mode})
+        finally:
+            trace.update(latency_first_ms=first_ms,
+                         latency_total_ms=round((time.perf_counter() - started) * 1000))
+            try:
+                save_trace(trace)
+            except Exception:
+                logger.exception("trace not saved")
+        yield sse("done", {"conversation_id": conversation_id, "mode": done["mode"]})
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={
         "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no",
@@ -377,4 +433,4 @@ async def feedback(payload: FeedbackRequest, request: Request,
 
 @app.get("/v1/demo-stats")
 async def demo_stats():
-    return {"mode": "llm" if enabled() else "mock", "feedback": feedback_counts.copy()}
+    return {"mode": mode(), "feedback": feedback_counts.copy()}

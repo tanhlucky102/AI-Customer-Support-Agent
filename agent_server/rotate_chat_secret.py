@@ -1,10 +1,13 @@
-"""Issue a signing secret for an existing shop; deliver it to its backend securely."""
+"""Issue a signing secret for an existing shop; deliver it to its backend securely.
+
+    python -m agent_server.rotate_chat_secret --shop-id sample_store
+"""
 
 import argparse
 import json
 import secrets
 
-from knowledge_store import init_db, set_chat_token_secret
+from agent_server.store import init_db, set_chat_token_secret
 
 
 def main() -> None:
