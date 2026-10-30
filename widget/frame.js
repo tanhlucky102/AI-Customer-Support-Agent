@@ -48,7 +48,7 @@
       } else {
         var cite = document.createElement("sup");
         cite.className = "cite";
-        cite.textContent = match[2];
+        cite.textContent = "[" + match[2] + "]";
         parent.appendChild(cite);
       }
       last = pattern.lastIndex;

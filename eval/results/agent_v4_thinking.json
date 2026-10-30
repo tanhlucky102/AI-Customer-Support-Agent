@@ -1,0 +1,904 @@
+{
+ "model": "openai/ds/deepseek-flash",
+ "thinking": true,
+ "cases": 90,
+ "wall_seconds": 124.3,
+ "tool_selection_accuracy": 1.0,
+ "qa_accuracy": 1.0,
+ "qa_n": 40,
+ "groundedness": 0.844,
+ "groundedness_n": 90,
+ "ungrounded": [
+  {
+   "id": "t-01",
+   "claims": [
+    "chính sách đền bù giao trễ"
+   ]
+  },
+  {
+   "id": "t-07",
+   "claims": [
+    "Demo Mobile"
+   ]
+  },
+  {
+   "id": "t-19",
+   "claims": [
+    "hiện đã trễ khoảng 27 ngày"
+   ]
+  },
+  {
+   "id": "t-20",
+   "claims": [
+    "đã quá 30 ngày kể từ ngày nhận hàng"
+   ]
+  },
+  {
+   "id": "t-33",
+   "claims": [
+    "đã quá ngày dự kiến khá lâu"
+   ]
+  },
+  {
+   "id": "t-36",
+   "claims": [
+    "trung tâm bảo hành chính hãng của Apple"
+   ]
+  },
+  {
+   "id": "t-45",
+   "claims": [
+    "vẫn trong thời gian dự kiến (2–4 ngày làm việc)"
+   ]
+  },
+  {
+   "id": "t-49",
+   "claims": [
+    "liên hệ lại qua email trong 24 giờ"
+   ]
+  },
+  {
+   "id": "q-r-pol-017",
+   "claims": [
+    "Đơn đang giao của bạn là SO10293",
+    "đến hôm nay là trễ khoảng 27 ngày"
+   ]
+  },
+  {
+   "id": "q-r-pol-027",
+   "claims": [
+    "đơn này đang ở trạng thái \"Đang giao\", dự kiến giao 03/10, mã vận đơn GHTK6761334796 — tức là đã trễ rất lâu so với ngày dự kiến"
+   ]
+  },
+  {
+   "id": "q-r-pol-043",
+   "claims": [
+    "Nếu bạn đã đăng nhập mà vẫn bị khoá"
+   ]
+  },
+  {
+   "id": "q-r-gd-004",
+   "claims": [
+    "nhanh",
+    "không mất dữ liệu"
+   ]
+  },
+  {
+   "id": "q-r-gd-012",
+   "claims": [
+    "the product pages don't spell out the cable's connector end here"
+   ]
+  },
+  {
+   "id": "q-r-gd-045",
+   "claims": [
+    "Máy tính bảng (trong đó có iPad)"
+   ]
+  }
+ ],
+ "citation_rate": 1.0,
+ "latency_ms": {
+  "first_token_p50": 2728,
+  "first_token_p95": 7448,
+  "total_p50": 3499,
+  "total_p95": 7989,
+  "one_tool_total_p95": 6063,
+  "note": "first SSE event (status) is sent before the model is called: ~0 ms"
+ },
+ "tokens_per_turn": {
+  "input_mean": 5639,
+  "output_mean": 302,
+  "cached_share": 0.701,
+  "llm_calls_mean": 2.03
+ },
+ "fallback_or_error": [],
+ "rows": [
+  {
+   "id": "t-01",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status"
+   ],
+   "reply": "Đơn SO10293 của bạn đang ở trạng thái **Đang giao**, mã vận đơn GHTK6761334796. Đơn gồm Galaxy S25+ 256GB - Tím và tai nghe chụp tai chống ồn Apple, tổng 26.024.000đ, thanh toán khi nhận hàng (COD).\n\nLưu ý: ngày dự kiến giao là 03/10/2026, đã qua khá lâu so với hôm nay. Bạn có muốn mình kiểm tra chí"
+  },
+  {
+   "id": "t-02",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status"
+   ],
+   "reply": "Đơn SO10267 của bạn đã giao rồi nhé.\n\n- Ngày đặt: 17/07/2026, dự kiến giao 21/07/2026\n- Trạng thái: Đã giao\n- Mã vận đơn: VNP9835879150\n- Tổng tiền: 32.870.000đ (thanh toán COD, phí ship 0đ)\n- Sản phẩm: realme 14 Pro+ 256GB - Vàng (x2), Xiaomi 14T 512GB - Đen (x1)\n\nBạn cần mình kiểm tra thêm gì về đ"
+  },
+  {
+   "id": "t-03",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status"
+   ],
+   "reply": "Mã vận đơn của đơn SO10293 là **GHTK6761334796** (đơn đang giao, dự kiến giao 03/10/2026)."
+  },
+  {
+   "id": "t-04",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "list_customer_orders"
+   ],
+   "reply": "Đây là các đơn gần đây của bạn:\n\n- SO10293: đang giao, dự kiến giao 03/10/2026, mã vận đơn GHTK6761334796, tổng 26.024.000đ (thanh toán COD)\n- SO10662: đã huỷ, đặt 17/07/2026, tổng 1.399.000đ\n- SO10267: đã giao, dự kiến 21/07/2026, tổng 32.870.000đ\n- SO10130: đã hoàn trả, đặt 25/06/2026, tổng 57.474"
+  },
+  {
+   "id": "t-05",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "list_customer_orders"
+   ],
+   "reply": "Bạn có 1 đơn đang giao: SO10293 (đặt ngày 26/09/2026, tổng 26.024.000đ, thanh toán khi nhận hàng), dự kiến giao ngày 03/10/2026, mã vận đơn GHTK6761334796.\n\nLưu ý: ngày dự kiến giao đã qua so với hôm nay (30/10/2026). Bạn có muốn mình kiểm tra chính sách giao trễ hoặc chuyển cho nhân viên hỗ trợ khô"
+  },
+  {
+   "id": "t-06",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "list_customer_orders"
+   ],
+   "reply": "Bạn có 1 đơn đã bị huỷ:\n\n- **SO10662** – đặt ngày 17/07/2026, tổng 1.399.000đ, thanh toán COD, trạng thái Đã huỷ\n\nBạn cần mình kiểm tra thêm gì về đơn này không?"
+  },
+  {
+   "id": "t-07",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_customer_profile"
+   ],
+   "reply": "Bạn đang là thành viên hạng **Gold** (Vàng) của Demo Mobile, thành viên từ 15/03/2025."
+  },
+  {
+   "id": "t-08",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_customer_profile"
+   ],
+   "reply": "Tài khoản của bạn (Nguyễn Văn An) đang lưu địa chỉ nhận hàng là: ***, Quận 1, TP. Hồ Chí Minh. Hệ thống chỉ hiển thị địa chỉ đã được che một phần; nếu bạn cần xem hoặc cập nhật địa chỉ đầy đủ, mình có thể chuyển yêu cầu cho nhân viên hỗ trợ nhé."
+  },
+  {
+   "id": "t-09",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Chính sách đổi trả điện thoại tại Demo Mobile:\n\n- **Lỗi do nhà sản xuất:** đổi 1 đổi 1 máy mới cùng mẫu trong 30 ngày kể từ ngày nhận hàng, miễn phí, cần đủ hộp, phụ kiện, hoá đơn và máy không trầy xước, vào nước hay can thiệp phần mềm [1][5].\n- **Đổi ý (không còn nhu cầu):** trả trong 7 ngày, chỉ k"
+  },
+  {
+   "id": "t-10",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Đơn có tạm tính 300.000₫ (dưới 500.000₫) sẽ có phí vận chuyển 30.000₫, đồng giá toàn quốc [1]. Nếu dùng mã FREESHIP thì được miễn 30.000₫ phí này [1].\n\nBạn có muốn mình kiểm tra đơn cụ thể nào không?"
+  },
+  {
+   "id": "t-11",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Hồ sơ trả góp 0% chỉ cần căn cước công dân (CCCD) và thẻ tín dụng của ngân hàng liên kết, không cần sổ hộ khẩu, hợp đồng lao động hay giấy tờ chứng minh thu nhập [1][2]. Chủ thẻ nên là người mua và trùng tên trên CCCD [1].\n\nBạn có thể đến showroom (123 Nguyễn Huệ, Quận 1 hoặc 88 Cầu Giấy, Hà Nội) ho"
+  },
+  {
+   "id": "t-12",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Bạn làm theo các bước sau trên iPhone:\n\n- Kết nối Wi-Fi ổn định.\n- Vào Cài đặt > Di động > Thêm eSIM (một số bản iOS là Thêm gói cước di động).\n- Chọn Sử dụng mã QR và đưa camera vào mã QR do nhà mạng cấp.\n- Đặt nhãn cho eSIM và chọn số mặc định cho cuộc gọi, tin nhắn, dữ liệu di động.\n- Chờ vài phú"
+  },
+  {
+   "id": "t-13",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_products"
+   ],
+   "reply": "Dạ iPhone 16 Pro Max hiện có các phiên bản:\n\n- 256GB - Trắng: **28.900.000đ** (giá cũ 31.210.000đ), còn 18 máy\n- 512GB - Hồng: **31.480.000đ** (giá cũ 34.000.000đ), còn 57 máy\n- 512GB - Xanh lá: **32.920.000đ**, còn 26 máy\n- 1TB - Đen: **35.190.000đ**, còn 50 máy\n- 1TB - Vàng: **35.470.000đ** (giá c"
+  },
+  {
+   "id": "t-14",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_products"
+   ],
+   "reply": "Dưới 2 triệu hiện có 5 mẫu tai nghe:\n\n- Xiaomi Pro Đen: 1.063.000đ (còn 113) – đánh giá 4.7\n- Samsung Lite Titan: 1.280.000đ (giá cũ 1.536.000đ, còn 11) – 4.6\n- Apple True Wireless Trắng: 1.630.000đ (giá cũ 2.119.000đ, còn 95) – 4.3\n- JBL True Wireless Vàng: 1.648.000đ (giá cũ 2.142.000đ, còn 29) – "
+  },
+  {
+   "id": "t-15",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_products"
+   ],
+   "reply": "Dạ còn hàng bạn nhé. Samsung Galaxy S25 Ultra hiện có 5 phiên bản:\n\n- 256GB - Hồng: 27.040.000đ (giá cũ 30.280.000đ), còn 28 máy\n- 256GB - Vàng: 27.950.000đ (giá cũ 30.190.000đ), còn 46 máy\n- 512GB - Trắng: 30.400.000đ (giá cũ 38.000.000đ), còn 30 máy\n- 1TB - Hồng: 32.340.000đ (giá cũ 36.220.000đ), "
+  },
+  {
+   "id": "t-16",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_promotions"
+   ],
+   "reply": "Shop đang có các chương trình sau:\n\n- **Tuần lễ Samsung Galaxy** (25/10 – 02/11): giảm thêm 5% (tối đa 1.000.000₫) cho điện thoại Samsung Galaxy khi thanh toán chuyển khoản; tặng ốp lưng chính hãng cho dòng Galaxy S và Z.\n- **Hot Sale Cuối Tuần**: giá giảm cho nhiều điện thoại và phụ kiện vào thứ Bả"
+  },
+  {
+   "id": "t-17",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_promotions"
+   ],
+   "reply": "Dạ có, shop đang và sắp có các chương trình sau:\n\n- **Tuần lễ Samsung Galaxy** (đến 02/11): giảm thêm 5% (tối đa 1.000.000₫) cho điện thoại Samsung Galaxy khi thanh toán chuyển khoản; tặng ốp lưng chính hãng cho dòng Galaxy S và Z.\n- **Hot Sale Cuối Tuần**: giá giảm cho nhiều điện thoại và phụ kiện "
+  },
+  {
+   "id": "t-18",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Mã GIAM5 giảm 5% trên tạm tính đơn hàng, nhưng tối đa 300.000₫ và không yêu cầu giá trị đơn tối thiểu [3]. Ví dụ đơn 10.000.000₫ vẫn chỉ được giảm 300.000₫ [1]."
+  },
+  {
+   "id": "t-19",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status",
+    "search_knowledge_base"
+   ],
+   "reply": "Đơn SO10293 của bạn đang ở trạng thái \"Đang giao\", ngày giao dự kiến là 03/10/2026, nên hiện đã trễ khoảng 27 ngày — vượt mức 3 ngày làm việc [5]. Vì đơn thanh toán khi nhận hàng (COD) và chưa thanh toán khoản nào, bạn không cần hoàn tiền mà được chọn một trong hai phương án [1]:\n\n- Huỷ đơn miễn phí"
+  },
+  {
+   "id": "t-20",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status",
+    "search_knowledge_base"
+   ],
+   "reply": "Đơn SO10267 đã giao (đặt ngày 17/07) nên đã quá 30 ngày kể từ ngày nhận hàng, vì vậy không còn áp dụng đổi 1 đổi 1 trong 30 ngày nữa [1][2]. Máy lỗi màn hình lúc này sẽ được xử lý theo bảo hành chính hãng 12 tháng, miễn phí nếu thuộc phạm vi bảo hành [2], và cần nhân viên kỹ thuật Demo Mobile kiểm t"
+  },
+  {
+   "id": "t-21",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "escalate_to_human"
+   ],
+   "reply": "Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ (mã phiếu TK000011). Nhân viên sẽ liên hệ với bạn qua email trong vòng 24 giờ."
+  },
+  {
+   "id": "t-22",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "escalate_to_human"
+   ],
+   "reply": "Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ (mã phiếu TK000012). Nhân viên sẽ liên hệ với bạn qua email trong vòng 24 giờ."
+  },
+  {
+   "id": "t-23",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status",
+    "search_knowledge_base"
+   ],
+   "reply": "Rất tiếc, đơn SO10293 hiện đang ở trạng thái \"Đang giao\" nên không thể đổi địa chỉ được nữa [3][4]. Bạn có thể:\n- Nhờ người thân nhận hàng tại địa chỉ cũ (kiểm tra kiện hàng trước mặt nhân viên giao và thanh toán vì đơn là COD)\n- Từ chối nhận khi nhân viên giao gọi, kiện hàng sẽ hoàn về shop và bạn "
+  },
+  {
+   "id": "t-24",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status",
+    "search_knowledge_base"
+   ],
+   "reply": "Đơn SO10293 hiện đang ở trạng thái **Đang giao** nên không thể tự hủy trên website [1][4]. Bạn có hai cách: từ chối nhận hàng khi nhân viên giao đến (đơn COD nên không phải thanh toán), hoặc để mình chuyển yêu cầu cho nhân viên hỗ trợ dừng giao [4].\n\nLưu ý thêm: đơn này có ngày giao dự kiến 03/10/20"
+  },
+  {
+   "id": "t-25",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Showroom Hà Nội của Demo Mobile ở **88 Cầu Giấy, Hà Nội**, mở cửa 9:00–21:30 hằng ngày (kể cả cuối tuần) [1]."
+  },
+  {
+   "id": "t-26",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Hotline của Demo Mobile là **1900 6868**, hoạt động 8:00–21:00 hằng ngày (kể cả cuối tuần và ngày lễ), cước 1.000₫/phút [1][2].\n\nNgoài ra bạn có thể gửi email tới hotro@demomobile.vn (phản hồi trong 24 giờ) hoặc nhắn trợ lý chat trên website [2]."
+  },
+  {
+   "id": "t-27",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Phí gói Bảo hành mở rộng +12 tháng bằng 5% giá điện thoại (giá bạn thực trả cho máy) [2]. Ví dụ: máy 10.000.000₫ thì gói là 500.000₫, máy 24.000.000₫ thì gói là 1.200.000₫ [2]. Bạn cho mình biết đang định mua máy nào để mình tính giúp nhé."
+  },
+  {
+   "id": "t-28",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Bạn gọi hotline 1900 6868 (8:00–21:00 hằng ngày, cước 1.000₫/phút) để được cấp lại mật khẩu nhé — website không có nút \"Quên mật khẩu\" tự phục vụ và mình cũng không cấp lại mật khẩu được [1].\n\n- Chuẩn bị: email đăng ký, họ tên và số điện thoại đã lưu, mã một đơn hàng gần đây (hoặc địa chỉ/tổng tiền "
+  },
+  {
+   "id": "t-29",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Thành viên hạng Vàng (chi tiêu từ 30.000.000₫ trong 12 tháng) được:\n\n- Voucher sinh nhật 300.000₫ mỗi năm [2][3]\n- Nhánh hotline ưu tiên khi gọi 1900 6868 [2][4]\n- Miễn phí 6 tháng bảo hành mở rộng cho mỗi điện thoại mua trong thời gian giữ hạng, tự động kích hoạt (có thể mua thêm gói +12 tháng với "
+  },
+  {
+   "id": "t-30",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Được bạn nhé. Pin dự phòng 20.000mAh tương đương khoảng 74Wh (ở 3,7V), dưới 100Wh nên thường được mang theo hành lý xách tay [2].\n\nLưu ý: phải để trong hành lý xách tay (không ký gửi), pin còn rõ nhãn dung lượng và không phồng/nứt [3]. Nhiều hãng cũng không cho sạc điện thoại bằng pin dự phòng trong"
+  },
+  {
+   "id": "t-31",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "list_customer_orders"
+   ],
+   "reply": "Bạn có 1 đơn đã huỷ: SO10662\n\n- Đặt ngày: 17/07/2026\n- Tổng tiền: 1.399.000đ (thanh toán khi nhận hàng, phí vận chuyển 0đ)\n- Trạng thái: Đã huỷ\n\nBạn cần mình kiểm tra thêm gì về đơn này không?"
+  },
+  {
+   "id": "t-32",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Phụ kiện mua tại Demo Mobile (ốp lưng, sạc & cáp, tai nghe, pin dự phòng, dán màn hình) được bảo hành 6 tháng kể từ ngày nhận hàng [2]. Nếu lỗi do nhà sản xuất trong 15 ngày đầu thì được đổi mới ngay cùng loại; từ ngày 16 đến hết 6 tháng thì sửa chữa hoặc thay thế trong 5–15 ngày làm việc [2][3]."
+  },
+  {
+   "id": "t-33",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status"
+   ],
+   "reply": "Đơn SO10293 của bạn hiện đang ở trạng thái **Đang giao**, mã vận đơn GHTK6761334796, dự kiến giao ngày 03/10/2026 — tức là đã quá ngày dự kiến khá lâu.\n\nBạn có muốn mình kiểm tra chính sách đền bù khi giao trễ không?"
+  },
+  {
+   "id": "t-34",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "For phones, our return/exchange policy works like this:\n\n- **Manufacturer defect:** exchange within 30 days of delivery for a free new unit of the same model, provided the box, accessories, gifts and invoice (or online order code) are complete and the phone shows no scratches, water damage or softwa"
+  },
+  {
+   "id": "t-35",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "list_customer_orders"
+   ],
+   "reply": "Bạn đang có đơn SO10293 ở trạng thái Đang giao, mã vận đơn GHTK6761334796, dự kiến giao ngày 03/10/2026 — nghĩa là đã quá ngày dự kiến. Các đơn còn lại đã giao, đã huỷ hoặc đã hoàn trả.\n\nBạn có muốn mình kiểm tra chính sách giao trễ cho đơn SO10293 không?"
+  },
+  {
+   "id": "t-36",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base",
+    "search_knowledge_base"
+   ],
+   "reply": "Bạn có 2 cách: tự mang máy kèm hoá đơn đến trung tâm bảo hành chính hãng của Apple, hoặc gửi tại showroom Demo Mobile (123 Nguyễn Huệ, Quận 1, TP.HCM hoặc 88 Cầu Giấy, Hà Nội; mở 9:00–21:30 hằng ngày) để shop chuyển giúp, thời gian xử lý khoảng 5–15 ngày làm việc [3][5].\n\nMáy mua 2 tháng vẫn trong b"
+  },
+  {
+   "id": "t-37",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_products"
+   ],
+   "reply": "Dạ có, shop đang bán Galaxy Z Fold8 với các phiên bản:\n\n- 256GB - Tím: 41.800.000đ (giá cũ 49.320.000đ), còn 47 máy\n- 256GB - Titan: 43.420.000đ (giá cũ 45.590.000đ), còn 60 máy\n- 512GB - Xanh lá: 46.040.000đ (giá cũ 48.340.000đ), còn 54 máy\n- 512GB - Tím: 47.900.000đ, còn 44 máy\n- 1TB - Đen: 51.530"
+  },
+  {
+   "id": "t-38",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status"
+   ],
+   "reply": "Đơn SO10907 của bạn đã được giao rồi nhé. Đơn đặt ngày 24/09/2026, dự kiến giao 27/09/2026, gồm 1 Ốp lưng MagSafe Ugreen Trắng, tổng 452.000đ (COD), mã vận đơn GHTK8698857403.\n\nBạn cần kiểm tra thêm gì về đơn này không?"
+  },
+  {
+   "id": "t-39",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_customer_profile",
+    "search_knowledge_base"
+   ],
+   "reply": "Bạn đang ở hạng **Thành viên (STANDARD)**.\n\nĐể lên hạng **Bạc (SILVER)**, bạn cần tổng chi tiêu từ **10.000.000₫** trong 12 tháng gần nhất (không tính đơn đã huỷ hoặc đã hoàn trả) [1][2]. Hạng được xét lại vào ngày 1 hằng tháng [2].\n\nBạn có thể xem tổng chi tiêu hiện tại của mình ở trang \"Tài khoản\""
+  },
+  {
+   "id": "t-40",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Khi shop nhận được tiền chuyển khoản đúng số tiền và nội dung, đơn sẽ chuyển từ \"Chờ xác nhận\" sang \"Đã xác nhận\" trong mục \"Đơn hàng của tôi\", và thời gian giao 3–5 ngày làm việc được tính từ lúc đó [1][2]. Bạn không cần gửi ảnh biên lai nếu đơn đã được xác nhận [1].\n\nNếu sau hơn 24 giờ chuyển khoả"
+  },
+  {
+   "id": "t-41",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status"
+   ],
+   "reply": "Đơn **PKX204518** của bạn đang **đang giao**, dự kiến đến ngày **31/10/2026**. Mã vận đơn: **S22.81726354** (1 × Sạc nhanh GaN 65W 3 cổng, 590.000đ, thanh toán MoMo)."
+  },
+  {
+   "id": "t-42",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "list_customer_orders"
+   ],
+   "reply": "Bạn đang có 3 đơn:\n\n- **PKX205102** – Chờ xác nhận, đặt 30/10, dự kiến giao 03/11, 174.000đ (COD)\n- **PKX204518** – Đang giao, đặt 27/10, dự kiến giao 31/10, 590.000đ (MoMo)\n- **PKX203977** – Đã giao, đặt 09/10, 283.000đ (COD)\n\nBạn muốn xem chi tiết đơn nào không?"
+  },
+  {
+   "id": "t-43",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Chào bạn, shop có 2 mốc đổi trả:\n\n- Đổi trả theo nhu cầu (kể cả không còn nhu cầu hoặc chọn nhầm mẫu): trong 14 ngày kể từ ngày nhận hàng, với điều kiện sản phẩm chưa sử dụng, còn nguyên bao bì, tem nhãn, phụ kiện và có hoá đơn hoặc mã đơn [1].\n- Sản phẩm lỗi do nhà sản xuất: được đổi sản phẩm mới c"
+  },
+  {
+   "id": "t-44",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Phí giao hàng của Phụ Kiện Xanh áp dụng đồng giá toàn quốc: đơn từ 300.000₫ trở lên được miễn phí, đơn dưới 300.000₫ phí là 25.000₫ [1].\n\nLưu ý: giá trị để xét miễn phí là tổng tiền sản phẩm sau khi trừ giảm giá từ điểm thưởng, và phí sẽ được hiển thị ở bước thanh toán trước khi bạn xác nhận đặt hàn"
+  },
+  {
+   "id": "t-45",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_order_status",
+    "search_knowledge_base"
+   ],
+   "reply": "I'll check the order status and the late-delivery policy.\n\nĐơn PKX204518 hiện đang ở trạng thái \"Đang giao\", dự kiến giao đến bạn ngày 31/10 nên vẫn trong thời gian dự kiến (2–4 ngày làm việc) [4]. Mã vận đơn GHTK của bạn là S22.81726354, bạn có thể dùng mã này để xem hành trình gói hàng [1].\n\nNếu q"
+  },
+  {
+   "id": "t-46",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "get_customer_profile"
+   ],
+   "reply": "Email trong tài khoản của bạn là **d***@pkx.vn** (đã được ẩn bớt để bảo mật). Bạn cần mình hỗ trợ gì thêm không?"
+  },
+  {
+   "id": "t-47",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base",
+    "search_knowledge_base"
+   ],
+   "reply": "Mình chưa tìm thấy thông tin về giờ mở cửa của website/cửa hàng trong tài liệu của shop nên không dám đoán. Bạn muốn mình chuyển cho nhân viên hỗ trợ để xác nhận giờ hoạt động không?"
+  },
+  {
+   "id": "t-48",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base"
+   ],
+   "reply": "Mình xin lỗi, shop chưa kết nối hệ thống đơn hàng nên mình không tra được tình trạng đơn của bạn, và tài liệu của shop cũng không có thông tin về cách tra cứu hay số hotline để mình chỉ bạn.\n\nBạn có muốn mình chuyển yêu cầu này cho nhân viên hỗ trợ kiểm tra giúp không?"
+  },
+  {
+   "id": "t-49",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [
+    "search_knowledge_base",
+    "search_knowledge_base"
+   ],
+   "reply": "Mình xin lỗi, tài liệu của shop hiện chưa có thông tin liên hệ (hotline/email) để mình trích dẫn chính xác. Bạn có muốn mình tạo phiếu để nhân viên hỗ trợ liên hệ lại qua email trong 24 giờ không?"
+  },
+  {
+   "id": "t-50",
+   "type": "tool",
+   "ok": true,
+   "why": "",
+   "tools": [],
+   "reply": "Dạ, không có gì đâu bạn! Nếu cần kiểm tra đơn hàng, giá sản phẩm hay chính sách gì, bạn cứ nhắn shop nhé. Chúc bạn một ngày tốt lành!"
+  },
+  {
+   "id": "q-r-pol-001",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly confirms 1-for-1 exchange within 30 days for manufacturer defect like screen stripes, consistent with reference; extra conditions don't contradict.",
+   "reply": "Dạ được bạn nhé. Điện thoại mua tại Demo Mobile bị lỗi do nhà sản xuất (như màn hình bị sọc) được đổi 1 đổi 1 sang máy mới cùng mẫu, cùng màu, cùng dung lượng trong vòng 30 ngày kể từ ngày nhận hàng [1]. Bạn mới mua 1 tuần nên vẫn trong thời hạn.\n\nLưu ý: máy cần đủ hộp, phụ kiện, hoá đơn, không trầy"
+  },
+  {
+   "id": "q-r-pol-003",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states scratches on the frame disqualify exchange per the condition that the body must not be scratched, and notes possible warranty handling.",
+   "reply": "Máy bị trầy xước ở viền sẽ **không đủ điều kiện đổi trả**, vì chính sách yêu cầu thân máy và màn hình không trầy xước, móp méo hay nứt vỡ [1][2].\n\nNếu máy còn trong thời hạn bảo hành và lỗi thuộc phạm vi bảo hành, máy sẽ được chuyển sang quy trình bảo hành chính hãng [1]. Bạn cho mình biết mã đơn hà"
+  },
+  {
+   "id": "q-r-pol-005",
+   "type": "qa",
+   "ok": true,
+   "why": "Correctly applies 10% minimum 200,000₫ fee to 300,000₫ item, refund 100,000₫, and states 7-day sealed condition.",
+   "reply": "Với sạc 300.000₫ còn nguyên seal, trả do đổi ý: phí trả hàng là 10% giá sản phẩm nhưng tối thiểu 200.000₫, nên phí tính 200.000₫ và bạn được hoàn 100.000₫ [1]. Điều kiện là phải trả trong vòng 7 ngày kể từ ngày nhận hàng, còn nguyên seal và bạn tự chịu chi phí gửi hàng về shop [1].\n\nBạn cho mình mã "
+  },
+  {
+   "id": "q-r-pol-007",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states COD refund via bank transfer to customer-provided account or cash at showroom, matching the reference.",
+   "reply": "Với đơn COD khi trả hàng, bạn nhận tiền hoàn bằng **chuyển khoản vào tài khoản ngân hàng do bạn cung cấp**, hoặc **nhận tiền mặt tại showroom** [1][3]. Tài khoản nhận tiền nên đứng tên người đặt hàng để tránh nhầm lẫn [1].\n\nThời gian hoàn tiền là 3–7 ngày làm việc kể từ khi shop nhận lại hàng [3]. B"
+  },
+  {
+   "id": "q-r-pol-009",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states 12-month warranty and both return options (manufacturer center or Demo Mobile showroom), consistent with reference.",
+   "reply": "Điện thoại mua tại Demo Mobile được bảo hành chính hãng 12 tháng, tính từ ngày nhận hàng (đơn online) hoặc ngày mua tại showroom [5].\n\nBạn có 2 lựa chọn:\n- Tự mang máy kèm hoá đơn đến trung tâm bảo hành của hãng [1]\n- Gửi máy tại showroom Demo Mobile: 123 Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh hoặc 88 "
+  },
+  {
+   "id": "q-r-pol-011",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states Gold members get free 6-month extended warranty, auto-activated, and can add +12 months for 18 total, matching the reference.",
+   "reply": "Có bạn nhé: khách hạng Vàng được tặng miễn phí 6 tháng bảo hành mở rộng cho mỗi điện thoại mua trong thời gian giữ hạng Vàng, tự động kích hoạt, không cần đăng ký hay trả phí [1][3].\n\nBạn cũng có thể mua thêm gói Bảo hành mở rộng +12 tháng (phí 5% giá máy, trong 30 ngày kể từ ngày mua); khi đó hai g"
+  },
+  {
+   "id": "q-r-pol-013",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states 5–15 working days from showroom receipt, matching the reference, and adds notification details consistent with the document.",
+   "reply": "Khi gửi máy bảo hành qua showroom Demo Mobile, thời gian xử lý khoảng **5–15 ngày làm việc**, tính từ ngày showroom tiếp nhận máy (tuỳ hãng và tình trạng linh kiện thay thế) [2][4]. Máy sửa xong sẽ được thông báo qua điện thoại hoặc email [2]. Nếu cần thêm thời gian, nhân viên sẽ chủ động báo cho bạ"
+  },
+  {
+   "id": "q-r-pol-015",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states 3–5 working days from order date, Monday–Friday excluding holidays, matching the reference.",
+   "reply": "Delivery is estimated at 3–5 working days from the order date, counting Monday to Friday and excluding public holidays [1]. For bank-transfer orders, the clock starts when the shop confirms your payment [1]. Each order shows its own expected date in the \"Dự kiến giao\" line under \"Đơn hàng của tôi\" ["
+  },
+  {
+   "id": "q-r-pol-017",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states COD late-delivery options: free cancellation with no payment, or 100,000₫ voucher if continuing to wait, and notes only one option per order.",
+   "reply": "Đơn đang giao của bạn là SO10293, dự kiến giao 03/10, đến hôm nay là trễ khoảng 27 ngày.\n\nVới đơn COD giao trễ hơn 3 ngày làm việc, bạn được chọn một trong hai [1]:\n- **Huỷ đơn**: miễn phí, không phải thanh toán khoản nào [1]\n- **Tiếp tục chờ nhận hàng**: nhận voucher 100.000₫ cho lần mua sau [1]\n\nM"
+  },
+  {
+   "id": "q-r-pol-019",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer matches reference: refuse delivery for dented box/torn tape, note reason, photograph, contact hotline/email with order code, and refund/replacement policy. Extra advice about checking in front of shipper does not contradict.",
+   "reply": "Bạn nên từ chối nhận kiện hàng đó và không thanh toán, vì hộp móp/rách hoặc băng keo niêm phong bị rách, bị mở là những dấu hiệu nên từ chối [1]. Khi từ chối, bạn nhờ nhân viên giao hàng ghi lý do lên vận đơn, chụp ảnh kiện hàng và báo ngay cho Demo Mobile qua hotline 1900 6868 hoặc email hotro@demo"
+  },
+  {
+   "id": "q-r-pol-021",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states no self-service change, offers hotline 1900 6868 before 'Đang giao' or cancel/reorder while 'Chờ xác nhận'/'Đã xác nhận', matching the reference.",
+   "reply": "Hiện website không có nút đổi phương thức thanh toán sau khi đặt [1]. Bạn có hai cách: gọi hotline 1900 6868 trước khi đơn chuyển sang \"Đang giao\", hoặc tự huỷ đơn khi đơn còn ở \"Chờ xác nhận\" hay \"Đã xác nhận\" rồi đặt lại bằng COD [1].\n\nTrong 5 đơn gần nhất của bạn, mình chưa thấy đơn nào đang ở tr"
+  },
+  {
+   "id": "q-r-pol-023",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states the order is held 24 hours from placement, matching the reference, and adds consistent details about status and auto-cancellation.",
+   "reply": "Đơn chọn chuyển khoản được shop giữ **24 giờ** kể từ lúc đặt, trong thời gian đó sản phẩm được giữ riêng và đơn ở trạng thái \"Chờ xác nhận\". Quá 24 giờ mà shop chưa nhận được tiền, đơn sẽ tự động chuyển sang \"Đã huỷ\" và sản phẩm trả lại kho [1][2].\n\nBạn muốn mình kiểm tra đơn cụ thể nào không?"
+  },
+  {
+   "id": "q-r-pol-025",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states headphones/accessories are not eligible for installment and ATM/debit cards cannot be used, matching the reference.",
+   "reply": "Chào bạn, tai nghe không được trả góp nhé: trả góp 0% chỉ áp dụng cho điện thoại của Apple, Samsung, Xiaomi, OPPO, vivo, realme và HONOR; phụ kiện như tai nghe, sạc, cáp, ốp lưng không nằm trong danh sách [1].\n\nCòn thẻ ATM thì không dùng để trả góp được, vì trả góp chỉ chấp nhận thẻ tín dụng (credit"
+  },
+  {
+   "id": "q-r-pol-027",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer addresses the COD 'Chờ xác nhận' >24h issue by checking the order, noting no such pending order, and offering the correct escalation/contact path; it also correctly applies the late-delivery policy for the actual delayed order, consistent with the reference.",
+   "reply": "Mình vừa kiểm tra thì hiện không có đơn nào của bạn đang ở trạng thái \"Chờ xác nhận\". Đơn COD gần nhất là SO10293, nhưng đơn này đang ở trạng thái \"Đang giao\", dự kiến giao 03/10, mã vận đơn GHTK6761334796 — tức là đã trễ rất lâu so với ngày dự kiến.\n\nVới đơn trễ hơn 3 ngày làm việc so với ngày dự k"
+  },
+  {
+   "id": "q-r-pol-029",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states 100% refund including shipping within 3–7 business days from 'Đã huỷ' status, refunded to original bank account, consistent with reference.",
+   "reply": "Đơn đã chuyển khoản bị huỷ sẽ được hoàn 100% số tiền đã chuyển (gồm cả phí vận chuyển nếu có) trong 3–7 ngày làm việc, tính từ khi đơn chuyển sang trạng thái \"Đã huỷ\" [1][3]. Tiền hoàn về đúng tài khoản ngân hàng bạn đã dùng để chuyển, và bạn sẽ nhận email thông báo khi lệnh hoàn tiền được thực hiện"
+  },
+  {
+   "id": "q-r-pol-031",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states max 10 per product per cart, matching the reference.",
+   "reply": "Mỗi sản phẩm được đặt tối đa 10 chiếc trong một giỏ hàng [1]. Nếu bạn chọn vượt quá tồn kho, website sẽ báo số lượng còn lại [1]."
+  },
+  {
+   "id": "q-r-pol-033",
+   "type": "qa",
+   "ok": true,
+   "why": "Đơn 8 triệu, GIAM5 giảm 5% = 400.000₫ nhưng tối đa 300.000₫, đúng với tài liệu.",
+   "reply": "Đơn 8.000.000₫ dùng mã GIAM5 sẽ được giảm 300.000₫, vì 5% là 400.000₫ nhưng mã giảm tối đa 300.000₫ [1][2]. Mã tính trên tạm tính (tiền sản phẩm trước phí vận chuyển) và mỗi đơn chỉ dùng một mã [1][2]."
+  },
+  {
+   "id": "q-r-pol-035",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states 30,000,000₫ in 12 months for Vàng, matching the reference.",
+   "reply": "Bạn cần tổng chi tiêu từ 30.000.000₫ trong 12 tháng gần nhất để lên hạng Vàng [1]. Chi tiêu tính trên các đơn không bị huỷ hoặc hoàn trả, và hạng được xét lại vào ngày 1 hằng tháng [2].\n\nBạn muốn mình kiểm tra hạng và tổng chi tiêu hiện tại của tài khoản không?"
+  },
+  {
+   "id": "q-r-pol-037",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states minimum 8 characters, consistent with both registration and password-change sections.",
+   "reply": "Mật khẩu tài khoản Demo Mobile phải có tối thiểu 8 ký tự [1]. Khi đổi mật khẩu mới cũng vậy, và nếu ngắn hơn 8 ký tự website sẽ báo lỗi [2].\n\nBạn nên dùng mật khẩu gồm chữ hoa, chữ thường và số, không dùng lại mật khẩu của tài khoản khác [2]."
+  },
+  {
+   "id": "q-r-pol-039",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states chat history is kept 90 days then auto-deleted, matching the reference; extra details about account visibility, support access, and early deletion via email are consistent with the reference.",
+   "reply": "Lịch sử trò chuyện với trợ lý chat được lưu **90 ngày** kể từ ngày trò chuyện, sau đó tự động xoá [1]. Lịch sử gắn với tài khoản đang đăng nhập và chỉ chủ tài khoản xem được; nhân viên hỗ trợ có thể đọc khi bạn yêu cầu chuyển cho nhân viên hoặc khi xử lý khiếu nại [1].\n\nNếu bạn muốn xoá sớm trước 90"
+  },
+  {
+   "id": "q-r-pol-041",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states Hà Nội showroom opens 9:00–21:30 daily including Sunday, matching the reference.",
+   "reply": "Showroom Hà Nội ở 88 Cầu Giấy mở cửa 9:00–21:30 tất cả các ngày trong tuần, kể cả Thứ Bảy và Chủ Nhật [1]. Hôm nay là Thứ Sáu nên showroom vẫn mở bình thường bạn nhé."
+  },
+  {
+   "id": "q-r-pol-043",
+   "type": "qa",
+   "ok": true,
+   "why": "Explains chat box is locked when not logged in, matching the reference, and adds acceptable support contact details.",
+   "reply": "Khung chat bị khoá khi bạn chưa đăng nhập tài khoản: ô nhập câu hỏi và các nút gợi ý sẽ bị khoá kèm lời nhắc \"Vui lòng đăng nhập để dùng chatbot\" [1][2]. Việc này giúp trợ lý chỉ xem được đơn hàng của đúng tài khoản đang đăng nhập [1].\n\nNếu bạn đã đăng nhập mà vẫn bị khoá, hoặc chưa có tài khoản/quê"
+  },
+  {
+   "id": "q-r-pol-045",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer accurately reflects the reference's processing timeline, including the 7-working-day result notification, and adds no contradictions.",
+   "reply": "Thời gian xử lý khiếu nại tại Demo Mobile như sau [1]:\n\n- Xác nhận đã tiếp nhận và cấp mã khiếu nại: ngay trong cuộc gọi/tại showroom, hoặc trong 24 giờ qua email và trợ lý chat (48 giờ vào ngày lễ)\n- Xác minh với kho, đơn vị vận chuyển hoặc trung tâm bảo hành: tối đa 3 ngày làm việc\n- Thông báo kết"
+  },
+  {
+   "id": "q-r-gd-002",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly explains Quick Start with two iPhones side by side, Bluetooth/Wi-Fi, charging, backup, and background restore effects, matching the reference.",
+   "reply": "Được bạn. Cách đó gọi là \"Bắt đầu nhanh\": đặt hai iPhone cạnh nhau khi đang thiết lập máy mới, cả hai máy bật Bluetooth và Wi-Fi, nên cắm sạc trong lúc chuyển [1].\n\nTrước khi chuyển bạn nên tạo bản sao lưu mới nhất trên iPhone cũ [1]. Sau khi khôi phục, ảnh và ứng dụng có thể tiếp tục tải về nền vài"
+  },
+  {
+   "id": "q-r-gd-004",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer matches reference: manual Google sync or erase and redo setup, with correct caveats.",
+   "reply": "Bạn có hai cách [2]:\n\n- **Chuyển thủ công (nhanh, không mất dữ liệu):** đăng nhập tài khoản Google trên iPhone trong Cài đặt > Ứng dụng > Danh bạ > Tài khoản để đồng bộ danh bạ và lịch.\n- **Xoá iPhone để làm lại từ đầu:** Cài đặt > Cài đặt chung > Chuyển hoặc đặt lại iPhone > Xoá tất cả nội dung và "
+  },
+  {
+   "id": "q-r-gd-006",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer confirms messages transfer via Smart Switch cable method, mentions disabling iMessage, and gives correct cable requirements for USB-C and Lightning iPhones, matching the reference.",
+   "reply": "Tin nhắn chuyển được bạn nhé: dùng Smart Switch, cách có dây sẽ chuyển được danh bạ, tin nhắn, ảnh, video, lịch, ghi chú [1]. Trước khi rời iPhone, bạn nhớ tắt iMessage trong Cài đặt > Ứng dụng > Tin nhắn để tin nhắn từ người dùng iPhone vẫn tới máy Samsung [1].\n\n- Nếu iPhone của bạn dùng cổng USB-C"
+  },
+  {
+   "id": "q-r-gd-008",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer matches reference: eSIM may be lost on data wipe; choose to keep it during reset if staying on the device, otherwise contact carrier for reissue.",
+   "reply": "eSIM nằm trong bộ nhớ máy nên có thể bị mất khi xoá dữ liệu. Khi khôi phục cài đặt gốc, nếu máy hỏi có giữ eSIM hay không thì bạn chọn giữ lại (nếu vẫn dùng máy đó); nếu lỡ xoá thì phải liên hệ nhà mạng để được cấp lại [1]."
+  },
+  {
+   "id": "q-r-gd-010",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly identifies swollen battery risk, advises stopping use/charging, not pressing/puncturing, and contacting Demo Mobile, consistent with reference.",
+   "reply": "Đây có thể là dấu hiệu pin phồng, nên bạn cần xử lý ngay: ngừng sử dụng và ngừng sạc máy, tuyệt đối không ấn mạnh, không tự tháo hay chọc thủng pin vì pin có thể cháy [1]. Bạn đặt máy trên bề mặt không cháy, tránh xa vật dễ bắt lửa rồi liên hệ Demo Mobile qua hotline 1900 6868 hoặc mang máy đến show"
+  },
+  {
+   "id": "q-r-gd-012",
+   "type": "qa",
+   "ok": true,
+   "why": "Recommends 20W charger and Lightning 2m cable for older Lightning iPhone, matching the reference guide; extra details don't contradict.",
+   "reply": "For a Lightning iPhone, the matching set at Demo Mobile would be:\n\n- **Sạc nhanh 20W Ugreen Mini** – 444.000₫ (was 577.000₫, 8 in stock) or **Sạc nhanh 20W Belkin Pro** – 486.000₫ (150 in stock) [1]\n- **Cáp Lightning 2m Belkin Pro** – 576.000₫ (was 749.000₫, 94 in stock) [1]\n\nThe 20W charger is the "
+  },
+  {
+   "id": "q-r-gd-014",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer lists the same troubleshooting steps as the reference and includes the warranty/hotline info, consistent with the document.",
+   "reply": "Bạn thử lần lượt mấy bước này nhé:\n\n- Kiểm tra điện thoại có hỗ trợ sạc không dây không (nhiều máy phổ thông không có tính năng này) [1][2]\n- Tháo ốp lưng, vật kim loại, thẻ hoặc giá đỡ nam châm ở mặt lưng [1]\n- Đặt máy vào chính giữa đế sạc, đúng vị trí cuộn sạc [1][2]\n- Dùng củ sạc đủ công suất và"
+  },
+  {
+   "id": "q-r-gd-036",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states the cable can be returned within 14 days if unused with original packaging, tags, and receipt/order code, matching the reference.",
+   "reply": "Được bạn nhé. Cáp chưa sử dụng, còn nguyên bao bì gốc, tem nhãn và phụ kiện thì bạn có thể đổi trả theo nhu cầu (kể cả chỉ vì không ưng màu) trong vòng 14 ngày kể từ ngày nhận hàng, cần có hoá đơn hoặc mã đơn hàng để đối chiếu [1].\n\nBạn liên hệ hotline 1900 2468 (8:00–18:00, thứ Hai đến thứ Bảy) hoặ"
+  },
+  {
+   "id": "q-r-gd-037",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states customer pays return shipping and new product shipping for change-of-mind returns, and original shipping is not refunded, matching the reference.",
+   "reply": "Trả hàng vì đổi ý (đổi trả theo nhu cầu) thì bạn chịu phí gửi hàng về shop và cả phí gửi sản phẩm mới cho bạn theo biểu phí thông thường; phí vận chuyển ban đầu của đơn cũng không được hoàn lại [1]. Trường hợp sản phẩm lỗi hoặc giao sai thì Phụ Kiện Xanh chịu cả hai chiều [1].\n\nBạn cần mình kiểm tra"
+  },
+  {
+   "id": "q-r-gd-038",
+   "type": "qa",
+   "ok": true,
+   "why": "Correctly states ốp lưng has no warranty but can be exchanged within 30 days for manufacturer defects, matching the reference.",
+   "reply": "Chào bạn, ốp lưng thuộc nhóm **không bảo hành** [1]. Tuy nhiên nếu ốp lưng bị lỗi do nhà sản xuất (ví dụ nứt sẵn, sai kích thước so với bao bì), bạn vẫn được đổi sản phẩm mới trong 30 ngày kể từ ngày nhận hàng [1][3]. Bạn cần mình kiểm tra đơn hàng cụ thể nào không?"
+  },
+  {
+   "id": "q-r-gd-039",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states water-damaged headphones are not covered by warranty, including water-resistant models, matching the reference.",
+   "reply": "Tai nghe bị vào nước thì không được bảo hành đâu bạn, kể cả loại có chỉ số kháng nước [1]. Hư do nước cũng không tính là lỗi nhà sản xuất nên không được đổi mới trong 30 ngày [2].\n\nBạn vẫn có thể gửi email cskh@phukienxanh.vn kèm ảnh/video và mã đơn hàng để được kiểm tra cụ thể [4][5]. Bạn có muốn m"
+  },
+  {
+   "id": "q-r-gd-040",
+   "type": "qa",
+   "ok": true,
+   "why": "Correctly states 250k is below 300k threshold, so 25,000₫ shipping applies, consistent with the reference.",
+   "reply": "Đơn 250.000₫ chưa đạt mức 300.000₫ nên bạn sẽ phải trả phí giao hàng 25.000₫ [1]. Lưu ý giá trị để xét miễn phí ship là tổng tiền sản phẩm sau khi trừ giảm giá bằng điểm thưởng [1]."
+  },
+  {
+   "id": "q-r-gd-041",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states no installment support, matching the reference.",
+   "reply": "Chào bạn, hiện Phụ Kiện Xanh **không hỗ trợ mua trả góp** dưới bất kỳ hình thức nào, kể cả trả góp qua thẻ tín dụng hay công ty tài chính [1]. Mọi đơn hàng cần thanh toán toàn bộ một lần bằng COD hoặc ví MoMo [1].\n\nNếu muốn giảm số tiền phải trả, bạn có thể dùng điểm thưởng: mỗi 100 điểm giảm 10.000"
+  },
+  {
+   "id": "q-r-gd-042",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly states there is no physical store/showroom and only online sales, matching the reference.",
+   "reply": "Chào bạn, hiện Phụ Kiện Xanh chỉ bán hàng trực tuyến qua website, không có cửa hàng hay showroom nào để ghé xem trực tiếp [1]. Mọi đơn hàng đều giao qua GHTK toàn quốc, thanh toán COD hoặc MoMo [1]. Nếu bạn cần tư vấn sản phẩm trước khi mua, có thể gọi hotline 1900 2468 hoặc email cskh@phukienxanh.v"
+  },
+  {
+   "id": "q-r-gd-043",
+   "type": "qa",
+   "ok": true,
+   "why": "500 points = 50,000₫ per the reference table; answer matches.",
+   "reply": "Bạn cần 500 điểm để được giảm 50.000₫, vì 100 điểm = 10.000₫ và điểm được đổi theo bội số 100 [1]."
+  },
+  {
+   "id": "q-r-gd-044",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer correctly explains guest order lookup via Tra cứu đơn hàng page using order code and phone, plus email/hotline fallback, matching the reference.",
+   "reply": "Bạn mở trang **Tra cứu đơn hàng** ở cuối website, nhập mã đơn hàng (ví dụ PKX204518) và số điện thoại đã dùng khi đặt hàng là xem được tình trạng đơn [1].\n\nMã đơn có trong email xác nhận gửi ngay sau khi đặt hàng; nếu không thấy, bạn kiểm tra thư mục thư rác hoặc quảng cáo. Không tìm được mã thì gọi"
+  },
+  {
+   "id": "q-r-gd-045",
+   "type": "qa",
+   "ok": true,
+   "why": "Answer states 20W–35W for tablets/iPad, matching the reference table, and adds consistent safety/hotline details.",
+   "reply": "Máy tính bảng (trong đó có iPad) nên dùng củ sạc 20W đến 35W. Bạn có thể dùng củ công suất cao hơn nhu cầu vẫn an toàn, chỉ là máy chỉ nhận đúng mức nó hỗ trợ [1].\n\nNếu chưa rõ máy bạn hỗ trợ tối đa bao nhiêu W, bạn gọi hotline 1900 2468 (8:00–18:00, thứ Hai đến thứ Bảy) để được tư vấn theo đúng mẫu"
+  }
+ ]
+}
