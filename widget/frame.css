@@ -22,6 +22,11 @@ button, input { font: inherit; }
 .chat-messages { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #f8fafc; }
 .message { max-width: 88%; min-width: 0; padding: 10px 12px; border-radius: 14px; font-size: 13px; line-height: 1.5; box-shadow: 0 1px 3px #0f172a12; }
 .message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.message__body > * + * { margin-top: 6px; }
+.message__body ul, .message__body ol { margin: 0; padding-left: 18px; }
+.message__body li { overflow-wrap: anywhere; }
+.message__body .cite { color: #1d4ed8; font-size: 10px; font-weight: 600; margin-left: 1px; }
+.message--user .message__body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .message--bot { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; }
 .message--user { align-self: flex-end; color: white; background: var(--accent); }
 .message__sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }

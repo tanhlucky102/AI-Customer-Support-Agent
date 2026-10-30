@@ -18,6 +18,7 @@ import config
 from api import router as api_router
 from db import get_db, init_db
 from demo_chat import create_demo_chat_router
+import help_pages
 from offers import COUPONS, EVENT_BANNER_TITLE, coupon_discount
 from security import hash_password, sign_chat_token, verify_password
 
@@ -608,11 +609,22 @@ app.include_router(create_demo_chat_router(POLICIES, STATUS_LABEL))
 
 
 @app.get("/policy/{slug}")
-def policy(request: Request, slug: str, db: sqlite3.Connection = Depends(get_db)):
-    if slug not in POLICIES:
+def policy(slug: str):
+    """Old policy links now open the help-centre page with the same slug."""
+    return RedirectResponse(f"/help/{slug}" if help_pages.page(slug) else "/help", status_code=301)
+
+
+@app.get("/help")
+def help_index(request: Request, db: sqlite3.Connection = Depends(get_db)):
+    return render(request, db, "help.html", title="Trung tâm trợ giúp", doc=None, groups=help_pages.index())
+
+
+@app.get("/help/{slug}")
+def help_page(request: Request, slug: str, db: sqlite3.Connection = Depends(get_db)):
+    doc = help_pages.page(slug)
+    if not doc:
         raise HTTPException(404, "Không tìm thấy trang")
-    title, sections = POLICIES[slug]
-    return render(request, db, "policy.html", title=title, sections=sections, slug=slug)
+    return render(request, db, "help.html", title=doc["title"], doc=doc, groups=help_pages.index())
 
 
 # ---------- token cho chat widget ----------

@@ -33,15 +33,70 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
+  // Minimal Markdown for model output: paragraphs, "- "/"1. " lists, **bold** and [n] citation
+  // markers. Built with DOM nodes and textContent only, so model text can never become HTML.
+  function appendInline(parent, text) {
+    var pattern = /\*\*([^*]+)\*\*|\[(\d{1,2})\]/g;
+    var last = 0;
+    var match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > last) parent.appendChild(document.createTextNode(text.slice(last, match.index)));
+      if (match[1] !== undefined) {
+        var strong = document.createElement("strong");
+        strong.textContent = match[1];
+        parent.appendChild(strong);
+      } else {
+        var cite = document.createElement("sup");
+        cite.className = "cite";
+        cite.textContent = match[2];
+        parent.appendChild(cite);
+      }
+      last = pattern.lastIndex;
+    }
+    if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+  }
+
+  function renderMarkdown(container, text) {
+    container.replaceChildren();
+    var list = null;
+    text.split("\n").forEach(function (line) {
+      var item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(line);
+      if (item) {
+        var ordered = /^\s*\d/.test(line);
+        if (!list || list.ordered !== ordered) {
+          list = { node: document.createElement(ordered ? "ol" : "ul"), ordered: ordered };
+          container.appendChild(list.node);
+        }
+        var li = document.createElement("li");
+        appendInline(li, item[1]);
+        list.node.appendChild(li);
+        return;
+      }
+      list = null;
+      if (!line.trim()) return;
+      var paragraph = document.createElement("p");
+      appendInline(paragraph, line);
+      container.appendChild(paragraph);
+    });
+  }
+
   function addMessage(text, kind) {
     var item = document.createElement("div");
     item.className = "message message--" + kind;
-    var body = document.createElement("p");
-    body.textContent = text;
+    var body = document.createElement("div");
+    body.className = "message__body";
+    var message = { item: item, body: body, raw: text || "" };
+    if (kind === "bot") renderMarkdown(body, message.raw);
+    else body.textContent = message.raw;
     item.appendChild(body);
     messages.appendChild(item);
     scrollToBottom();
-    return { item: item, body: body };
+    return message;
+  }
+
+  function appendToken(message, text) {
+    message.raw += text;
+    renderMarkdown(message.body, message.raw);
   }
 
   function resetConversation() {
@@ -158,7 +213,7 @@
         link.href = url.href;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
-        link.textContent = source.label || "Xem nguồn";
+        link.textContent = (source.ref ? "[" + source.ref + "] " : "") + (source.label || "Xem nguồn");
         links.appendChild(link);
       } catch (_) { /* Ignore malformed source links. */ }
     });
@@ -227,7 +282,7 @@
         if (event.name === "status") {
           status.textContent = event.payload.message || "Đang xử lý...";
         } else if (event.name === "token") {
-          pending.body.textContent += event.payload.text || "";
+          appendToken(pending, event.payload.text || "");
           scrollToBottom();
         } else if (event.name === "citations") {
           addSources(pending.item, event.payload.sources);
@@ -283,11 +338,14 @@
     try {
       await waitForAuth(5000);
       await callChat(question, pending, true);
-      if (!pending.body.textContent) pending.body.textContent = "Chưa có câu trả lời.";
+      if (!pending.raw) appendToken(pending, "Chưa có câu trả lời.");
       addFeedback(pending.item, conversationId);
       await loadHistory();
     } catch (error) {
-      if (error.name !== "AbortError") pending.body.textContent = error.message || "Không kết nối được chatbot server.";
+      if (error.name !== "AbortError") {
+        pending.raw = "";
+        appendToken(pending, error.message || "Không kết nối được chatbot server.");
+      }
     } finally {
       status.hidden = true;
       sending = false;
@@ -355,7 +413,7 @@
       if (!response.ok) throw new Error("Không tải được cấu hình widget.");
       config = await response.json();
       title.textContent = config.title;
-      mode.textContent = config.mode === "mock" ? "BẢN THỬ · CHƯA DÙNG AI" : "AI HỖ TRỢ";
+      mode.textContent = config.mode === "agent" ? "AI HỖ TRỢ" : "CHẾ ĐỘ DỰ PHÒNG · KHÔNG DÙNG AI";
       if (/^#[0-9a-fA-F]{6}$/.test(config.primary_color)) {
         document.documentElement.style.setProperty("--accent", config.primary_color);
       }

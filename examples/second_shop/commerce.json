@@ -1,0 +1,36 @@
+{
+  "base_url": "http://localhost:8003",
+  "auth": {"type": "header", "name": "X-Api-Key"},
+  "timeout_seconds": 6,
+  "operations": {
+    "get_order": {
+      "path": "/v2/orders/{order_id}",
+      "params": {"customer": "{customer_id}"},
+      "result": "data.order",
+      "fields": {
+        "id": "code", "status": "state", "total": "amount.value", "shipping_fee": "shipFee",
+        "placed_at": "createdAt", "eta": "expectedBy", "tracking_code": "ghtkCode",
+        "payment_method": "pay"
+      },
+      "items": {"path": "lines", "fields": {"name": "title", "qty": "quantity", "unit_price": "price"}}
+    },
+    "list_orders": {
+      "path": "/v2/users/{customer_id}/orders",
+      "params": {"max": "{limit}", "state": "{status}"},
+      "result": "data.orders"
+    },
+    "get_customer": {
+      "path": "/v2/users/{customer_id}",
+      "result": "data.user",
+      "fields": {
+        "id": "uid", "full_name": "displayName", "email": "mail", "phone": "mobile",
+        "address": "shipTo", "tier": "level", "created_at": "since"
+      }
+    }
+  },
+  "status_map": {
+    "PLACED": "pending", "PACKING": "confirmed", "HANDED_TO_GHTK": "shipping",
+    "DELIVERED": "delivered", "CANCELED": "cancelled", "RETURNED_TO_SENDER": "returned"
+  },
+  "links": {"order": "/account/orders/{order_id}"}
+}

@@ -21,6 +21,7 @@ out/
 .vercel/
 
 # Data & models
+data/pgdata/
 data/raw/
 data/processed/
 models/
@@ -30,6 +31,7 @@ models/
 # Eval artifacts
 eval/runs/
 eval/cache/
+# Final reports are copied to eval/results/ and committed.
 
 # IDE & OS
 .vscode/

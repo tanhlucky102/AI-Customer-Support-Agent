@@ -1,5 +1,5 @@
 // UI smoke test with installed Chrome and its local DevTools protocol.
-// Run while shop demo (8001) and widget Agent Server (8000) are available.
+// Run while scripts/run_all.py is serving the shop demo (8001) and the Agent Server (8000).
 import { spawn } from "node:child_process";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -12,7 +12,7 @@ const testGuest = process.env.ATI_TEST_GUEST === "1";
 const testLogin = process.env.ATI_TEST_LOGIN !== "0" && !testGuest;
 const testHistory = process.env.ATI_TEST_HISTORY === "1";
 const customQuestion = process.env.ATI_QUESTION || "";
-const expectedText = process.env.ATI_EXPECT || (testLogin ? "Các đơn gần đây" : "Miễn phí vận chuyển");
+const expectedText = process.env.ATI_EXPECT || (testLogin ? "SO10293" : "đăng nhập");
 const profile = await mkdtemp(path.join(os.tmpdir(), "ati-widget-chrome-"));
 const screenshotPath = process.env.ATI_SCREENSHOT || path.join(os.tmpdir(), "ati-widget-smoke.png");
 const chrome = spawn(chromePath, [
