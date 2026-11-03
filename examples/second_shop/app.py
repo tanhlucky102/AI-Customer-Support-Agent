@@ -12,6 +12,7 @@ Demo login: chau@pkx.vn / demo1234 (has order PKX204518) or duy@pkx.vn / demo123
 import hmac
 import html
 import re
+import secrets
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -69,8 +70,9 @@ ORDERS = {order["code"]: order for order in [
 ]}
 
 app = FastAPI(title="Phụ Kiện Xanh (second demo shop)")
-app.add_middleware(SessionMiddleware, secret_key=env("SECOND_SHOP_SESSION_SECRET") or TOKEN_SECRET
-                   or "dev-only-session-key", https_only=False, same_site="lax")
+# Never a published default: without a configured secret, sessions use a per-process random key.
+app.add_middleware(SessionMiddleware, secret_key=env("SECOND_SHOP_SESSION_SECRET") or secrets.token_urlsafe(32),
+                   https_only=False, same_site="lax")
 
 
 def require_key(x_api_key: str | None = Header(default=None)) -> None:

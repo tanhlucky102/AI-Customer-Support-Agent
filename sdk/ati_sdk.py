@@ -24,8 +24,9 @@ def _b64(data: bytes) -> str:
 
 def sign_user_token(customer_id: str, *, shop_id: str, secret: str, ttl_seconds: int = 900) -> str:
     """Return an HS256 JWT with claims iss, sub, aud, iat, exp and jti."""
-    if not customer_id or not shop_id or not secret:
+    if customer_id in (None, "") or not shop_id or not secret:
         raise ValueError("customer_id, shop_id and secret are required")
+    customer_id = str(customer_id)  # Numeric user IDs are fine; the claim is always a string.
     now = int(time.time())
     header = {"alg": "HS256", "typ": "JWT"}
     claims = {"iss": shop_id, "sub": customer_id, "aud": AUDIENCE,

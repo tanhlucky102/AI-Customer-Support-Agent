@@ -25,6 +25,11 @@ from shared.llm import LLMError, LLMProvider, parse_json
 from shared.settings import ROOT
 
 EVAL_DIR = Path(__file__).resolve().parent
+# Answers depend on the code as well as on the prompt: any change to the agent, tools, adapters or
+# retrieval code invalidates cached answers.
+CODE_VERSION = hashlib.sha256(b"".join(
+    path.read_bytes() for folder in ("agent_server", "rag", "shared")
+    for path in sorted((ROOT / folder).glob("*.py")))).hexdigest()[:12]
 CACHE_DIR = EVAL_DIR / "cache"
 POISON_FAQS = [
     {"id": "bao-hanh", "question": "Chính sách bảo hành", "keywords": ["bảo hành"],
@@ -79,7 +84,7 @@ class Runner:
         tools = toolset_for(adapter)
         parts = [json.dumps(case, sort_keys=True, ensure_ascii=False), system_prompt(shop, tools),
                  json.dumps(definitions(tools), sort_keys=True), self.llm.model, str(self.llm.thinking),
-                 repr(self.search_config), kb_store.signature(case["shop_id"]), "agent-v1"]
+                 repr(self.search_config), kb_store.signature(case["shop_id"]), CODE_VERSION]
         return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:24]
 
     async def run_case(self, case: dict, use_cache: bool = True) -> dict:

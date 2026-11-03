@@ -47,6 +47,8 @@ def render(markdown: str) -> str:
                 if not all(set(cell) <= set("-: ") for cell in cells):
                     rows.append(cells)
                 index += 1
+            if not rows:
+                continue
             head, *body = rows
             out.append("<table><tr>" + "".join(f"<th>{_inline(c)}</th>" for c in head) + "</tr>"
                        + "".join("<tr>" + "".join(f"<td>{_inline(c)}</td>" for c in row) + "</tr>"
@@ -71,7 +73,7 @@ def page(slug: str) -> dict | None:
     path = KB_DIR / f"{slug}.md"
     if not re.fullmatch(r"[a-z0-9-]+", slug) or not path.exists():
         return None
-    meta, body = _meta(path.read_text(encoding="utf-8"))
+    meta, body = _meta(path.read_text(encoding="utf-8-sig"))
     return {"slug": slug, "title": meta.get("title", slug), "category": meta.get("category", ""),
             "updated_at": meta.get("updated_at", ""), "html": render(body)}
 
@@ -79,7 +81,7 @@ def page(slug: str) -> dict | None:
 def index() -> dict[str, list[dict]]:
     groups: dict[str, list[dict]] = {}
     for path in sorted(KB_DIR.glob("*.md")):
-        meta, _ = _meta(path.read_text(encoding="utf-8"))
+        meta, _ = _meta(path.read_text(encoding="utf-8-sig"))
         label = CATEGORY_LABEL.get(meta.get("category", ""), "Khác")
         groups.setdefault(label, []).append({"slug": path.stem, "title": meta.get("title", path.stem)})
     return dict(sorted(groups.items()))

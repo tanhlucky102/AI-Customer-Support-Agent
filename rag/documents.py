@@ -69,16 +69,19 @@ def parse(text: str, slug: str) -> Document:
         sections.append(Section(len(sections), heading, "\n".join(lines).strip()))
     if not title or not sections:
         raise ValueError(f"{slug}: needs a '# ' title and at least one '## ' section")
+    intro = "\n".join(intro_lines).strip()
+    if intro:  # The intro can hold facts too; it travels with the first section (anchor #muc-0).
+        sections[0] = Section(0, sections[0].heading, f"{intro}\n\n{sections[0].content}".strip())
     updated = None
     if meta.get("updated_at"):
         updated = date.fromisoformat(meta["updated_at"])
     return Document(slug=slug, title=title, category=meta["category"], updated_at=updated,
-                    intro="\n".join(intro_lines).strip(), sections=sections,
+                    intro="", sections=sections,
                     source_url=meta.get("url") or None)
 
 
 def load_dir(directory: Path) -> list[Document]:
-    return [parse(path.read_text(encoding="utf-8"), path.stem)
+    return [parse(path.read_text(encoding="utf-8-sig"), path.stem)
             for path in sorted(directory.glob("*.md"))]
 
 

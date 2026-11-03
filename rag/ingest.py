@@ -20,13 +20,13 @@ from rag import store
 from rag.chunking import chunk_document, header
 from rag.contextual import PROMPT_VERSION, contexts_for
 from rag.documents import Document, faq_document, load_dir
-from rag.models import embedder
+from rag.models import embedder, embedder_name
 from shared.settings import ROOT, env_flag, env_int
 
 
 def settings_key(contextual: bool, max_tokens: int, overlap: int) -> list[str]:
     return [f"ctx={PROMPT_VERSION if contextual else 'off'}", f"T={max_tokens}", f"o={overlap}",
-            f"emb={embedder().name}"]
+            f"emb={embedder_name()}"]
 
 
 async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document], *,
@@ -38,7 +38,8 @@ async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document
     stats = {"documents": len(documents), "indexed": 0, "skipped": 0, "removed": 0, "chunks": 0,
              "llm_calls": 0}
     for document in documents:
-        fingerprint = document.fingerprint(*settings)
+        source_url = document.source_url or f"{shop_url.rstrip('/')}/help/{document.slug}"
+        fingerprint = document.fingerprint(*settings, source_url, str(document.updated_at), origin)
         if not force and known.get(document.slug) == fingerprint:
             stats["skipped"] += 1
             continue
@@ -54,10 +55,11 @@ async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document
                        for cid, (section, child) in children.items()}
         ids = list(index_texts)
         vectors = dict(zip(ids, embedder().encode([index_texts[cid] for cid in ids])))
-        source_url = document.source_url or f"{shop_url.rstrip('/')}/help/{document.slug}"
+        if contextual and len(contexts) < len(children):
+            fingerprint += "-incomplete"  # Some context calls failed: retry them next run.
         store.replace_document(shop_id, document, sections, contexts, vectors,
                                fingerprint=fingerprint, source_url=source_url,
-                               embedding_model=embedder().name, index_texts=index_texts)
+                               embedding_model=embedder_name(), index_texts=index_texts)
         stats["indexed"] += 1
         stats["chunks"] += len(ids)
     if prune:

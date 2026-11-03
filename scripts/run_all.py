@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parent.parent
 SERVERS = [
     ("agent", [sys.executable, "-m", "uvicorn", "agent_server.app:app", "--port", "8000"], ROOT),
     ("demo-shop", [sys.executable, "-m", "uvicorn", "app:app", "--port", "8001"], ROOT / "shop_demo"),
-    ("sample-store", [sys.executable, "-m", "http.server", "8002"], ROOT / "examples" / "third_party_site"),
+    ("sample-store", [sys.executable, "-m", "http.server", "8002", "--bind", "127.0.0.1"],
+     ROOT / "examples" / "third_party_site"),
     ("second-shop", [sys.executable, "-m", "uvicorn", "examples.second_shop.app:app", "--port", "8003"], ROOT),
 ]
 
@@ -39,6 +40,9 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        for (name, _, _), process in zip(SERVERS, processes):
+            if process.poll() is not None:
+                print(f"{name} stopped (exit code {process.returncode}); stopping the others")
         for process in processes:
             if process.poll() is None:
                 process.terminate()

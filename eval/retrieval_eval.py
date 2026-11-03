@@ -6,6 +6,7 @@ questions with that of unanswerable shop questions (out_of_scope/unknown cases).
 """
 
 import json
+import math
 import time
 from pathlib import Path
 
@@ -22,6 +23,10 @@ CONFIGS = {
     "hybrid_tsrank": SearchConfig(vector=True, keyword="tsrank", rerank=False),
     "hybrid_rerank": SearchConfig(vector=True, keyword="bm25", rerank=True),
 }
+
+
+def nearest_rank(sorted_values: list[float], share: float) -> float:
+    return sorted_values[min(len(sorted_values) - 1, max(0, math.ceil(share * len(sorted_values)) - 1))]
 
 
 def load(path: Path) -> list[dict]:
@@ -58,7 +63,8 @@ def evaluate(config: SearchConfig, questions: list[dict]) -> dict:
     latencies.sort()
     return {"n": n, "recall@1": round(hits1 / n, 3), "recall@5": round(hits5 / n, 3),
             "mrr@10": round(reciprocal / n, 3),
-            "latency_ms_p50": round(latencies[n // 2]), "latency_ms_p95": round(latencies[int(n * 0.95) - 1]),
+            "latency_ms_p50": round(nearest_rank(latencies, 0.5)),
+            "latency_ms_p95": round(nearest_rank(latencies, 0.95)),
             "misses": misses}
 
 

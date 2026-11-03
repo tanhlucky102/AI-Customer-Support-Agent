@@ -48,7 +48,7 @@ def main() -> None:
         assert "30.000" in reply, reply
         print("PASS: policy answer with citations:", [s["label"] for s in events.get("citations", {}).get("sources", [])])
         reply, _ = ask(agent, "Đơn SO10293 của tôi tới đâu rồi?", token)
-        assert "SO10293" in reply, reply
+        assert "GHTK6761334796" in reply, reply  # tracking code: only the order API knows it
         print("PASS: order lookup ->", reply[:120].replace("\n", " "))
 
         other = login(SHOP_URL, "binh@demo.vn")
@@ -58,7 +58,8 @@ def main() -> None:
 
         second = login(SECOND_URL, "chau@pkx.vn")
         reply, _ = ask(agent, "Đơn PKX204518 của tôi đến đâu rồi?", second, shop_key="pk_second_shop")
-        assert "PKX204518" in reply, reply
+        # The tracking code exists only in the shop's API, never in its documents.
+        assert "S22.81726354" in reply, reply
         print("PASS: second shop order through the JSON mapping ->", reply[:120].replace("\n", " "))
 
 

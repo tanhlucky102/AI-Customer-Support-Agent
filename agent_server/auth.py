@@ -21,6 +21,8 @@ def verify_customer_token(token: str, shop: dict) -> str | None:
 
         header = json.loads(decode(encoded_header))
         claims = json.loads(decode(encoded_claims))
+        if not isinstance(header, dict) or not isinstance(claims, dict):
+            return None
         signature = decode(encoded_signature)
         secret = shop.get("chat_token_secret")
         if not secret:
@@ -39,5 +41,5 @@ def verify_customer_token(token: str, shop: dict) -> str | None:
         if not isinstance(claims.get("iat"), int) or claims["iat"] > now + 60:
             return None
         return claims["sub"]
-    except (ValueError, KeyError, TypeError, UnicodeDecodeError):
-        return None
+    except (ValueError, KeyError, TypeError, UnicodeDecodeError, RecursionError):
+        return None  # Any malformed token is a 401, never a server error.

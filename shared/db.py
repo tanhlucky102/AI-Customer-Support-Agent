@@ -203,16 +203,19 @@ def _start_embedded() -> str:
         pgdata = _embedded_home() / "pgdata"
     pgdata.mkdir(parents=True, exist_ok=True)
     global _embedded
-    for attempt in range(4):
+    for attempt in range(6):
         try:
             _embedded = pgserver.get_server(pgdata, cleanup_mode=None)
             return _embedded.get_uri()
-        except subprocess.TimeoutExpired:
-            # After an unclean shutdown Postgres replays its WAL first; on Windows that can take
-            # ~40 s, longer than pgserver waits. The server keeps starting, so ask again.
-            if attempt == 3:
+        except (subprocess.TimeoutExpired, AssertionError):
+            # After an unclean shutdown Postgres first syncs and replays its WAL; on Windows that
+            # takes ~40 s, longer than pgserver's 10 s wait. The server keeps starting, but pgserver
+            # caches the half-started handle (get_uri then fails an assertion), so drop it and ask
+            # again: the next handle finds the running server through postmaster.pid.
+            postgres_server.PostgresServer._instances.pop(pgdata.expanduser().resolve(), None)
+            if attempt == 5:
                 raise
-            time.sleep(15)
+            time.sleep(10)
 
 
 def database_url() -> str:
@@ -235,8 +238,9 @@ def pool() -> ConnectionPool:
             # The vector type must exist before connections can register it.
             with psycopg.connect(url, autocommit=True) as connection:
                 connection.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            # Fail within 5 s when the database is unreachable, instead of psycopg_pool's 30 s.
             _pool = ConnectionPool(url, min_size=1, max_size=8, open=True, configure=_configure,
-                                   kwargs={"row_factory": dict_row})
+                                   kwargs={"row_factory": dict_row}, timeout=5)
         return _pool
 
 

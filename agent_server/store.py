@@ -110,6 +110,19 @@ def set_chat_token_secret(shop_id: str, secret: str) -> bool:
                                (secret, shop_id)).rowcount)
 
 
+def refresh_shop(shop_id: str, *, faq_write_key: str, chat_token_secret: str, shop_url: str,
+                 allowed_origins: list[str], commerce_config: dict | None = None,
+                 commerce_api_key: str | None = None) -> None:
+    """Bring an existing shop's keys, URL and commerce settings in line with the given values."""
+    with connect() as db:
+        db.execute("""UPDATE shops SET faq_key_digest = %s, chat_token_secret = %s, shop_url = %s,
+                      allowed_origins = %s, commerce_config = %s, commerce_api_key = %s
+                      WHERE shop_id = %s""", (
+            key_digest(faq_write_key), chat_token_secret, shop_url.rstrip("/"),
+            Jsonb(sorted(set(allowed_origins))), Jsonb(commerce_config) if commerce_config else None,
+            commerce_api_key, shop_id))
+
+
 def set_commerce(shop_id: str, config: dict | None, api_key: str | None) -> bool:
     """Connect (or disconnect, with None) a shop's commerce API. Operator-only."""
     with connect() as db:
@@ -129,6 +142,8 @@ def list_faqs(shop_id: str) -> list[dict]:
 def replace_faqs(shop_id: str, faqs: list[dict]) -> tuple[int, int]:
     """Replace a shop's FAQ snapshot atomically and return (count, revision)."""
     with connect() as db:
+        # Lock the shop row: two concurrent pushes then run one after the other.
+        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR UPDATE", (shop_id,))
         db.execute("DELETE FROM faqs WHERE shop_id = %s", (shop_id,))
         with db.cursor() as cursor:
             cursor.executemany("""INSERT INTO faqs
@@ -145,6 +160,7 @@ def replace_faqs(shop_id: str, faqs: list[dict]) -> tuple[int, int]:
 def replace_offers(shop_id: str, offers: list[dict]) -> tuple[int, int]:
     """Replace a shop's published promotions/events snapshot atomically."""
     with connect() as db:
+        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR UPDATE", (shop_id,))
         db.execute("DELETE FROM offers WHERE shop_id = %s", (shop_id,))
         with db.cursor() as cursor:
             cursor.executemany("""INSERT INTO offers
@@ -186,6 +202,14 @@ def create_conversation(conversation_id: str, shop_id: str, customer_id: str,
         db.execute("""INSERT INTO conversations (id, shop_id, customer_id, title, created_at, updated_at)
                       VALUES (%s, %s, %s, %s, %s, %s)""",
                    (conversation_id, shop_id, customer_id, title, now(), now()))
+
+
+def delete_empty_conversation(conversation_id: str) -> None:
+    """Remove a conversation whose first turn failed, so it does not appear empty in history."""
+    with connect() as db:
+        db.execute("""DELETE FROM conversations c WHERE c.id = %s
+                      AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id)""",
+                   (conversation_id,))
 
 
 def append_turn(conversation_id: str, shop_id: str, customer_id: str,

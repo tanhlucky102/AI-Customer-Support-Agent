@@ -62,9 +62,11 @@
     text.split("\n").forEach(function (line) {
       var item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(line);
       if (item) {
-        var ordered = /^\s*\d/.test(line);
+        var number = /^\s*(\d+)/.exec(line);
+        var ordered = Boolean(number);
         if (!list || list.ordered !== ordered) {
           list = { node: document.createElement(ordered ? "ol" : "ul"), ordered: ordered };
+          if (ordered) list.node.start = Number(number[1]);  // "3." after a break stays 3.
           container.appendChild(list.node);
         }
         var li = document.createElement("li");

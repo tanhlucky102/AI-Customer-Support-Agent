@@ -62,9 +62,11 @@ def split_section(section: Section, max_tokens: int, overlap: int) -> list[str]:
         chunks.append("\n".join(pieces[start:end]))
         if end >= len(pieces):
             break
-        # Step back so that roughly `overlap` tokens are shared with the next chunk.
+        # Step back so that roughly `overlap` tokens are shared with the next chunk, but only as
+        # far as the next piece still fits; otherwise the next chunk would repeat this one.
         back, carried = end, 0
-        while back - 1 > start and carried + sizes[back - 1] <= overlap:
+        while (back - 1 > start and carried + sizes[back - 1] <= overlap
+               and carried + sizes[back - 1] + sizes[end] <= max_tokens):
             back -= 1
             carried += sizes[back]
         start = back

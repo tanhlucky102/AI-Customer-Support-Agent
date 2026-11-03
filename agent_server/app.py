@@ -15,20 +15,21 @@ from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agent_server import agent
 from agent_server.auth import verify_customer_token
 from agent_server.commerce import adapter_for
 from agent_server.rate_limit import ChatLimiter
-from agent_server.store import (append_turn, conversation_owned, create_conversation, init_db,
+from agent_server.store import (append_turn, conversation_owned, create_conversation,
+                                delete_empty_conversation, init_db,
                                 list_conversations, list_faqs, list_messages, list_offers,
                                 list_tickets, origin_of, replace_faqs, replace_offers, save_trace,
                                 shop_by_id, shop_by_public_key, verify_faq_key)
 from agent_server.tools import TurnContext
 from rag.search import search
 from shared.llm import LLMProvider
-from shared.pii import PiiFilter
+from shared.pii import PiiFilter, mask_text
 from shared.settings import ROOT, env, env_flag, env_int
 
 WIDGET_DIR = ROOT / "widget"
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 logger.addFilter(PiiFilter())
 # Public origin when the server sits behind a tunnel or proxy that rewrites the Host header.
 AGENT_ORIGIN = origin_of(env("AGENT_SERVER_URL"))
+# Upper bound for one chat turn, checked between events (each model call, shop call and search
+# has its own timeout), so a slow gateway cannot hold the conversation lock indefinitely.
+TURN_TIMEOUT = env_int("TURN_TIMEOUT_SECONDS", 90)
 
 
 def warm_up() -> None:
@@ -101,6 +105,12 @@ class ChatRequest(BaseModel):
     shop_key: str = Field(min_length=1, max_length=100)
     message: str = Field(min_length=1, max_length=500)
     conversation_id: str | None = Field(default=None, max_length=100)
+
+    @field_validator("message")
+    @classmethod
+    def printable(cls, value: str) -> str:
+        """Drop control characters (Postgres rejects NUL, after a whole answer was streamed)."""
+        return "".join(char for char in value if char in "\n\t" or ord(char) >= 32)
 
 
 class FeedbackRequest(BaseModel):
@@ -235,12 +245,15 @@ async def widget_config(shop_key: str):
     }
 
 
-async def reindex_faqs(shop: dict, faqs: list[dict]) -> None:
+async def reindex_faqs(shop: dict, faqs: list[dict]) -> bool:
+    """Embed the pushed FAQ in a worker thread so live chat streams are not frozen meanwhile."""
     from rag.ingest import index_faqs
     try:
-        await index_faqs(shop["shop_id"], shop["shop_url"], faqs)
+        await asyncio.to_thread(lambda: asyncio.run(index_faqs(shop["shop_id"], shop["shop_url"], faqs)))
+        return True
     except Exception:
         logger.exception("FAQ indexing failed for shop %s", shop["shop_id"])
+        return False
 
 
 @app.put("/v1/shops/{shop_id}/faqs")
@@ -266,8 +279,8 @@ async def sync_faqs(shop_id: str, payload: FaqSnapshot,
         if faq["source_url"] and origin_of(faq["source_url"]) != expected_origin:
             raise HTTPException(422, "source_url_must_match_shop_origin")
     count, revision = replace_faqs(shop_id, faqs)
-    await reindex_faqs(shop, faqs)
-    return {"shop_id": shop_id, "count": count, "revision": revision}
+    indexed = await reindex_faqs(shop, faqs)
+    return {"shop_id": shop_id, "count": count, "revision": revision, "indexed": indexed}
 
 
 @app.get("/v1/shops/{shop_id}/faqs")
@@ -319,6 +332,19 @@ async def get_tickets(shop_id: str, authorization: str | None = Header(default=N
     return {"shop_id": shop_id, "tickets": list_tickets(shop_id)}
 
 
+TRACE_ARG_LIMIT = 80
+
+
+def trace_tools(calls: list[dict]) -> list[dict]:
+    """Tool names, success and masked short arguments: never outputs or free-text summaries."""
+    safe = []
+    for call in calls:
+        args = {key: mask_text(str(value))[:TRACE_ARG_LIMIT] for key, value in call["args"].items()
+                if key != "transcript_summary"}
+        safe.append({"name": call["name"], "args": args, "ok": call["ok"]})
+    return safe
+
+
 def turn_context(shop: dict, customer_id: str, conversation_id: str) -> TurnContext:
     return TurnContext(shop=shop, customer_id=customer_id, conversation_id=conversation_id,
                        turn_key=f"{conversation_id}:{uuid.uuid4().hex}", adapter=adapter_for(shop),
@@ -349,15 +375,20 @@ async def chat(payload: ChatRequest, request: Request,
         started = time.perf_counter()
         first_ms = None
         trace = {"conversation_id": conversation_id, "shop_id": shop["shop_id"], "mode": "error"}
+        created = False
         try:
             async with conversation_locks.hold(conversation_id):
-                history = (list_messages(conversation_id, shop["shop_id"], customer_id, limit=8)
-                           if payload.conversation_id else [])
+                history = (await asyncio.to_thread(list_messages, conversation_id, shop["shop_id"],
+                                                   customer_id, 8) if payload.conversation_id else [])
                 if not payload.conversation_id:
-                    create_conversation(conversation_id, shop["shop_id"], customer_id, message)
+                    await asyncio.to_thread(create_conversation, conversation_id, shop["shop_id"],
+                                            customer_id, message)
+                    created = True
                 ctx = turn_context(shop, customer_id, conversation_id)
                 done = None
                 async for event in agent.run(ctx, history or [], message, llm=llm):
+                    if time.perf_counter() - started > TURN_TIMEOUT:
+                        raise TimeoutError("chat turn took too long")
                     if first_ms is None:
                         first_ms = round((time.perf_counter() - started) * 1000)
                     kind = event["type"]
@@ -367,10 +398,11 @@ async def chat(payload: ChatRequest, request: Request,
                         raise RuntimeError(event.get("detail") or event["message"])
                     else:
                         yield sse(kind, {key: value for key, value in event.items() if key != "type"})
-                message_id = append_turn(conversation_id, shop["shop_id"], customer_id, message,
-                                         done["reply"], done["sources"])
-                tools_called = [{key: call[key] for key in ("name", "args", "ok")}
-                                for call in done["tools"]]  # Tool outputs may hold personal data.
+                message_id = await asyncio.to_thread(append_turn, conversation_id, shop["shop_id"],
+                                                     customer_id, message, done["reply"], done["sources"])
+                tools_called = trace_tools(done["tools"])
+                if done.get("fallback_reason"):  # Why the model was not used, for operators.
+                    trace["error"] = f"fallback: {done['fallback_reason']}"[:300]
                 trace.update(message_id=message_id, mode=done["mode"], model=done.get("model"),
                              llm_calls=done["llm_calls"], tools_called=tools_called,
                              latency_first_token_ms=done.get("first_token_ms"),
@@ -381,13 +413,18 @@ async def chat(payload: ChatRequest, request: Request,
             # The question itself is not logged because it may contain personal data.
             logger.exception("chat failed for shop %s", shop["shop_id"])
             trace["error"] = type(error).__name__
+            if created:  # Do not leave an empty conversation in the customer's history.
+                try:
+                    await asyncio.to_thread(delete_empty_conversation, conversation_id)
+                except Exception:
+                    logger.exception("empty conversation not removed")
             yield sse("error", {"message": "Chatbot chưa xử lý được câu hỏi. Vui lòng thử lại sau."})
             return
         finally:
             trace.update(latency_first_ms=first_ms,
                          latency_total_ms=round((time.perf_counter() - started) * 1000))
             try:
-                save_trace(trace)
+                await asyncio.to_thread(save_trace, trace)
             except Exception:
                 logger.exception("trace not saved")
         yield sse("done", {"conversation_id": conversation_id, "mode": done["mode"]})

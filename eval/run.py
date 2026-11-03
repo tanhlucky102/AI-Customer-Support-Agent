@@ -12,6 +12,7 @@ Reports are written to eval/runs/<tag>/. Model outputs and judge verdicts are ca
 import argparse
 import asyncio
 import json
+import math
 import statistics
 import time
 from datetime import datetime
@@ -27,10 +28,11 @@ def load(name: str) -> list[dict]:
 
 
 def percentile(values: list[float], share: float) -> float | None:
+    """Nearest-rank percentile: the smallest value with at least `share` of values at or below it."""
     values = sorted(value for value in values if value is not None)
     if not values:
         return None
-    return round(values[min(len(values) - 1, max(0, int(round(share * len(values))) - 1))])
+    return round(values[min(len(values) - 1, max(0, math.ceil(share * len(values)) - 1))])
 
 
 def fold_text(text: str) -> str:
@@ -78,11 +80,13 @@ def reference_text(question: dict) -> str:
 
 
 def qa_cases(limit_demo: int) -> list[dict]:
-    """Every 'second_shop' question plus an evenly spaced sample of the demo-shop questions."""
+    """Every 'second_shop' question plus an evenly spaced sample over ALL demo-shop questions
+    (policies and product guides alike)."""
     questions = load("retrieval.jsonl")
     demo = [q for q in questions if q["shop_id"] == "demo_shop"]
-    step = max(1, len(demo) // limit_demo)
-    picked = demo[::step][:limit_demo] + [q for q in questions if q["shop_id"] != "demo_shop"]
+    count = min(limit_demo, len(demo))
+    sample = [demo[(i * len(demo)) // count] for i in range(count)]
+    picked = sample + [q for q in questions if q["shop_id"] != "demo_shop"]
     customer = {"demo_shop": "C0001", "second_shop": "K1001"}
     return [{"id": "q-" + q["id"], "type": "qa", "shop_id": q["shop_id"], "customer_id": customer[q["shop_id"]],
              "question": q["question"], "expected": q["expected"]} for q in picked]
@@ -239,7 +243,8 @@ async def baseline_report(args) -> dict:
                         "input": usage.input_tokens if usage else 0, "cached": usage.cached_tokens if usage else 0})
     from rag.search import search
     search("khởi động", "demo_shop")  # Load the models first, so no question pays for loading them.
-    rag = await Runner().run_all(cases, concurrency=3, use_cache=False)
+    # One question at a time, like the stuffed-prompt side, so the latencies are comparable.
+    rag = await Runner().run_all(cases, concurrency=1, use_cache=False)
     def judged(replies):
         return [CORRECT.format(reference=reference_text(c), question=c["question"], answer=r)
                 for c, r in zip(cases, replies)]

@@ -69,7 +69,7 @@ class LLMProvider:
             self.model = DEFAULT_MODEL
         self.api_base = api_base or env("AI_BOX_BASE_URL", "https://api.ai-box.vn/v1")
         self.api_key = api_key if api_key is not None else env("AI_BOX_API_KEY")
-        self.timeout = timeout or env_float("LLM_TIMEOUT_SECONDS", 30.0)
+        self.timeout = timeout or env_float("LLM_TIMEOUT_SECONDS", 15.0)
         self.temperature = temperature
         # deepseek-flash reasons before answering unless told not to; off keeps latency low.
         self.thinking = env_flag("LLM_THINKING", False) if thinking is None else thinking
@@ -91,43 +91,52 @@ class LLMProvider:
 
     async def stream(self, messages: list[dict], tools: list[dict] | None = None,
                      tool_choice: str = "auto") -> AsyncIterator[dict]:
-        """Yield {"type": "token", "text"} as text arrives, then {"type": "result", "result"}."""
+        """Yield {"type": "token", "text"} as text arrives, then {"type": "result", "result"}.
+
+        A call that fails before any text was streamed (gateway stall, dropped connection) is
+        retried once; after text has reached the customer a failure is final.
+        """
         import litellm
 
         if not self.enabled:
             raise LLMError("no API key configured")
         started = time.perf_counter()
-        result = LLMResult()
-        calls: dict[int, dict] = {}
-        try:
-            response = await litellm.acompletion(**self._kwargs(messages, tools, tool_choice),
-                                                 stream=True, stream_options={"include_usage": True})
-            async for chunk in response:
-                if getattr(chunk, "usage", None):
-                    result.usage = _usage(chunk.usage)
-                if not chunk.choices:
-                    continue
-                choice = chunk.choices[0]
-                delta = choice.delta
-                if getattr(delta, "content", None):
-                    if result.first_token_ms is None:
-                        result.first_token_ms = round((time.perf_counter() - started) * 1000)
-                    result.content += delta.content
-                    yield {"type": "token", "text": delta.content}
-                for call in getattr(delta, "tool_calls", None) or []:
-                    slot = calls.setdefault(call.index or 0, {"id": None, "name": "", "arguments": ""})
-                    if call.id:
-                        slot["id"] = call.id
-                    if call.function and call.function.name:
-                        slot["name"] += call.function.name
-                    if call.function and call.function.arguments:
-                        slot["arguments"] += call.function.arguments
-                if choice.finish_reason:
-                    result.finish_reason = choice.finish_reason
-        except LLMError:
-            raise
-        except Exception as error:  # litellm wraps timeouts, HTTP and connection errors.
-            raise LLMError(f"{type(error).__name__}: {str(error)[:200]}") from None
+        for attempt in range(2):
+            result = LLMResult()
+            calls: dict[int, dict] = {}
+            try:
+                response = await litellm.acompletion(**self._kwargs(messages, tools, tool_choice),
+                                                     stream=True, stream_options={"include_usage": True})
+                async for chunk in response:
+                    if getattr(chunk, "usage", None):
+                        result.usage = _usage(chunk.usage)
+                    if not chunk.choices:
+                        continue
+                    choice = chunk.choices[0]
+                    delta = choice.delta
+                    if getattr(delta, "content", None):
+                        if result.first_token_ms is None:
+                            result.first_token_ms = round((time.perf_counter() - started) * 1000)
+                        result.content += delta.content
+                        yield {"type": "token", "text": delta.content}
+                    for call in getattr(delta, "tool_calls", None) or []:
+                        # Chunks of one call share its index; without an index a new id starts a call.
+                        key = call.index if call.index is not None else (
+                            len(calls) if call.id and all(c["id"] != call.id for c in calls.values())
+                            else max(calls, default=0))
+                        slot = calls.setdefault(key, {"id": None, "name": "", "arguments": ""})
+                        if call.id:
+                            slot["id"] = call.id
+                        if call.function and call.function.name:
+                            slot["name"] = call.function.name  # Sent once, or repeated in full.
+                        if call.function and call.function.arguments:
+                            slot["arguments"] += call.function.arguments
+                    if choice.finish_reason:
+                        result.finish_reason = choice.finish_reason
+                break
+            except Exception as error:  # litellm wraps timeouts, HTTP and connection errors.
+                if result.content or attempt == 1 or not transient(error):
+                    raise LLMError(f"{type(error).__name__}: {str(error)[:200]}") from None
         result.usage.calls = 1
         result.tool_calls = [
             {"id": slot["id"] or f"call_{index}", "name": slot["name"], "arguments": slot["arguments"]}
@@ -151,6 +160,15 @@ class LLMProvider:
         except Exception as error:
             raise LLMError(f"{type(error).__name__}: {str(error)[:200]}") from None
         return (response.choices[0].message.content or "").strip(), _usage(response.usage)
+
+
+def transient(error: Exception) -> bool:
+    """Worth one retry: stalls, dropped connections, overload; not bad requests or bad keys."""
+    status = getattr(error, "status_code", None)
+    if isinstance(status, int):
+        return status == 429 or status >= 500
+    return isinstance(error, (TimeoutError, ConnectionError)) or any(
+        word in type(error).__name__ for word in ("Timeout", "Connection", "Unavailable", "RateLimit"))
 
 
 def parse_json(text: str) -> dict:

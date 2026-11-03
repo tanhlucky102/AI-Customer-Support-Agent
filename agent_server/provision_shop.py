@@ -14,7 +14,7 @@ from pathlib import Path
 
 import psycopg
 
-from agent_server.commerce import CAPABILITIES, resolve_config
+from agent_server.commerce import CAPABILITIES, config_problems, resolve_config
 from agent_server.store import create_shop, init_db, origin_of
 
 
@@ -31,6 +31,9 @@ def load_commerce_config(path: str, parser: argparse.ArgumentParser) -> dict:
         parser.error(f"unknown operations {sorted(unknown)}; allowed: {list(CAPABILITIES)}")
     if not operations:
         parser.error("commerce config declares no operations")
+    problems = config_problems(config)
+    if problems:
+        parser.error("unsafe commerce config:\n  " + "\n  ".join(problems))
     return config
 
 

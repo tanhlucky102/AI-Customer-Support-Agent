@@ -20,6 +20,10 @@ from urllib.parse import quote
 import httpx
 
 CAPABILITIES = ("get_order", "list_orders", "get_customer", "search_products")
+# Operations that return one customer's data must be scoped to the token's customer: either the
+# request names {customer_id} (the shop filters), or the mapping names an owner field that the
+# adapter checks on every record (for admin-style APIs that return any customer's order).
+CUSTOMER_SCOPED = ("get_order", "list_orders", "get_customer")
 ORDER_STATUSES = ("pending", "confirmed", "shipping", "delivered", "cancelled", "returned")
 STATUS_LABEL = {
     "pending": "Chờ xác nhận", "confirmed": "Đã xác nhận", "shipping": "Đang giao",
@@ -94,6 +98,29 @@ def resolve_config(config: dict) -> dict:
     return merged
 
 
+def _scoped(operations: dict, name: str) -> bool:
+    spec = operations.get(name) or {}
+    if name == "list_orders" and not spec.get("owner_field"):
+        spec = {**spec, "owner_field": (operations.get("get_order") or {}).get("owner_field")}
+    templates = [spec.get("path", ""), *(spec.get("params") or {}).values()]
+    return bool(spec.get("owner_field")) or any("{customer_id}" in str(t) for t in templates)
+
+
+def config_problems(config: dict) -> list[str]:
+    """What makes a mapping unsafe; checked at provisioning and again whenever it is loaded."""
+    operations = resolve_config(config)["operations"]
+    problems = []
+    for name, spec in operations.items():
+        path = str(spec.get("path", ""))
+        if not path.startswith("/") or path.startswith("//"):
+            problems.append(f"{name}: path must be relative to base_url and start with '/'")
+    for name in CUSTOMER_SCOPED:
+        if name in operations and not _scoped(operations, name):
+            problems.append(f"{name}: not scoped to the customer; use {{customer_id}} in the path "
+                            "or params, or name an owner_field")
+    return problems
+
+
 class RestCommerceAdapter:
     def __init__(self, config: dict, api_key: str | None, shop_url: str,
                  transport: httpx.AsyncBaseTransport | None = None):
@@ -103,8 +130,10 @@ class RestCommerceAdapter:
         self.shop_url = shop_url.rstrip("/")
         self.transport = transport
         self.status_map = self.config.get("status_map") or {}
+        unsafe = {problem.split(":", 1)[0] for problem in config_problems(config)}
+        # An unsafe operation is never offered to the model, even if such a config was stored.
         self.capabilities = frozenset(name for name in CAPABILITIES
-                                      if name in self.config["operations"])
+                                      if name in self.config["operations"] and name not in unsafe)
 
     def _headers(self) -> dict:
         auth = self.config.get("auth") or {}
@@ -113,6 +142,8 @@ class RestCommerceAdapter:
         return {"Authorization": f"Bearer {self.api_key}"}
 
     async def _get(self, operation: str, variables: dict):
+        if operation not in self.capabilities:
+            raise CommerceError(f"{operation}: not available for this shop")
         spec = self.config["operations"][operation]
         encoded = {name: quote(str(value), safe="") for name, value in variables.items()
                    if value is not None}
@@ -140,19 +171,27 @@ class RestCommerceAdapter:
         if len(response.content) > MAX_RESPONSE_BYTES:
             raise CommerceError(f"{operation}: response too large")
         try:
-            return pick(response.json(), spec.get("result"))
+            data = response.json()
         except ValueError:
             raise CommerceError(f"{operation}: invalid JSON") from None
+        result = pick(data, spec.get("result"))
+        if result is None:  # A 200 without the expected record is an error, not "not found".
+            raise CommerceError(f"{operation}: response has no {spec.get('result')!r}")
+        return result
 
     def _status_in(self, value) -> str:
         value = self.status_map.get(str(value), value)
         return value if value in ORDER_STATUSES else "unknown"
 
+    def _status_values(self, canonical: str) -> list[str]:
+        return [theirs for theirs, ours in self.status_map.items() if ours == canonical] or [canonical]
+
     def _status_out(self, canonical: str) -> str:
-        for theirs, ours in self.status_map.items():
-            if ours == canonical:
-                return theirs
-        return canonical
+        return self._status_values(canonical)[0]
+
+    def _owned(self, operation: str, record: dict, customer_id: str) -> bool:
+        owner_field = self._spec(operation, "owner_field")
+        return not owner_field or str(pick(record, owner_field)) == str(customer_id)
 
     def _spec(self, operation: str, key: str):
         """list_orders reuses get_order's field mapping unless it declares its own."""
@@ -168,9 +207,12 @@ class RestCommerceAdapter:
 
     def _link(self, kind: str, **values) -> str | None:
         template = (self.config.get("links") or {}).get(kind)
-        if not template:
+        if not template or any(value is None for value in values.values()):
             return None
-        return self.shop_url + template.format(**{k: quote(str(v), safe="") for k, v in values.items()})
+        try:
+            return self.shop_url + template.format(**{k: quote(str(v), safe="") for k, v in values.items()})
+        except (KeyError, IndexError, ValueError):
+            return None  # A broken link template must not break the answer.
 
     def _order(self, operation: str, record) -> dict:
         if not isinstance(record, dict):
@@ -191,18 +233,29 @@ class RestCommerceAdapter:
 
     async def get_order(self, order_id: str, customer_id: str) -> dict | None:
         record = await self._get("get_order", {"order_id": order_id, "customer_id": customer_id})
-        return None if record is None else self._order("get_order", record)
+        if record is None:
+            return None
+        if isinstance(record, dict) and not self._owned("get_order", record, customer_id):
+            return None  # Another customer's order looks exactly like a missing one.
+        return self._order("get_order", record)
 
     async def list_orders(self, customer_id: str, limit: int = 5,
                           status: str | None = None) -> list[dict]:
-        records = await self._get("list_orders", {"customer_id": customer_id, "limit": limit,
-                                                  "status": status})
+        params = self.config["operations"]["list_orders"].get("params") or {}
+        # The shop filters only when exactly one of its statuses maps to the requested one;
+        # otherwise fetch more and filter here, so older matching orders are not cut off.
+        remote = status is None or ("{status}" in params.values()
+                                    and len(self._status_values(status)) == 1)
+        records = await self._get("list_orders", {"customer_id": customer_id,
+                                                  "limit": limit if remote else 50,
+                                                  "status": status if remote else None})
         if records is None:
             return []
         if not isinstance(records, list):
             raise CommerceError("list_orders: expected a list")
-        orders = [self._order("list_orders", record) for record in records[:limit]]
-        return [order for order in orders if status is None or order["status"] == status]
+        orders = [self._order("list_orders", record) for record in records
+                  if isinstance(record, dict) and self._owned("list_orders", record, customer_id)]
+        return [order for order in orders if status is None or order["status"] == status][:limit]
 
     async def get_customer(self, customer_id: str) -> dict | None:
         record = await self._get("get_customer", {"customer_id": customer_id})
@@ -210,6 +263,8 @@ class RestCommerceAdapter:
             return None
         if not isinstance(record, dict):
             raise CommerceError("get_customer: expected an object")
+        if not self._owned("get_customer", record, customer_id):
+            return None
         return self._map("get_customer", record, CUSTOMER_FIELDS)
 
     async def search_products(self, query: str, category: str | None = None,

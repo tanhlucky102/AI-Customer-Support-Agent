@@ -39,6 +39,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
               llm: LLMProvider | None = None) -> AsyncIterator[dict]:
     llm = llm or LLMProvider()
     tools = toolset_for(ctx.adapter)
+    tool_definitions = definitions(tools)
     messages = [{"role": "system", "content": system_prompt(ctx.shop, tools)},
                 {"role": "system", "content": context_message()},
                 *history_messages(history), {"role": "user", "content": message}]
@@ -47,14 +48,14 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
     yield {"type": "status", "message": "Đang xử lý câu hỏi..."}
 
     if not llm.enabled:
-        async for event in _fallback(ctx, message, "no_llm"):
+        async for event in _fallback(ctx, message, "no_llm", usage, calls):
             yield event
         return
     try:
         for iteration in range(MAX_ITERATIONS):
             last = iteration == MAX_ITERATIONS - 1
             result = None
-            async for event in llm.stream(messages, definitions(tools),
+            async for event in llm.stream(messages, tool_definitions,
                                           tool_choice="none" if last else "auto"):
                 if event["type"] == "token":
                     if first_token_ms is None:
@@ -71,7 +72,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
                 yield {"type": "token", "text": "\n\n"}
             messages.append({"role": "assistant", "content": result.content or None, "tool_calls": [
                 {"id": call["id"], "type": "function",
-                 "function": {"name": call["name"], "arguments": call["arguments"] or "{}"}}
+                 "function": {"name": call["name"], "arguments": valid_json(call["arguments"])}}
                 for call in result.tool_calls]})
             final_text = None
             for call in result.tool_calls:
@@ -91,7 +92,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
                 break
     except LLMError as error:
         if not reply:
-            async for event in _fallback(ctx, message, str(error)):
+            async for event in _fallback(ctx, message, str(error), usage, calls):
                 yield event
             return
         yield {"type": "error", "message": "Chatbot bị gián đoạn. Vui lòng thử lại.",
@@ -109,13 +110,24 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
            "model": llm.model}
 
 
-async def _fallback(ctx: TurnContext, message: str, reason: str) -> AsyncIterator[dict]:
+def valid_json(arguments: str) -> str:
+    """Echo the model's arguments back only if they parse; strict gateways reject broken JSON."""
+    try:
+        json.loads(arguments or "{}")
+        return arguments or "{}"
+    except ValueError:
+        return "{}"
+
+
+async def _fallback(ctx: TurnContext, message: str, reason: str, usage: Usage | None = None,
+                    calls: list | None = None) -> AsyncIterator[dict]:
     status, reply, sources = await fallback.answer(ctx, message)
     yield {"type": "status", "message": status}
     for start in range(0, len(reply), 40):
         yield {"type": "token", "text": reply[start:start + 40]}
     if sources:
         yield {"type": "citations", "sources": sources}
-    yield {"type": "done", "reply": reply, "mode": "fallback", "tools": [], "sources": sources,
-           "usage": Usage().__dict__, "llm_calls": 0, "first_token_ms": None, "model": None,
+    usage = usage or Usage()  # Calls made before the model failed still count in the trace.
+    yield {"type": "done", "reply": reply, "mode": "fallback", "tools": calls or [], "sources": sources,
+           "usage": usage.__dict__, "llm_calls": usage.calls, "first_token_ms": None, "model": None,
            "fallback_reason": reason}

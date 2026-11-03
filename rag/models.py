@@ -84,8 +84,13 @@ def _shared(name: str, factory):
     return _instances[name]
 
 
+def embedder_name() -> str:
+    """The configured embedder's name, without loading the model."""
+    return HashEmbedder.name if env("RAG_EMBEDDER", "bge-m3") == "hash" else BgeM3Embedder.name
+
+
 def embedder():
-    return _shared("embedder", lambda: HashEmbedder() if env("RAG_EMBEDDER", "bge-m3") == "hash"
+    return _shared("embedder", lambda: HashEmbedder() if embedder_name() == HashEmbedder.name
                    else BgeM3Embedder())
 
 

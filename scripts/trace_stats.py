@@ -31,7 +31,7 @@ def main() -> None:
                    avg(output_tokens) AS output_tokens,
                    sum(cached_tokens)::float / nullif(sum(input_tokens), 0) AS cached_share
             FROM traces
-            WHERE error IS NULL AND (%s::text IS NULL OR shop_id = %s)
+            WHERE (error IS NULL OR error LIKE 'fallback:%%') AND (%s::text IS NULL OR shop_id = %s)
               AND (%s::date IS NULL OR created_at >= %s::date)""",
                          (args.shop, args.shop, args.since, args.since)).fetchone()
     for key, value in row.items():

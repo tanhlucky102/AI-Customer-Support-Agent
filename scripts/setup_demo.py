@@ -28,7 +28,8 @@ sys.path.insert(0, str(ROOT))
 ENV = ROOT / ".env"
 SECRETS = ("DEMO_SHOP_API_KEY", "DEMO_SHOP_TOKEN_SECRET", "DEMO_SHOP_SESSION_SECRET",
            "DEMO_FAQ_WRITE_KEY", "SECOND_SHOP_API_KEY", "SECOND_SHOP_TOKEN_SECRET",
-           "SECOND_SHOP_WRITE_KEY", "SAMPLE_STORE_TOKEN_SECRET", "SAMPLE_STORE_WRITE_KEY")
+           "SECOND_SHOP_WRITE_KEY", "SECOND_SHOP_SESSION_SECRET", "SAMPLE_STORE_TOKEN_SECRET",
+           "SAMPLE_STORE_WRITE_KEY")
 
 
 def ensure_env() -> list[str]:
@@ -67,24 +68,34 @@ def main() -> None:
     print("demo shop data:", (seeded.stdout or seeded.stderr).strip().splitlines()[-1:])
 
     store.init_db()
-    if not store.shop_by_id("second_shop"):
-        config = json.loads((ROOT / "examples" / "second_shop" / "commerce.json").read_text(encoding="utf-8"))
-        config["base_url"] = env("SECOND_SHOP_API_URL", config["base_url"])  # e.g. Docker service name
+    config = json.loads((ROOT / "examples" / "second_shop" / "commerce.json").read_text(encoding="utf-8"))
+    config["base_url"] = env("SECOND_SHOP_API_URL", config["base_url"])  # e.g. Docker service name
+    second_url = env("SECOND_SHOP_URL", "http://localhost:8003")
+    second_origins = ["http://localhost:8003", "http://127.0.0.1:8003"]
+    sample_origins = ["http://localhost:8002", "http://127.0.0.1:8002"]
+    if store.shop_by_id("second_shop"):  # Re-running after .env changes keeps keys in sync.
+        store.refresh_shop("second_shop", faq_write_key=env("SECOND_SHOP_WRITE_KEY"),
+                           chat_token_secret=env("SECOND_SHOP_TOKEN_SECRET"), shop_url=second_url,
+                           allowed_origins=second_origins, commerce_config=config,
+                           commerce_api_key=env("SECOND_SHOP_API_KEY"))
+    else:
         store.create_shop(
             shop_id="second_shop", public_key=env("SECOND_SHOP_PUBLIC_KEY"),
             faq_write_key=env("SECOND_SHOP_WRITE_KEY"), title="Trợ lý Phụ Kiện Xanh",
             greeting="Chào bạn! Mình là trợ lý của Phụ Kiện Xanh. Bạn cần hỗ trợ gì?",
-            primary_color="#0f7a5c", shop_url=env("SECOND_SHOP_URL", "http://localhost:8003"),
-            allowed_origins=["http://localhost:8003", "http://127.0.0.1:8003"],
+            primary_color="#0f7a5c", shop_url=second_url, allowed_origins=second_origins,
             chat_token_secret=env("SECOND_SHOP_TOKEN_SECRET"), tone="thân thiện, ngắn gọn",
             suggestions=["Đơn hàng của tôi", "Đổi trả trong bao lâu?", "Phí giao hàng?"],
             commerce_config=config, commerce_api_key=env("SECOND_SHOP_API_KEY"))
-    if not store.shop_by_id("sample_store"):
+    if store.shop_by_id("sample_store"):
+        store.refresh_shop("sample_store", faq_write_key=env("SAMPLE_STORE_WRITE_KEY"),
+                           chat_token_secret=env("SAMPLE_STORE_TOKEN_SECRET"),
+                           shop_url="http://localhost:8002", allowed_origins=sample_origins)
+    else:
         store.create_shop(
             shop_id="sample_store", public_key="pk_sample_store", faq_write_key=env("SAMPLE_STORE_WRITE_KEY"),
             title="Trợ lý Sample Store", greeting="Xin chào! Tôi có thể giúp gì cho bạn?",
-            primary_color="#334155", shop_url="http://localhost:8002",
-            allowed_origins=["http://localhost:8002", "http://127.0.0.1:8002"],
+            primary_color="#334155", shop_url="http://localhost:8002", allowed_origins=sample_origins,
             chat_token_secret=env("SAMPLE_STORE_TOKEN_SECRET"),
             suggestions=["Giờ mở cửa?", "Làm sao liên hệ hỗ trợ?"])
     print("shops:", [(shop, "level 1" if (store.shop_by_id(shop) or {}).get("commerce_config") else "level 0")

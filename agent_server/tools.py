@@ -7,6 +7,7 @@ are rejected, so a prompt-injected "customer_id" argument fails validation inste
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -16,7 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from agent_server import store
 from agent_server.commerce import ORDER_STATUSES, CommerceAdapter, CommerceError
-from shared.pii import mask_address, mask_email, mask_phone
+from shared.pii import PiiFilter, mask_address, mask_email, mask_phone
+
+logger = logging.getLogger(__name__)
+logger.addFilter(PiiFilter())
 
 
 class Args(BaseModel):
@@ -30,7 +34,9 @@ class SearchArgs(Args):
 
 
 class OrderArgs(Args):
-    order_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_-]{2,31}$")
+    # Letters, digits and _ - . #, up to 64 characters (UUIDs, "#1001"); sent as typed, because
+    # some shops' order codes are case-sensitive. The adapter URL-encodes it.
+    order_id: str = Field(pattern=r"^[A-Za-z0-9#][A-Za-z0-9_.#-]{1,63}$")
 
 
 class ListOrdersArgs(Args):
@@ -130,9 +136,9 @@ def _link(ctx: TurnContext, label: str, href: str | None) -> None:
 
 
 async def get_order_status(ctx: TurnContext, args: OrderArgs) -> Outcome:
-    order = await ctx.adapter.get_order(args.order_id.upper(), ctx.customer_id)
+    order = await ctx.adapter.get_order(args.order_id, ctx.customer_id)
     if order is None:
-        return Outcome({"not_found": True, "order_id": args.order_id.upper(),
+        return Outcome({"not_found": True, "order_id": args.order_id,
                         "note": "No such order in this customer's account."})
     _link(ctx, f"Xem đơn {order['id']}", order.get("url"))
     return Outcome({"order": _order_for_model(order)})
@@ -266,12 +272,17 @@ async def execute(ctx: TurnContext, tools: list[Tool], name: str, raw_arguments:
         raw = {key: value for key, value in raw.items() if value is not None}
         args = tool.args.model_validate(raw)
     except (ValueError, ValidationError) as error:
-        return {"raw": str(raw_arguments)[:300]}, Outcome(
-            {"error": "invalid_arguments", "details": str(error)[:300]}, ok=False)
+        return {}, Outcome({"error": "invalid_arguments", "details": str(error)[:300]}, ok=False)
     try:
         outcome = await tool.run(ctx, args)
-    except CommerceError:
+    except CommerceError as error:
+        logger.warning("shop API failed for shop %s: %s", ctx.shop["shop_id"], error)
         outcome = Outcome({"error": "shop_system_unavailable",
                            "note": "The shop's order system did not respond. Apologise and offer "
                                    "to hand over to staff; do not guess."}, ok=False)
+    except Exception:  # A failing tool (database, search model) must not end the whole turn.
+        logger.exception("tool %s failed for shop %s", name, ctx.shop["shop_id"])
+        outcome = Outcome({"error": "tool_failed",
+                           "note": "This lookup failed. Apologise briefly; do not guess the answer."},
+                          ok=False)
     return args.model_dump(exclude_none=True), outcome
