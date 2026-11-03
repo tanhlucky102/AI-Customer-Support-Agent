@@ -57,3 +57,27 @@ def query_terms(text: str) -> list[str]:
             seen.add(term)
             result.append(term)
     return result
+
+
+# English words that are not also common Vietnamese syllables typed without diacritics
+# ("can" = cần, "the" = thẻ, "do" = do/đỏ, "to" = to, "in" = in, "an" = ăn are left out on purpose).
+ENGLISH_WORDS = frozenset("""
+is are am was were be been i you your my me we our it its this that these those what how why where
+when which who whose there here have has had will would should could does did not and or with for of
+from about please get use need want any some many much order orders policy return shipping if than
+then they them he she his her won tell show give make know like just still while can't don't
+""".split())
+UNACCENTED_VIETNAMESE = frozenset("""
+khong ko k duoc dc thi la co toi minh ban sao nao gi nhe oi cua cho voi mua bao nhieu hang don roi
+""".split())
+
+
+def looks_english(text: str) -> bool:
+    """True for a message written in English, so the answer can be steered to English even though
+    the documents and tool results are Vietnamese. Unaccented Vietnamese is not English."""
+    if fold(text) != text.lower().replace("đ", "d"):
+        return False  # It has Vietnamese diacritics.
+    tokens = re.findall(r"\b[a-z']+\b", text.lower())  # "250k" is not the word "k".
+    if any(token in UNACCENTED_VIETNAMESE for token in tokens):
+        return False
+    return sum(token in ENGLISH_WORDS for token in tokens) >= 2

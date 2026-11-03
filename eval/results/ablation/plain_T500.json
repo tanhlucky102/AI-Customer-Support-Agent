@@ -3,11 +3,11 @@
  "configs": {
   "vector": {
    "n": 90,
-   "recall@1": 0.722,
-   "recall@5": 0.889,
-   "mrr@10": 0.796,
-   "latency_ms_p50": 31,
-   "latency_ms_p95": 40,
+   "recall@1": 0.678,
+   "recall@5": 0.867,
+   "mrr@10": 0.758,
+   "latency_ms_p50": 30,
+   "latency_ms_p95": 34,
    "misses": [
     {
      "id": "r-pol-003",
@@ -17,8 +17,8 @@
      ],
      "got": [
       "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
-      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
-      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng"
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
      ]
     },
     {
@@ -29,21 +29,44 @@
      ],
      "got": [
       "thanh-toan#Thanh toán khi nhận hàng (COD)",
-      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
-      "trang-thai-don-hang#Đơn hàng không cập nhật trạng thái"
+      "trang-thai-don-hang#Đơn hàng không cập nhật trạng thái",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
      ]
     },
     {
-     "id": "r-pol-030",
-     "question": "lỡ nhập sai địa chỉ nhận hàng rồi, sửa lại kiểu gì",
+     "id": "r-pol-025",
+     "question": "mua tai nghe tra gop duoc ko, the atm thi sao",
      "expected": [
-      "doi-dia-chi-giao-hang#Cách đổi địa chỉ giao hàng qua hotline",
-      "doi-dia-chi-giao-hang#Thời điểm được đổi địa chỉ giao hàng"
+      "tra-gop#Điều kiện áp dụng trả góp 0%"
      ],
      "got": [
-      "doi-dia-chi-giao-hang#Cập nhật địa chỉ mặc định trong tài khoản",
-      "doi-dia-chi-giao-hang#Khi đơn hàng đã chuyển sang Đang giao",
-      "tai-khoan-dang-ky#Cập nhật họ tên, số điện thoại và địa chỉ"
+      "ket-noi-tai-nghe-bluetooth#Bảo hành tai nghe mua tại Demo Mobile",
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-026",
+     "question": "đơn hiện 'Đã xác nhận' nghĩa là sao, tự hủy còn đc ko",
+     "expected": [
+      "trang-thai-don-hang#Ý nghĩa các trạng thái đơn hàng"
+     ],
+     "got": [
+      "huy-don-hang#Điều kiện tự huỷ đơn hàng trên website",
+      "huy-don-hang#Huỷ đơn khi đơn đã ở trạng thái Đang giao",
+      "huy-don-hang#Trường hợp Demo Mobile chủ động huỷ đơn"
+     ]
+    },
+    {
+     "id": "r-pol-032",
+     "question": "WELCOME100 xài cho đơn từ bao nhiu",
+     "expected": [
+      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng"
+     ],
+     "got": [
+      "giao-hang-tre#Sử dụng voucher 100.000₫ bồi thường giao trễ",
+      "ma-giam-gia#Thông báo lỗi khi áp dụng mã giảm giá",
+      "thanh-vien#Voucher sinh nhật cho hạng Bạc và hạng Vàng"
      ]
     },
     {
@@ -54,8 +77,8 @@
      ],
      "got": [
       "tra-gop#Kỳ hạn, lãi suất và số tiền góp hằng tháng",
-      "chon-op-lung#Các loại ốp lưng tại Demo Mobile",
-      "tro-ly-chat#Mẹo đặt câu hỏi cho trợ lý chat"
+      "tro-ly-chat#Mẹo đặt câu hỏi cho trợ lý chat",
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile"
      ]
     },
     {
@@ -77,9 +100,9 @@
       "chuyen-du-lieu-android-sang-iphone#Dữ liệu nào được chuyển và dữ liệu nào không"
      ],
      "got": [
-      "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google",
-      "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì",
-      "chon-dien-thoai-theo-ngan-sach#Chọn giữa iPhone và điện thoại Android"
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google",
+      "chuyen-du-lieu-android-sang-iphone#Chuẩn bị trước khi chuyển dữ liệu sang iPhone",
+      "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google"
      ]
     },
     {
@@ -101,9 +124,9 @@
       "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
      ],
      "got": [
-      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày",
       "sac-nhanh-va-cu-sac-gan#Bảo hành củ sạc và cáp mua tại Demo Mobile",
-      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng"
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao"
      ]
     },
     {
@@ -115,7 +138,7 @@
      "got": [
       "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
       "sac-nhanh-va-cu-sac-gan#Bảo hành củ sạc và cáp mua tại Demo Mobile",
-      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
+      "tro-ly-chat#Chuyển yêu cầu cho nhân viên hỗ trợ"
      ]
     },
     {
@@ -125,9 +148,9 @@
       "cap-nhat-phan-mem#Xử lý khi cập nhật bị treo hoặc lỗi"
      ],
      "got": [
+      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal",
       "cai-dat-iphone-moi#Các bước thiết lập ban đầu cho iPhone",
-      "cai-dat-iphone-moi#Việc nên làm trong tuần đầu dùng iPhone mới",
-      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal"
+      "cai-dat-iphone-moi#Việc nên làm trong tuần đầu dùng iPhone mới"
      ]
     }
    ]
@@ -135,10 +158,10 @@
   "bm25": {
    "n": 90,
    "recall@1": 0.489,
-   "recall@5": 0.733,
-   "mrr@10": 0.599,
-   "latency_ms_p50": 2,
-   "latency_ms_p95": 3,
+   "recall@5": 0.8,
+   "mrr@10": 0.609,
+   "latency_ms_p50": 3,
+   "latency_ms_p95": 4,
    "misses": [
     {
      "id": "r-pol-002",
@@ -148,8 +171,8 @@
      ],
      "got": [
       "tra-gop#Hồ sơ và thời gian duyệt trả góp",
-      "tra-gop#Điều kiện áp dụng trả góp 0%",
-      "chon-dien-thoai-theo-ngan-sach#Mua điện thoại vượt ngân sách bằng trả góp 0%"
+      "chon-dien-thoai-theo-ngan-sach#Mua điện thoại vượt ngân sách bằng trả góp 0%",
+      "tra-gop#Điều kiện áp dụng trả góp 0%"
      ]
     },
     {
@@ -159,21 +182,9 @@
       "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày"
      ],
      "got": [
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
       "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại",
-      "ket-noi-tai-nghe-bluetooth#Sửa lỗi tai nghe không kết nối hoặc chỉ nghe một bên",
-      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi"
-     ]
-    },
-    {
-     "id": "r-pol-008",
-     "question": "lam rot vo man hinh co duoc bao hang free k",
-     "expected": [
-      "bao-hanh#Trường hợp không được bảo hành"
-     ],
-     "got": [
-      "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile",
-      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
-      "bao-hanh#Bảo hành phụ kiện 6 tháng"
+      "ket-noi-tai-nghe-bluetooth#Sửa lỗi tai nghe không kết nối hoặc chỉ nghe một bên"
      ]
     },
     {
@@ -186,7 +197,7 @@
      "got": [
       "bao-hanh-mo-rong#Thời hạn và cách đăng ký gói bảo hành mở rộng",
       "bao-hanh-mo-rong#Bảo hành mở rộng miễn phí 6 tháng cho thành viên hạng Vàng",
-      "bao-hanh-mo-rong#Trường hợp gói bảo hành mở rộng không áp dụng"
+      "cham-soc-pin#Pin điện thoại và chính sách bảo hành tại Demo Mobile"
      ]
     },
     {
@@ -198,8 +209,20 @@
      ],
      "got": [
       "sao-luu-du-lieu#Vì sao cần sao lưu dữ liệu thường xuyên",
-      "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại",
-      "quen-mat-khau#Lấy lại mật khẩu qua hotline"
+      "quen-mat-khau#Lấy lại mật khẩu qua hotline",
+      "sao-luu-du-lieu#Sao lưu trước khi gửi bảo hành hoặc đổi trả tại Demo Mobile"
+     ]
+    },
+    {
+     "id": "r-pol-014",
+     "question": "don 450k co mat phi ship ko",
+     "expected": [
+      "van-chuyen#Phí vận chuyển theo giá trị đơn hàng"
+     ],
+     "got": [
+      "quen-mat-khau#Đăng nhập lại sau khi được cấp mật khẩu tạm thời",
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
      ]
     },
     {
@@ -211,43 +234,6 @@
      "got": []
     },
     {
-     "id": "r-pol-030",
-     "question": "lỡ nhập sai địa chỉ nhận hàng rồi, sửa lại kiểu gì",
-     "expected": [
-      "doi-dia-chi-giao-hang#Cách đổi địa chỉ giao hàng qua hotline",
-      "doi-dia-chi-giao-hang#Thời điểm được đổi địa chỉ giao hàng"
-     ],
-     "got": [
-      "dat-hang-online#Điền thông tin nhận hàng và chọn thanh toán",
-      "doi-dia-chi-giao-hang#Cập nhật địa chỉ mặc định trong tài khoản",
-      "lien-he-ho-tro#Thời gian phản hồi yêu cầu chuyển cho nhân viên"
-     ]
-    },
-    {
-     "id": "r-pol-031",
-     "question": "1 lần mua được tối đa mấy cái cùng 1 sản phẩm",
-     "expected": [
-      "dat-hang-online#Thêm sản phẩm vào giỏ hàng"
-     ],
-     "got": [
-      "giao-hang-tre#Quyền lợi khi đơn hàng giao trễ",
-      "hot-sale-cuoi-tuan#Lưu ý về giá và số lượng khuyến mãi",
-      "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
-     ]
-    },
-    {
-     "id": "r-pol-032",
-     "question": "WELCOME100 xài cho đơn từ bao nhiu",
-     "expected": [
-      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng"
-     ],
-     "got": [
-      "ma-giam-gia#Thông báo lỗi khi áp dụng mã giảm giá",
-      "ma-giam-gia#Cách tính số tiền được giảm",
-      "chon-dien-thoai-theo-ngan-sach#Mua điện thoại vượt ngân sách bằng trả góp 0%"
-     ]
-    },
-    {
      "id": "r-pol-033",
      "question": "đơn 8 triệu nhập GIAM5 thì được bớt bao nhiêu",
      "expected": [
@@ -255,8 +241,8 @@
      ],
      "got": [
       "sac-nhanh-va-cu-sac-gan#Sạc nhanh hoạt động như thế nào",
-      "tro-ly-chat#Trợ lý chat hỗ trợ những nội dung nào",
-      "hot-sale-cuoi-tuan#Dùng mã giảm giá cùng giá HOT SALE"
+      "hot-sale-cuoi-tuan#Dùng mã giảm giá cùng giá HOT SALE",
+      "tro-ly-chat#Trợ lý chat hỗ trợ những nội dung nào"
      ]
     },
     {
@@ -292,8 +278,8 @@
      ],
      "got": [
       "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại",
-      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
-      "chon-dien-thoai-theo-ngan-sach#Chọn dung lượng bộ nhớ phù hợp"
+      "bao-mat-du-lieu#Dữ liệu cá nhân Demo Mobile thu thập",
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành"
      ]
     },
     {
@@ -305,19 +291,7 @@
      "got": [
       "bao-mat-du-lieu#Chia sẻ dữ liệu với đơn vị vận chuyển và đối tác",
       "van-chuyen#Đơn vị vận chuyển",
-      "bao-mat-du-lieu#Lưu trữ lịch sử trò chuyện với trợ lý chat"
-     ]
-    },
-    {
-     "id": "r-gd-014",
-     "question": "dat may len de sac khong day ma no ko vo pin",
-     "expected": [
-      "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
-     ],
-     "got": [
-      "magsafe-va-sac-khong-day#So sánh sạc không dây và sạc có dây",
-      "pin-du-phong-tren-may-bay#Sử dụng pin dự phòng trong chuyến bay",
-      "sac-nhanh-va-cu-sac-gan#Sạc nhanh có làm hại pin không"
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
      ]
     },
     {
@@ -341,7 +315,7 @@
      "got": [
       "sac-nhanh-va-cu-sac-gan#Các chuẩn sạc nhanh phổ biến",
       "tra-gop#Hồ sơ và thời gian duyệt trả góp",
-      "tra-gop#Điều kiện áp dụng trả góp 0%"
+      "chon-dien-thoai-theo-ngan-sach#Mua điện thoại vượt ngân sách bằng trả góp 0%"
      ]
     },
     {
@@ -351,9 +325,9 @@
       "chon-dien-thoai-theo-ngan-sach#Bảng phân khúc giá điện thoại tại Demo Mobile"
      ],
      "got": [
+      "dan-kinh-cuong-luc#Các bước tự dán kính cường lực tại nhà",
       "cai-dat-iphone-moi#Các bước thiết lập ban đầu cho iPhone",
-      "showroom#Dịch vụ tại showroom Demo Mobile",
-      "quy-trinh-bao-hanh#Thời gian xử lý bảo hành"
+      "doi-tra-phu-kien#Điều kiện đổi và bảo hành phụ kiện"
      ]
     },
     {
@@ -365,19 +339,7 @@
      "got": [
       "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
       "cham-soc-pin#Bật tính năng bảo vệ pin trên iPhone và Android",
-      "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile"
-     ]
-    },
-    {
-     "id": "r-gd-027",
-     "question": "quên mk icloud nên ko tắt được định vị iphone, shop mở khoá giúp đc ko",
-     "expected": [
-      "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google"
-     ],
-     "got": [
-      "cai-dat-iphone-moi#Thiết lập Face ID, mật mã và tài khoản Apple",
-      "khoi-phuc-cai-dat-goc#Khôi phục cài đặt gốc trên iPhone",
-      "khoi-phuc-cai-dat-goc#Sau khi khôi phục cài đặt gốc"
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile"
      ]
     },
     {
@@ -387,21 +349,9 @@
       "sao-luu-du-lieu#Sao lưu iPhone bằng iCloud hoặc máy tính"
      ],
      "got": [
-      "sac-nhanh-va-cu-sac-gan#Chọn củ sạc và cáp phù hợp tại Demo Mobile",
-      "sac-nhanh-va-cu-sac-gan#Các chuẩn sạc nhanh phổ biến",
-      "sac-nhanh-va-cu-sac-gan#Củ sạc GaN khác gì củ sạc thường"
-     ]
-    },
-    {
-     "id": "r-gd-036",
-     "question": "mua cáp về chưa xài mà ko ưng màu, trả lại đc ko",
-     "expected": [
-      "doi-tra#Đổi trả theo nhu cầu trong 14 ngày"
-     ],
-     "got": [
-      "diem-thuong#Điểm thưởng khi huỷ hoặc trả hàng",
-      "doi-tra#Thời gian và hình thức hoàn tiền",
-      "thanh-toan#Hoàn tiền theo phương thức thanh toán"
+      "bao-hanh#Chuẩn bị điện thoại trước khi gửi bảo hành",
+      "quy-trinh-bao-hanh#Sao lưu dữ liệu và gỡ khoá tài khoản trước khi bảo hành",
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
      ]
     },
     {
@@ -425,10 +375,10 @@
   "tsrank": {
    "n": 90,
    "recall@1": 0.322,
-   "recall@5": 0.7,
-   "mrr@10": 0.483,
-   "latency_ms_p50": 16,
-   "latency_ms_p95": 111,
+   "recall@5": 0.711,
+   "mrr@10": 0.484,
+   "latency_ms_p50": 54,
+   "latency_ms_p95": 91,
    "misses": [
     {
      "id": "r-pol-002",
@@ -437,9 +387,9 @@
       "doi-tra#Trả điện thoại do không còn nhu cầu"
      ],
      "got": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%",
       "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì",
-      "tra-gop#Hồ sơ và thời gian duyệt trả góp",
-      "chon-dien-thoai-theo-ngan-sach#Mua điện thoại vượt ngân sách bằng trả góp 0%"
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp"
      ]
     },
     {
@@ -463,7 +413,7 @@
      "got": [
       "sac-nhanh-va-cu-sac-gan#Sạc nhanh hoạt động như thế nào",
       "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal",
-      "magsafe-va-sac-khong-day#So sánh sạc không dây và sạc có dây"
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao"
      ]
     },
     {
@@ -474,9 +424,9 @@
       "hoan-tien#Thời gian hoàn tiền"
      ],
      "got": [
-      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
       "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
-      "chuyen-khoan#Shop xác nhận đã nhận tiền chuyển khoản"
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "doi-tra#Đổi 1 đổi 1 khi điện thoại lỗi do nhà sản xuất"
      ]
     },
     {
@@ -487,21 +437,20 @@
      ],
      "got": [
       "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile",
-      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
-      "van-chuyen#Khu vực giao hàng và hình thức nhận hàng"
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
+      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới"
      ]
     },
     {
-     "id": "r-pol-012",
-     "question": "mang ip đi bảo hành có cần tắt find my không",
+     "id": "r-pol-010",
+     "question": "gói bh mở rộng cho máy 24 triệu tốn bao nhiêu tiền",
      "expected": [
-      "bao-hanh#Chuẩn bị điện thoại trước khi gửi bảo hành",
-      "quy-trinh-bao-hanh#Sao lưu dữ liệu và gỡ khoá tài khoản trước khi bảo hành"
+      "bao-hanh-mo-rong#Phí gói Bảo hành mở rộng +12 tháng"
      ],
      "got": [
       "bao-hanh-mo-rong#Quyền lợi của gói Bảo hành mở rộng +12 tháng",
-      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
-      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại"
+      "chon-dien-thoai-theo-ngan-sach#Gói bảo hành mở rộng khi mua điện thoại",
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm"
      ]
     },
     {
@@ -513,18 +462,6 @@
      "got": []
     },
     {
-     "id": "r-pol-025",
-     "question": "mua tai nghe tra gop duoc ko, the atm thi sao",
-     "expected": [
-      "tra-gop#Điều kiện áp dụng trả góp 0%"
-     ],
-     "got": [
-      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
-      "ket-noi-tai-nghe-bluetooth#Sửa lỗi tai nghe không kết nối hoặc chỉ nghe một bên",
-      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
-     ]
-    },
-    {
      "id": "r-pol-032",
      "question": "WELCOME100 xài cho đơn từ bao nhiu",
      "expected": [
@@ -532,8 +469,8 @@
      ],
      "got": [
       "huy-don-hang#Điều kiện tự huỷ đơn hàng trên website",
-      "huy-don-hang#Các bước huỷ đơn hàng trên website",
-      "trang-thai-don-hang#Mã đơn hàng"
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
+      "ma-giam-gia#Thông báo lỗi khi áp dụng mã giảm giá"
      ]
     },
     {
@@ -543,8 +480,8 @@
       "ma-giam-gia#Cách tính số tiền được giảm"
      ],
      "got": [
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
       "trang-thai-don-hang#Hỏi trợ lý chat về trạng thái đơn hàng",
-      "huy-don-hang#Các bước huỷ đơn hàng trên website",
       "trang-thai-don-hang#Mã đơn hàng"
      ]
     },
@@ -567,9 +504,9 @@
       "bao-mat-du-lieu#Lưu trữ lịch sử trò chuyện với trợ lý chat"
      ],
      "got": [
-      "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat",
+      "tro-ly-chat#Trợ lý chat hỗ trợ những nội dung nào",
       "khang-nuoc-ip68#Cách xử lý khi điện thoại bị vào nước",
-      "tro-ly-chat#Những việc trợ lý chat không thực hiện được"
+      "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat"
      ]
     },
     {
@@ -580,9 +517,9 @@
       "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
      ],
      "got": [
-      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
       "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
-      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại"
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "bao-hanh-mo-rong#Quyền lợi của gói Bảo hành mở rộng +12 tháng"
      ]
     },
     {
@@ -592,8 +529,8 @@
       "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat"
      ],
      "got": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%",
       "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì",
-      "bao-mat-du-lieu#Lưu trữ lịch sử trò chuyện với trợ lý chat",
       "tra-gop#Hồ sơ và thời gian duyệt trả góp"
      ]
     },
@@ -606,7 +543,19 @@
      "got": [
       "may-nong-va-cach-xu-ly#Cách làm mát điện thoại an toàn",
       "may-nong-va-cach-xu-ly#Dấu hiệu nóng máy bất thường cần kiểm tra",
-      "tai-khoan-dang-ky#Đổi mật khẩu tài khoản"
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc"
+     ]
+    },
+    {
+     "id": "r-gd-010",
+     "question": "lưng đt tự nhiên cong vênh hở mép, có nguy hiểm gì ko",
+     "expected": [
+      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay"
+     ],
+     "got": [
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile",
+      "chon-op-lung#Ốp lưng và sạc không dây",
+      "magsafe-va-sac-khong-day#Ốp lưng dùng được với sạc không dây và MagSafe"
      ]
     },
     {
@@ -618,7 +567,7 @@
      "got": [
       "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud",
       "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone",
-      "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì"
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google"
      ]
     },
     {
@@ -640,9 +589,9 @@
       "pin-du-phong-tren-may-bay#Sử dụng pin dự phòng trong chuyến bay"
      ],
      "got": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%",
       "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì",
-      "tra-gop#Hồ sơ và thời gian duyệt trả góp",
-      "chon-dien-thoai-theo-ngan-sach#Mua điện thoại vượt ngân sách bằng trả góp 0%"
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp"
      ]
     },
     {
@@ -652,8 +601,8 @@
       "chon-dien-thoai-theo-ngan-sach#Bảng phân khúc giá điện thoại tại Demo Mobile"
      ],
      "got": [
-      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
       "quen-mat-khau#Đăng nhập lại sau khi được cấp mật khẩu tạm thời",
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
       "showroom#Dịch vụ tại showroom Demo Mobile"
      ]
     },
@@ -664,9 +613,9 @@
       "khoi-phuc-cai-dat-goc#Khôi phục cài đặt gốc trên điện thoại Android"
      ],
      "got": [
-      "may-nong-va-cach-xu-ly#Cách làm mát điện thoại an toàn",
       "cham-soc-pin#Bật tính năng bảo vệ pin trên iPhone và Android",
-      "may-nong-va-cach-xu-ly#Dấu hiệu nóng máy bất thường cần kiểm tra"
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
+      "may-nong-va-cach-xu-ly#Cách làm mát điện thoại an toàn"
      ]
     },
     {
@@ -676,9 +625,9 @@
       "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google"
      ],
      "got": [
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google",
       "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone",
-      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud",
-      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google"
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud"
      ]
     },
     {
@@ -689,8 +638,8 @@
      ],
      "got": [
       "chon-dien-thoai-theo-ngan-sach#Chọn dung lượng bộ nhớ phù hợp",
-      "doi-dia-chi-giao-hang#Đổi tên hoặc số điện thoại người nhận",
-      "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile"
+      "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile",
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud"
      ]
     },
     {
@@ -701,20 +650,8 @@
      ],
      "got": [
       "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud",
-      "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone",
-      "chuyen-du-lieu-android-sang-iphone#Chuyển dữ liệu khi iPhone đã được thiết lập xong"
-     ]
-    },
-    {
-     "id": "r-gd-036",
-     "question": "mua cáp về chưa xài mà ko ưng màu, trả lại đc ko",
-     "expected": [
-      "doi-tra#Đổi trả theo nhu cầu trong 14 ngày"
-     ],
-     "got": [
-      "diem-thuong#Điểm thưởng khi huỷ hoặc trả hàng",
-      "chon-cu-sac#Chọn cáp sạc đi kèm",
-      "doi-tra#Thời gian và hình thức hoàn tiền"
+      "chuyen-du-lieu-android-sang-iphone#Chuyển dữ liệu khi iPhone đã được thiết lập xong",
+      "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone"
      ]
     },
     {
@@ -733,8 +670,8 @@
      ],
      "got": [
       "thanh-toan#Thanh toán khi nhận hàng (COD)",
-      "theo-doi-don-hang#Thay đổi hoặc huỷ đơn hàng",
-      "van-chuyen#Kiểm tra hàng khi nhận"
+      "van-chuyen#Phí giao hàng",
+      "theo-doi-don-hang#Các trạng thái đơn hàng"
      ]
     },
     {
@@ -749,11 +686,11 @@
   },
   "hybrid": {
    "n": 90,
-   "recall@1": 0.6,
-   "recall@5": 0.956,
-   "mrr@10": 0.748,
-   "latency_ms_p50": 31,
-   "latency_ms_p95": 35,
+   "recall@1": 0.589,
+   "recall@5": 0.944,
+   "mrr@10": 0.734,
+   "latency_ms_p50": 32,
+   "latency_ms_p95": 37,
    "misses": [
     {
      "id": "r-pol-003",
@@ -764,7 +701,19 @@
      "got": [
       "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
       "doi-tra-phu-kien#Điều kiện đổi và bảo hành phụ kiện",
-      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng"
+     ]
+    },
+    {
+     "id": "r-pol-035",
+     "question": "chi bao nhieu tien thi len hang vang",
+     "expected": [
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
+     ],
+     "got": [
+      "bao-hanh-mo-rong#Bảo hành mở rộng miễn phí 6 tháng cho thành viên hạng Vàng",
+      "chon-dien-thoai-theo-ngan-sach#Gói bảo hành mở rộng khi mua điện thoại",
+      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới"
      ]
     },
     {
@@ -787,9 +736,9 @@
       "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
      ],
      "got": [
-      "pin-du-phong-tren-may-bay#Bảo quản pin dự phòng an toàn khi di chuyển",
-      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay",
-      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày"
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao",
+      "sac-nhanh-va-cu-sac-gan#Bảo hành củ sạc và cáp mua tại Demo Mobile",
+      "pin-du-phong-tren-may-bay#Bảo quản pin dự phòng an toàn khi di chuyển"
      ]
     },
     {
@@ -800,19 +749,19 @@
      ],
      "got": [
       "ma-giam-gia#Cách tính số tiền được giảm",
-      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng",
-      "showroom#Dịch vụ tại showroom Demo Mobile"
+      "showroom#Dịch vụ tại showroom Demo Mobile",
+      "hot-sale-cuoi-tuan#Dùng mã giảm giá cùng giá HOT SALE"
      ]
     }
    ]
   },
   "hybrid_tsrank": {
    "n": 90,
-   "recall@1": 0.556,
-   "recall@5": 0.911,
-   "mrr@10": 0.707,
-   "latency_ms_p50": 51,
-   "latency_ms_p95": 119,
+   "recall@1": 0.533,
+   "recall@5": 0.922,
+   "mrr@10": 0.689,
+   "latency_ms_p50": 83,
+   "latency_ms_p95": 116,
    "misses": [
     {
      "id": "r-pol-003",
@@ -823,31 +772,7 @@
      "got": [
       "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
       "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
-      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal"
-     ]
-    },
-    {
-     "id": "r-pol-032",
-     "question": "WELCOME100 xài cho đơn từ bao nhiu",
-     "expected": [
-      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng"
-     ],
-     "got": [
-      "ma-giam-gia#Thông báo lỗi khi áp dụng mã giảm giá",
-      "ma-giam-gia#Cách tính số tiền được giảm",
-      "trang-thai-don-hang#Mã đơn hàng"
-     ]
-    },
-    {
-     "id": "r-pol-038",
-     "question": "quen mat khau dang nhap thi lay lai sao",
-     "expected": [
-      "quen-mat-khau#Lấy lại mật khẩu qua hotline"
-     ],
-     "got": [
-      "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat",
-      "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google",
-      "sac-nhanh-va-cu-sac-gan#Chọn củ sạc và cáp phù hợp tại Demo Mobile"
+      "doi-tra#Đổi 1 đổi 1 khi điện thoại lỗi do nhà sản xuất"
      ]
     },
     {
@@ -858,9 +783,9 @@
       "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
      ],
      "got": [
-      "quy-trinh-bao-hanh#Gửi bảo hành từ xa khi không đến được showroom",
       "quy-trinh-bao-hanh#Thời gian xử lý bảo hành",
-      "quy-trinh-bao-hanh#Gửi bảo hành trực tiếp tại showroom"
+      "quy-trinh-bao-hanh#Gửi bảo hành từ xa khi không đến được showroom",
+      "lien-he-ho-tro#Thời gian phản hồi yêu cầu chuyển cho nhân viên"
      ]
     },
     {
@@ -870,9 +795,33 @@
       "kich-hoat-esim#Lưu ý khi đổi máy, khôi phục cài đặt gốc hoặc gửi bảo hành với eSIM"
      ],
      "got": [
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
       "sao-luu-du-lieu#Sao lưu trước khi gửi bảo hành hoặc đổi trả tại Demo Mobile",
-      "khoi-phuc-cai-dat-goc#Sau khi khôi phục cài đặt gốc",
-      "khoi-phuc-cai-dat-goc#Chuẩn bị trước khi khôi phục cài đặt gốc"
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google"
+     ]
+    },
+    {
+     "id": "r-gd-010",
+     "question": "lưng đt tự nhiên cong vênh hở mép, có nguy hiểm gì ko",
+     "expected": [
+      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay"
+     ],
+     "got": [
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile",
+      "chon-op-lung#Ốp lưng và sạc không dây",
+      "magsafe-va-sac-khong-day#Ốp lưng dùng được với sạc không dây và MagSafe"
+     ]
+    },
+    {
+     "id": "r-gd-012",
+     "question": "Which charger and cable should I get for an older iPhone that still uses the Lightning port?",
+     "expected": [
+      "sac-nhanh-va-cu-sac-gan#Chọn củ sạc và cáp phù hợp tại Demo Mobile"
+     ],
+     "got": [
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud",
+      "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì",
+      "samsung-smart-switch#Chuyển dữ liệu bằng cáp kết nối"
      ]
     },
     {
@@ -882,9 +831,9 @@
       "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
      ],
      "got": [
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao",
       "pin-du-phong-tren-may-bay#Bảo quản pin dự phòng an toàn khi di chuyển",
-      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay",
-      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày"
+      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay"
      ]
     },
     {
@@ -894,32 +843,20 @@
       "chon-dien-thoai-theo-ngan-sach#Bảng phân khúc giá điện thoại tại Demo Mobile"
      ],
      "got": [
-      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng",
+      "ma-giam-gia#Cách tính số tiền được giảm",
       "showroom#Dịch vụ tại showroom Demo Mobile",
-      "ma-giam-gia#Cách tính số tiền được giảm"
-     ]
-    },
-    {
-     "id": "r-gd-025",
-     "question": "reset máy oppo về như mới vô mục nào vậy",
-     "expected": [
-      "khoi-phuc-cai-dat-goc#Khôi phục cài đặt gốc trên điện thoại Android"
-     ],
-     "got": [
-      "khoi-phuc-cai-dat-goc#Sau khi khôi phục cài đặt gốc",
-      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
-      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud"
+      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng"
      ]
     }
    ]
   },
   "hybrid_rerank": {
    "n": 90,
-   "recall@1": 0.8,
+   "recall@1": 0.811,
    "recall@5": 0.967,
-   "mrr@10": 0.873,
-   "latency_ms_p50": 254,
-   "latency_ms_p95": 289,
+   "mrr@10": 0.877,
+   "latency_ms_p50": 232,
+   "latency_ms_p95": 248,
    "misses": [
     {
      "id": "r-pol-003",
@@ -953,9 +890,9 @@
       "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
      ],
      "got": [
-      "cham-soc-pin#Thói quen sạc giúp pin bền hơn",
+      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày",
       "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay",
-      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày"
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao"
      ]
     }
    ]
@@ -966,10 +903,10 @@
    0.0,
    0.0,
    0.0,
-   0.0,
    0.001,
    0.001,
    0.001,
+   0.003,
    0.003,
    0.004,
    0.005,
@@ -981,130 +918,130 @@
    0.017,
    0.024,
    0.028,
-   0.03,
+   0.031,
    0.034,
    0.039,
-   0.039,
+   0.04,
+   0.041,
    0.041,
    0.041,
    0.045,
    0.047,
-   0.076,
-   0.078,
-   0.136,
+   0.12,
    0.137,
    0.148,
    0.167,
-   0.176,
+   0.177,
    0.178,
+   0.183,
+   0.193,
    0.198,
    0.209,
-   0.229,
+   0.244,
    0.265,
    0.303,
    0.315,
-   0.322,
    0.355,
    0.38,
+   0.389,
    0.393,
-   0.454,
+   0.405,
    0.479,
    0.52,
+   0.528,
    0.542,
    0.565,
    0.568,
    0.614,
-   0.615,
    0.629,
    0.657,
    0.673,
-   0.686,
    0.74,
    0.747,
    0.757,
-   0.77,
    0.788,
-   0.8,
    0.803,
    0.814,
+   0.815,
    0.829,
    0.846,
    0.853,
-   0.87,
    0.877,
+   0.877,
+   0.885,
    0.885,
    0.887,
    0.898,
-   0.912,
+   0.902,
+   0.916,
    0.927,
-   0.931,
+   0.939,
    0.952,
-   0.954,
    0.957,
    0.961,
    0.962,
    0.966,
    0.976,
-   0.984,
    0.985,
+   0.986,
    0.986,
    0.988,
    0.99,
-   0.991,
+   0.993,
    0.995,
    0.996
   ],
   "unanswerable_scores": [
-   0.001,
+   0.0,
    0.001,
    0.001,
    0.005,
    0.006,
    0.011,
    0.015,
-   0.042,
+   0.047,
    0.117,
    0.974
   ],
   "table": [
    {
     "tau": 0.05,
-    "answerable_kept": 0.711,
+    "answerable_kept": 0.7,
     "unanswerable_rejected": 0.8
    },
    {
     "tau": 0.1,
-    "answerable_kept": 0.689,
+    "answerable_kept": 0.7,
     "unanswerable_rejected": 0.8
    },
    {
     "tau": 0.15,
-    "answerable_kept": 0.656,
+    "answerable_kept": 0.667,
     "unanswerable_rejected": 0.9
    },
    {
     "tau": 0.2,
-    "answerable_kept": 0.611,
+    "answerable_kept": 0.6,
     "unanswerable_rejected": 0.9
    },
    {
     "tau": 0.25,
-    "answerable_kept": 0.589,
-    "unanswerable_rejected": 0.9
-   },
-   {
-    "tau": 0.3,
     "answerable_kept": 0.578,
     "unanswerable_rejected": 0.9
    },
    {
+    "tau": 0.3,
+    "answerable_kept": 0.567,
+    "unanswerable_rejected": 0.9
+   },
+   {
     "tau": 0.4,
-    "answerable_kept": 0.511,
+    "answerable_kept": 0.5,
     "unanswerable_rejected": 0.9
    },
    {
     "tau": 0.5,
-    "answerable_kept": 0.489,
+    "answerable_kept": 0.478,
     "unanswerable_rejected": 0.9
    }
   ]
@@ -1123,7 +1060,7 @@
     "removed": 0,
     "chunks": 227,
     "llm_calls": 0,
-    "seconds": 4.6
+    "seconds": 3.5
    },
    "second_shop": {
     "documents": 8,
@@ -1132,7 +1069,7 @@
     "removed": 0,
     "chunks": 35,
     "llm_calls": 0,
-    "seconds": 0.8
+    "seconds": 0.5
    }
   }
  }

@@ -106,6 +106,8 @@ class Runner:
             async for event in agent.run(ctx, case.get("history", []), case["question"], llm=self.llm):
                 if event["type"] == "token" and first_token is None:
                     first_token = round((time.perf_counter() - started) * 1000)
+                if event["type"] == "replace" and not event["text"]:
+                    first_token = None  # The text so far was taken back; it does not count.
                 events.append(event)
         except LLMError as error:
             events.append({"type": "error", "message": str(error)})
@@ -121,7 +123,7 @@ class Runner:
             "error": next((event["message"] for event in events if event["type"] == "error"), None),
             "fallback_reason": (done or {}).get("fallback_reason"),
             # What the bot was told besides tool results; the judge must see it too.
-            "context": context_message(),
+            "context": context_message(message=case["question"]),
             "commerce_connected": adapter_for(shop) is not None,
         }
         path.parent.mkdir(parents=True, exist_ok=True)

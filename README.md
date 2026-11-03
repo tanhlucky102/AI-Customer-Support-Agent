@@ -96,10 +96,10 @@ Kết quả đã chạy nằm trong `eval/results/` (xem `eval/results/README.md
 
 | Chỉ số | Mục tiêu | Kết quả |
 |--------|----------|---------|
-| Recall@5 / MRR@10 (90 câu) | ≥ 0.85 / ≥ 0.75 | 0.967 / 0.873 |
+| Recall@5 / MRR@10 (90 câu) | ≥ 0.85 / ≥ 0.75 | 0.967 / 0.877 |
 | Chọn đúng tool (50 ca) | ≥ 0.90 | 1.00 |
-| Trả lời đúng (40 câu, LLM judge) | — | 0.95 |
-| Groundedness (90 câu trả lời) | ≥ 0.95 | 0.922 (0.944 sau khi rà tay) |
+| Trả lời đúng (40 câu, LLM judge) | — | 1.00 |
+| Groundedness (90 câu trả lời) | ≥ 0.95 | 0.900 (0.989 sau khi rà tay) |
 | Có trích dẫn / từ chối đúng | ≥ 0.95 / ≥ 0.90 | 1.00 / 1.00 |
 | Tấn công bị chặn (15 injection + 5 xác thực) | 20/20 | 20/20 |
-| p95 câu trả lời có 1 tool | ≤ 6 s | 4.7 s |
+| p95 câu trả lời có 1 tool | ≤ 6 s | 4.3 s (phụ thuộc tải của AI Box) |

@@ -25,6 +25,8 @@ def ask(client: httpx.Client, message: str, token: str, shop_key: str = "pk_demo
             events.setdefault(name, data)
             if name == "token":
                 text += data["text"]
+            elif name == "replace":
+                text = data["text"]
     assert "done" in events, response.text
     return text, events
 

@@ -60,6 +60,17 @@ class LLMRetryTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("".join(e["text"] for e in events if e["type"] == "token"), "Xin chào")
         self.assertEqual(responses, [])
 
+    def test_gateway_timeouts_are_transient_but_bad_requests_are_not(self):
+        import litellm
+
+        from shared.llm import transient
+        timeout = litellm.Timeout(message="stalled", model="m", llm_provider="openai")
+        self.assertEqual(timeout.status_code, 408)  # A status check alone would refuse to retry it.
+        self.assertTrue(transient(timeout))
+        self.assertTrue(transient(SimpleNamespace(status_code=503)))
+        self.assertFalse(transient(litellm.AuthenticationError("bad key", "openai", "m")))
+        self.assertFalse(transient(litellm.BadRequestError("bad", "m", "openai")))
+
     async def test_a_failure_after_text_was_streamed_is_not_retried(self):
         calls = 0
 

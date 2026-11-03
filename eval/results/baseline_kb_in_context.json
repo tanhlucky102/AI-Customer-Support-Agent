@@ -2,16 +2,16 @@
  "n": 20,
  "kb_sections": 227,
  "stuffing": {
-  "accuracy": 1.0,
-  "input_tokens_mean": 68418,
+  "accuracy": 0.95,
+  "input_tokens_mean": 73048,
   "cached_share": 0.997,
-  "latency_ms_p50": 2301,
-  "latency_ms_p95": 3907
+  "latency_ms_p50": 2021,
+  "latency_ms_p95": 2838
  },
  "rag_agent": {
-  "accuracy": 0.95,
-  "input_tokens_mean": 5950,
-  "latency_ms_p50": 3390,
-  "latency_ms_p95": 4489
+  "accuracy": 1.0,
+  "input_tokens_mean": 6295,
+  "latency_ms_p50": 3666,
+  "latency_ms_p95": 4946
  }
 }

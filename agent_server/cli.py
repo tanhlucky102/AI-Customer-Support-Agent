@@ -33,6 +33,8 @@ async def chat(shop: dict, customer_id: str) -> None:
                 print(f"  [{event['message']}]")
             elif event["type"] == "token":
                 print(event["text"], end="", flush=True)
+            elif event["type"] == "replace":
+                print("\n  [bỏ phần viết trước khi gọi tool]\n" + event["text"], end="", flush=True)
             elif event["type"] == "done":
                 print()
                 for source in event["sources"]:

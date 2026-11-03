@@ -80,7 +80,13 @@ def sse_events(text: str) -> list[tuple[str, dict]]:
 
 
 def reply_text(text: str) -> str:
-    return "".join(data["text"] for name, data in sse_events(text) if name == "token")
+    reply = ""
+    for name, data in sse_events(text):
+        if name == "token":
+            reply += data["text"]
+        elif name == "replace":
+            reply = data["text"]
+    return reply
 
 
 class FakeLLM:
@@ -108,6 +114,9 @@ class FakeLLM:
             for start in range(0, len(step), 8):
                 yield {"type": "token", "text": step[start:start + 8]}
         else:
+            if isinstance(step, tuple):  # (text written before the calls, calls)
+                result.content, step = step
+                yield {"type": "token", "text": result.content}
             result.finish_reason = "tool_calls"
             result.tool_calls = [{"id": f"call_{len(self.requests)}_{index}", "name": name,
                                   "arguments": json.dumps(args)} for index, (name, args) in enumerate(step)]

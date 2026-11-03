@@ -10,7 +10,7 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -18,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from agent_server import store
 from agent_server.commerce import ORDER_STATUSES, CommerceAdapter, CommerceError
 from shared.pii import PiiFilter, mask_address, mask_email, mask_phone
+
+VIETNAM = timezone(timedelta(hours=7))  # The shops' time zone; also used for today's date.
 
 logger = logging.getLogger(__name__)
 logger.addFilter(PiiFilter())
@@ -115,7 +117,9 @@ async def search_knowledge_base(ctx: TurnContext, args: SearchArgs) -> Outcome:
     hits = await asyncio.to_thread(ctx.search, args.query, ctx.shop["shop_id"], None)
     if not hits:
         return Outcome({"no_results": True,
-                        "note": "Nothing in this shop's documents answers this. Do not guess."})
+                        "note": "No section matched this query. If you have not yet, search once "
+                                "more with different words (the topic's usual name); if that also "
+                                "finds nothing, the documents do not cover it. Do not guess."})
     results = []
     for hit in hits:
         number = ctx.cite(f"{hit['doc_title']} – {hit['section']}", hit.get("url"))
@@ -188,12 +192,18 @@ async def get_promotions(ctx: TurnContext, args: PromotionArgs) -> Outcome:
         end = datetime.fromisoformat(offer["ends_at"]) if offer["ends_at"] else None
         if end and end < now:
             continue
-        item = {key: offer[key] for key in ("kind", "title", "description", "starts_at", "ends_at")
-                if offer[key]}
+        item = {key: offer[key] for key in ("kind", "title", "description") if offer[key]}
+        # The database returns UTC; the model reads "2026-11-10T17:00+00:00" as 10/11, not 11/11.
+        item.update({key: moment.astimezone(VIETNAM).strftime("%Y-%m-%d %H:%M")
+                     for key, moment in (("starts_at", start), ("ends_at", end)) if moment})
         (upcoming if start and start > now else current).append(item)
         _link(ctx, offer["title"], offer.get("source_url"))
     return Outcome({"current": current, "upcoming": upcoming,
-                    "published_at": snapshot["updated_at"]})
+                    "published_at": local_time(snapshot["updated_at"])})
+
+
+def local_time(value: str | None) -> str | None:
+    return datetime.fromisoformat(value).astimezone(VIETNAM).strftime("%Y-%m-%d %H:%M") if value else None
 
 
 async def escalate_to_human(ctx: TurnContext, args: EscalateArgs) -> Outcome:
@@ -215,7 +225,7 @@ TOOLS = [
          "self-contained question in Vietnamese with diacritics that resolves references from "
          "earlier turns and keeps the customer's own key words (product, symptom, fee), e.g. "
          "'thời hạn đổi trả điện thoại lỗi', not 'còn cái kia thì sao'. Results are "
-         "numbered; cite them as [n]. `no_results` means the documents do not cover it.",
+         "numbered; cite them as [n]. `no_results` after two different queries means the documents do not cover it.",
          SearchArgs, "Đang tra cứu tài liệu của shop...", None, search_knowledge_base),
     Tool("get_order_status",
          "Get one of the logged-in customer's own orders by its order ID (e.g. SO10293): status, "
@@ -232,7 +242,10 @@ TOOLS = [
          NoArgs, "Đang xem thông tin tài khoản...", "get_customer", get_customer_profile),
     Tool("search_products",
          "Search this shop's live product catalogue for current price, old price, stock and basic "
-         "specs. `query` is a product name, brand or SKU; `max_price` is in VND.",
+         "specs. `query` is one to three words of the product name as the shop writes it, in "
+         "Vietnamese even if the customer writes English (e.g. 'cáp Lightning', 'sạc 20W', "
+         "'Galaxy S25'); every word must appear in the name, so keep it short. Leave `category` "
+         "empty unless you know the shop's exact category name. `max_price` is in VND.",
          ProductArgs, "Đang tìm sản phẩm...", "search_products", search_products),
     Tool("get_promotions",
          "Get the promotions and dated events this shop has currently published, with dates.",

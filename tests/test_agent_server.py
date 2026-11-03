@@ -297,6 +297,8 @@ class ExternalShopTest(unittest.IsolatedAsyncioTestCase):
                 "shop_key": "pk_sample", "message": "có sale gì không"})
         result = json.loads(llm.requests[1]["messages"][-1]["content"])
         self.assertEqual(result["upcoming"][0]["title"], "Sale 11.11")
+        # In the shop's local time: the database returns UTC (2099-11-10 17:00), which reads as 10/11.
+        self.assertEqual(result["upcoming"][0]["starts_at"], "2099-11-11 00:00")
         self.assertEqual(result["current"], [])
 
 

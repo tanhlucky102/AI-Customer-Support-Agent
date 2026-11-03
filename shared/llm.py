@@ -69,7 +69,7 @@ class LLMProvider:
             self.model = DEFAULT_MODEL
         self.api_base = api_base or env("AI_BOX_BASE_URL", "https://api.ai-box.vn/v1")
         self.api_key = api_key if api_key is not None else env("AI_BOX_API_KEY")
-        self.timeout = timeout or env_float("LLM_TIMEOUT_SECONDS", 15.0)
+        self.timeout = timeout or env_float("LLM_TIMEOUT_SECONDS", 30.0)
         self.temperature = temperature
         # deepseek-flash reasons before answering unless told not to; off keeps latency low.
         self.thinking = env_flag("LLM_THINKING", False) if thinking is None else thinking
@@ -164,11 +164,12 @@ class LLMProvider:
 
 def transient(error: Exception) -> bool:
     """Worth one retry: stalls, dropped connections, overload; not bad requests or bad keys."""
+    # litellm's Timeout carries status 408, so the error type is checked before the status code.
+    if isinstance(error, (TimeoutError, ConnectionError)) or any(
+            word in type(error).__name__ for word in ("Timeout", "Connection", "Unavailable", "RateLimit")):
+        return True
     status = getattr(error, "status_code", None)
-    if isinstance(status, int):
-        return status == 429 or status >= 500
-    return isinstance(error, (TimeoutError, ConnectionError)) or any(
-        word in type(error).__name__ for word in ("Timeout", "Connection", "Unavailable", "RateLimit"))
+    return isinstance(status, int) and (status in (408, 429) or status >= 500)
 
 
 def parse_json(text: str) -> dict:

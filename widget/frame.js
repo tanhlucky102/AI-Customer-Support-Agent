@@ -286,6 +286,9 @@
         } else if (event.name === "token") {
           appendToken(pending, event.payload.text || "");
           scrollToBottom();
+        } else if (event.name === "replace") {
+          pending.raw = "";
+          appendToken(pending, event.payload.text || "");
         } else if (event.name === "citations") {
           addSources(pending.item, event.payload.sources);
         } else if (event.name === "done") {

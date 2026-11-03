@@ -86,7 +86,8 @@ Ví dụ thật: `examples/second_shop/commerce.json`. API của Phụ Kiện Xa
 |------|---------|
 | `profile` | `"standard"` để thừa hưởng toàn bộ mục 2; bỏ trống để tự khai báo |
 | `auth.type` | `bearer` (mặc định) hoặc `header` cùng `name` |
-| `operations.<op>.path` | Đường dẫn có biến `{customer_id}`, `{order_id}`; biến luôn được mã hoá URL |
+| `operations.<op>.path` | Đường dẫn **tương đối**, bắt đầu bằng `/`, có biến `{customer_id}`, `{order_id}`; biến luôn được mã hoá URL |
+| `operations.<op>.owner_field` | Đường dẫn chấm tới mã khách trong bản ghi (`buyer.id`). Bắt buộc khi API không lọc theo khách, ví dụ API quản trị trả đơn của mọi khách; bản ghi của khách khác bị coi như không tồn tại |
 | `operations.<op>.params` | Query string; `"{limit}"`, `"{status}"`, `"{query}"`... lấy từ tham số tool, bỏ qua khi rỗng |
 | `operations.<op>.result` | Đường dẫn chấm tới object/danh sách trong JSON trả về (`data.order`) |
 | `operations.<op>.fields` | Tên trường chuẩn → đường dẫn trong dữ liệu của shop (`amount.value`) |
@@ -102,8 +103,15 @@ Ví dụ thật: `examples/second_shop/commerce.json`. API của Phụ Kiện Xa
   để server gọi tới địa chỉ lạ (SSRF).
 - Chỉ dùng GET, không theo redirect, giới hạn 1 MB và có timeout.
 - `customer_id` luôn lấy từ token đã xác thực, không bao giờ lấy từ mô hình.
+- `get_order`, `list_orders`, `get_customer` phải **ràng buộc theo khách**: hoặc dùng `{customer_id}` trong
+  `path`/`params` (shop tự lọc), hoặc khai báo `owner_field` (Agent Server kiểm tra từng bản ghi). Thao tác
+  không ràng buộc bị `provision_shop` từ chối, và nếu lỡ được lưu thì cũng không bao giờ được cấp cho mô
+  hình.
+- Phản hồi 200 thiếu phần `result` đã khai báo bị coi là lỗi (agent xin lỗi và đề nghị chuyển nhân viên),
+  không bị coi là "không có đơn".
 
-Test của phần này nằm ở `tests/test_commerce.py`.
+Test của phần này nằm ở `tests/test_commerce.py` và `tests/test_review_fixes.py` (ràng buộc theo khách,
+`owner_field`, đường dẫn tuyệt đối, phản hồi thiếu `result`).
 
 ## 4. Đăng nhập và token chat (mọi mức)
 

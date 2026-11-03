@@ -5,6 +5,7 @@ at most MAX_ITERATIONS model calls per turn. The core knows nothing about HTTP o
 chat endpoint and the evaluation harness call exactly the same function.
 
 Events: {"type": "status", "message"} | {"type": "token", "text"} | {"type": "citations", "sources"}
+        | {"type": "replace", "text"} (the answer so far, without text written before a tool call)
         | {"type": "done", "reply", "mode", "tools", "sources", "usage", "llm_calls",
            "first_token_ms"} | {"type": "error", "message"}
 """
@@ -41,7 +42,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
     tools = toolset_for(ctx.adapter)
     tool_definitions = definitions(tools)
     messages = [{"role": "system", "content": system_prompt(ctx.shop, tools)},
-                {"role": "system", "content": context_message()},
+                {"role": "system", "content": context_message(message=message)},
                 *history_messages(history), {"role": "user", "content": message}]
     usage, calls, reply = Usage(), [], ""
     first_token_ms, started = None, time.perf_counter()
@@ -54,7 +55,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
     try:
         for iteration in range(MAX_ITERATIONS):
             last = iteration == MAX_ITERATIONS - 1
-            result = None
+            result, kept = None, reply
             async for event in llm.stream(messages, tool_definitions,
                                           tool_choice="none" if last else "auto"):
                 if event["type"] == "token":
@@ -67,10 +68,11 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
             usage.add(result.usage)
             if not result.tool_calls or last:
                 break
-            if result.content and not reply.endswith("\n"):
-                reply += "\n\n"
-                yield {"type": "token", "text": "\n\n"}
-            messages.append({"role": "assistant", "content": result.content or None, "tool_calls": [
+            if result.content:  # A preamble ("I'll check…") despite the rule: take it back.
+                reply = kept
+                first_token_ms = first_token_ms if kept else None
+                yield {"type": "replace", "text": reply}
+            messages.append({"role": "assistant", "content": None, "tool_calls": [
                 {"id": call["id"], "type": "function",
                  "function": {"name": call["name"], "arguments": valid_json(call["arguments"])}}
                 for call in result.tool_calls]})

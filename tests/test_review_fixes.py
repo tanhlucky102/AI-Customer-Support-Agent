@@ -135,6 +135,23 @@ class ChatRobustnessTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sse_events(response.text)[-1][0], "done")
         self.assertEqual(json.loads(llm.requests[1]["messages"][-1]["content"])["error"], "tool_failed")
 
+    async def test_text_written_before_a_tool_call_is_taken_back(self):
+        llm = FakeLLM(("I'll look that up.", [("search_knowledge_base", {"query": "đổi trả"})]),
+                      "Bạn được đổi trong 30 ngày.")
+        response = await self.chat("đổi trả thế nào", llm=llm)
+        events = sse_events(response.text)
+        self.assertIn("replace", [name for name, _ in events])
+        self.assertEqual(support.reply_text(response.text), "Bạn được đổi trong 30 ngày.")
+        self.assertIsNone(llm.requests[1]["messages"][-2]["content"])  # Not echoed to the model.
+
+    async def test_an_english_question_asks_for_an_english_answer(self):
+        llm = FakeLLM("Phones can be returned within 30 days.")
+        await self.chat("What is your return policy for phones?", llm=llm)
+        self.assertIn("in English", llm.requests[0]["messages"][1]["content"])
+        llm = FakeLLM("Được bạn nhé.")
+        await self.chat("dat may len de sac khong day ma no ko vo pin", llm=llm)
+        self.assertNotIn("English", llm.requests[0]["messages"][1]["content"])
+
     async def test_traces_keep_no_personal_data(self):
         llm = FakeLLM([("escalate_to_human", {"reason": "complaint",
                                               "transcript_summary": "Khách 0912345678, an@demo.vn phàn nàn"})])
@@ -171,6 +188,15 @@ class TextAndChunkingTest(unittest.TestCase):
         self.assertIn("cua", query_terms("Cửa hàng ở đâu?"))            # cửa, not của
         self.assertNotIn("khong", query_terms("có được đổi trả không"))
         self.assertNotIn("toan_bang", query_terms("thanh toán với bằng"))  # no bigram across "với"
+
+    def test_english_is_told_apart_from_unaccented_vietnamese(self):
+        from shared.text import looks_english
+        for text in ("Do I have to pay shipping on a 250k order?", "Who won the 2022 FIFA World Cup?",
+                     "how do i back up my iphone to my laptop"):
+            self.assertTrue(looks_english(text), text)
+        for text in ("mua tai nghe tra gop duoc ko, the atm thi sao", "don 450k co mat phi ship ko",
+                     "upate ios xong bi dung o logo tao tao hon 1 tieng roi", "Đơn của tôi đâu?", "ok"):
+            self.assertFalse(looks_english(text), text)
 
     def test_no_chunk_repeats_a_subset_of_the_previous_one(self):
         text = "\n".join(["a " * 20, "b " * 20, "c " * 20, "d " * 70])
