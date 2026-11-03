@@ -6,6 +6,11 @@ The shop backend calls this only for a customer who is logged in, e.g. in GET /a
     token = sign_user_token(user.id, shop_id="demo_shop", secret=CHAT_TOKEN_SECRET)
 
 `secret` is the chat_token_secret printed by provision_shop.py; it must never reach the browser.
+
+On logout, also cut off the tokens already issued (they would otherwise stay valid until they expire):
+
+    from ati_sdk import revoke_user_tokens
+    revoke_user_tokens(user.id, shop_id="demo_shop", write_key=WRITE_KEY, server_url=AGENT_SERVER_URL)
 """
 
 import base64
@@ -13,7 +18,9 @@ import hashlib
 import hmac
 import json
 import time
+import urllib.request
 import uuid
+from urllib.parse import quote
 
 AUDIENCE = "ati-agent"
 
@@ -35,3 +42,18 @@ def sign_user_token(customer_id: str, *, shop_id: str, secret: str, ttl_seconds:
                      + _b64(json.dumps(claims, separators=(",", ":")).encode()))
     signature = hmac.new(secret.encode(), signing_input.encode(), hashlib.sha256).digest()
     return signing_input + "." + _b64(signature)
+
+
+def revoke_user_tokens(customer_id, *, shop_id: str, write_key: str, server_url: str,
+                       timeout: float = 3.0) -> bool:
+    """Call when the customer logs out: every chat token issued to them until now stops working, on
+    every device. Returns False instead of raising, so logging out never fails because of the chat."""
+    body = json.dumps({"customer_id": str(customer_id), "logout_at": int(time.time())}).encode()
+    request = urllib.request.Request(
+        f"{server_url.rstrip('/')}/v1/shops/{quote(shop_id, safe='')}/logout", data=body, method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {write_key}"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status == 200
+    except OSError:  # URLError, HTTPError and timeouts
+        return False

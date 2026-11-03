@@ -14,6 +14,8 @@ SHOP_ID = "demo_shop"
 PUBLIC_KEY = "pk_demo_shop"
 
 AGENT_SERVER_URL = os.getenv("AGENT_SERVER_URL", "http://localhost:8000").rstrip("/")
+# The shop's write key for the Agent Server: content pushes and logout (cutting off chat tokens).
+WRITE_KEY = os.getenv("DEMO_FAQ_WRITE_KEY", "")
 SHOP_URL = os.getenv("DEMO_SHOP_URL", "http://localhost:8001").rstrip("/")
 SHOW_WIDGET = os.getenv("SHOW_WIDGET", "1") != "0"
 # external = widget của Agent Server (agent AI); demo = chatbot quy tắc cục bộ cũ, dùng khi không chạy Agent Server.

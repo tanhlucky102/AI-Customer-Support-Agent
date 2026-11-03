@@ -134,6 +134,26 @@ def refresh_shop(shop_id: str, *, faq_write_key: str, chat_token_secret: str, sh
             commerce_api_key, guest_chat, shop_id))
 
 
+def revoke_customer_tokens(shop_id: str, customer_id: str, logout_at: int) -> None:
+    """Every chat token of this customer issued at or before `logout_at` (epoch seconds) stops working."""
+    from agent_server.auth import MAX_TOKEN_LIFETIME
+    with connect() as db:
+        db.execute("""INSERT INTO token_cutoffs (shop_id, customer_id, logout_at) VALUES (%s, %s, %s)
+                      ON CONFLICT (shop_id, customer_id) DO UPDATE
+                      SET logout_at = GREATEST(token_cutoffs.logout_at, EXCLUDED.logout_at)""",
+                   (shop_id, customer_id, logout_at))
+        # A cut-off older than the longest token lifetime protects nothing any more.
+        db.execute("DELETE FROM token_cutoffs WHERE logout_at < %s",
+                   (int(now().timestamp()) - MAX_TOKEN_LIFETIME - 120,))
+
+
+def token_revoked(shop_id: str, customer_id: str, issued_at: int) -> bool:
+    with connect() as db:
+        row = db.execute("SELECT logout_at FROM token_cutoffs WHERE shop_id = %s AND customer_id = %s",
+                         (shop_id, customer_id)).fetchone()
+    return bool(row) and issued_at <= row["logout_at"]
+
+
 def guest_allowed(shop: dict) -> bool:
     """Guests (no login) may chat only with a shop that opted in and has no commerce API, so a
     guest can never reach order or account tools."""

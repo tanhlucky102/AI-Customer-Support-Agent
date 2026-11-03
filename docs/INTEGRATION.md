@@ -143,6 +143,11 @@ Nhúng widget vào trang:
 - `data-login-url` (không bắt buộc): trang đăng nhập của shop. Khi khách chưa đăng nhập, widget hiện link
   tới trang này. Link phải cùng origin với trang nhúng widget; link khác origin bị bỏ qua.
 - Shop mức 0 dùng chế độ khách thì chỉ cần `data-shop-key`.
+- **Đăng xuất:** trong hàm đăng xuất, backend shop gọi thêm một dòng
+  `revoke_user_tokens(user.id, shop_id=..., write_key=..., server_url=...)` (SDK). Mọi token chat đã cấp
+  cho khách đó mất hiệu lực ngay trên mọi thiết bị, kể cả token bị lộ (`POST /v1/shops/{shop_id}/logout`,
+  khóa ghi của shop). Shop đăng xuất bằng JavaScript thì gọi `ATI.reset()`: widget tự báo Agent Server
+  (`POST /v1/logout`). Token sống tối đa 1 giờ (SDK cấp 15 phút); token sống lâu hơn bị từ chối.
 
 Widget không chứa gì riêng của shop nào: tên, lời chào, màu và câu gợi ý lấy từ cấu hình shop lúc cấp
 (mục 5). Agent Server chỉ tự tạo shop Demo Mobile trên máy đã chạy `scripts/setup_demo.py` (hoặc khi

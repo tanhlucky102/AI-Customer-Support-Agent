@@ -7,10 +7,20 @@ import json
 import time
 
 JWT_AUDIENCE = "ati-agent"
+# The SDK issues 15-minute tokens. A longer-lived token is refused, which also bounds how long a
+# logout cut-off must be kept (store.revoke_customer_tokens).
+MAX_TOKEN_LIFETIME = 3600
 
 
 def verify_customer_token(token: str, shop: dict) -> str | None:
     """Return the signed customer ID, or None for an invalid/expired token."""
+    claims = verify_customer_claims(token, shop)
+    return claims["sub"] if claims else None
+
+
+def verify_customer_claims(token: str, shop: dict) -> dict | None:
+    """Return the claims (sub, iat, exp, ...) of a valid token signed for this shop, or None.
+    Whether the customer has logged out since is checked by the caller (store.token_revoked)."""
     try:
         if len(token) > 4096:
             return None
@@ -40,6 +50,8 @@ def verify_customer_token(token: str, shop: dict) -> str | None:
             return None
         if not isinstance(claims.get("iat"), int) or claims["iat"] > now + 60:
             return None
-        return claims["sub"]
+        if claims["exp"] - claims["iat"] > MAX_TOKEN_LIFETIME:
+            return None
+        return claims
     except (ValueError, KeyError, TypeError, UnicodeDecodeError, RecursionError):
         return None  # Any malformed token is a 401, never a server error.

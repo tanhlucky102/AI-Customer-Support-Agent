@@ -62,8 +62,9 @@ def encoded(value: dict) -> str:
     return base64.urlsafe_b64encode(json.dumps(value, separators=(",", ":")).encode()).rstrip(b"=").decode()
 
 
-def token(customer_id: str, secret: str, expires_in: int = 600, shop_id: str = "demo_shop") -> str:
-    now = int(time.time())
+def token(customer_id: str, secret: str, expires_in: int = 600, shop_id: str = "demo_shop",
+          issued_at: int | None = None) -> str:
+    now = int(time.time()) if issued_at is None else issued_at
     unsigned = encoded({"alg": "HS256", "typ": "JWT"}) + "." + encoded({
         "iss": shop_id, "sub": customer_id, "aud": "ati-agent", "iat": now, "exp": now + expires_in})
     signature = hmac.new(secret.encode(), unsigned.encode(), hashlib.sha256).digest()

@@ -19,14 +19,15 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Streamin
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agent_server import agent
-from agent_server.auth import verify_customer_token
+from agent_server.auth import verify_customer_claims
 from agent_server.commerce import adapter_for
 from agent_server.rate_limit import ChatLimiter
 from agent_server.store import (append_turn, conversation_owned, create_conversation,
                                 delete_empty_conversation, demo_shop_enabled, guest_allowed, init_db,
                                 list_conversations, list_faqs, list_messages, list_offers,
-                                list_tickets, origin_of, replace_faqs, replace_offers, save_trace,
-                                shop_by_id, shop_by_public_key, verify_faq_key)
+                                list_tickets, origin_of, replace_faqs, replace_offers,
+                                revoke_customer_tokens, save_trace, shop_by_id, shop_by_public_key,
+                                token_revoked, verify_faq_key)
 from agent_server.tools import TurnContext
 from rag.search import search
 from shared.llm import LLMProvider
@@ -114,6 +115,16 @@ class ChatRequest(BaseModel):
         return "".join(char for char in value if char in "\n\t" or ord(char) >= 32)
 
 
+class LogoutRequest(BaseModel):
+    shop_key: str = Field(min_length=1, max_length=100)
+
+
+class ShopLogout(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    customer_id: str = Field(min_length=1, max_length=200)
+    logout_at: int | None = None  # epoch seconds on the shop's clock, the clock that sets `iat`
+
+
 class FeedbackRequest(BaseModel):
     shop_key: str
     conversation_id: str
@@ -173,10 +184,12 @@ def require_customer(shop: dict, authorization: str | None, guest_id: str | None
     groups the guest's own conversations, and guest shops have no order or account tools."""
     scheme, _, token = (authorization or "").partition(" ")
     if scheme.lower() == "bearer" and token:
-        customer_id = verify_customer_token(token, shop)
-        if not customer_id:
+        claims = verify_customer_claims(token, shop)
+        if not claims:
             raise HTTPException(401, "invalid_chat_token", headers={"WWW-Authenticate": "Bearer"})
-        return customer_id
+        if token_revoked(shop["shop_id"], claims["sub"], claims["iat"]):  # logged out since it was issued
+            raise HTTPException(401, "chat_token_revoked", headers={"WWW-Authenticate": "Bearer"})
+        return claims["sub"]
     if guest_id and guest_allowed(shop) and GUEST_ID.fullmatch(guest_id):
         return f"guest:{guest_id}"
     raise HTTPException(401, "login_required", headers={"WWW-Authenticate": "Bearer"})
@@ -466,6 +479,33 @@ async def conversation(conversation_id: str, shop_key: str,
         raise HTTPException(404, "unknown_conversation")
     return JSONResponse({"conversation_id": conversation_id, "messages": messages},
                         headers={"Cache-Control": "no-store"})
+
+
+@app.post("/v1/logout")
+async def logout(payload: LogoutRequest, request: Request,
+                 authorization: str | None = Header(default=None)):
+    """The widget, when the shop page calls ATI.reset() on logout: the customer's chat tokens issued
+    until now, including the one presented, stop working at once."""
+    require_widget_origin(request)
+    shop = require_shop_key(payload.shop_key)
+    scheme, _, token = (authorization or "").partition(" ")
+    claims = verify_customer_claims(token, shop) if scheme.lower() == "bearer" and token else None
+    if not claims:
+        raise HTTPException(401, "invalid_chat_token", headers={"WWW-Authenticate": "Bearer"})
+    # max(): the token itself is cut off even if the shop's clock runs ahead of this server's.
+    revoke_customer_tokens(shop["shop_id"], claims["sub"], max(int(time.time()), claims["iat"]))
+    return {"ok": True}
+
+
+@app.post("/v1/shops/{shop_id}/logout")
+async def shop_logout(shop_id: str, payload: ShopLogout, authorization: str | None = Header(default=None)):
+    """The shop's backend, when a customer logs out (sdk: revoke_user_tokens): every chat token issued
+    to that customer until now stops working, on every device."""
+    require_write_key(shop_id, authorization)
+    now = int(time.time())
+    logout_at = min(payload.logout_at, now + 300) if payload.logout_at else now
+    revoke_customer_tokens(shop_id, payload.customer_id, logout_at)
+    return {"ok": True}
 
 
 @app.post("/v1/feedback")

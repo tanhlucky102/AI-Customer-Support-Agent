@@ -411,6 +411,11 @@
       if (canChat()) loadHistory();
       authWaiters.splice(0).forEach(function (resolve) { resolve(); });
     } else if (data.type === "ati:reset") {
+      if (token) {  // The shop logged the customer out: their chat tokens stop working on the server too.
+        fetch("/v1/logout", { method: "POST", keepalive: true,
+                              headers: authHeaders({ "Content-Type": "application/json" }),
+                              body: JSON.stringify({ shop_key: shopKey }) }).catch(function () {});
+      }
       token = null;
       customerKey = null;
       authReceived = true;

@@ -24,7 +24,7 @@ from starlette.middleware.sessions import SessionMiddleware
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "sdk"))
-from ati_sdk import sign_user_token  # noqa: E402
+from ati_sdk import revoke_user_tokens, sign_user_token  # noqa: E402
 from shared.settings import env  # noqa: E402
 
 SHOP_ID = "second_shop"
@@ -32,6 +32,7 @@ SHOP_URL = env("SECOND_SHOP_URL", "http://localhost:8003").rstrip("/")
 AGENT_URL = env("AGENT_SERVER_URL", "http://localhost:8000").rstrip("/")
 API_KEY = env("SECOND_SHOP_API_KEY")
 TOKEN_SECRET = env("SECOND_SHOP_TOKEN_SECRET")
+WRITE_KEY = env("SECOND_SHOP_WRITE_KEY")
 PUBLIC_KEY = env("SECOND_SHOP_PUBLIC_KEY")
 KB_DIR = ROOT / "data" / "kb" / SHOP_ID
 TODAY = date.today()
@@ -162,7 +163,10 @@ def login(request: Request, email: str = Form(...), password: str = Form(...)):
 
 @app.post("/logout")
 def logout(request: Request):
+    uid = request.session.get("uid")
     request.session.clear()
+    if uid and WRITE_KEY:  # also cut off the chat tokens this customer already received
+        revoke_user_tokens(uid, shop_id=SHOP_ID, write_key=WRITE_KEY, server_url=AGENT_URL)
     return RedirectResponse("/", status_code=303)
 
 

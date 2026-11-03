@@ -5,9 +5,11 @@ Chạy:  python seed.py && uvicorn app:app --port 8001 --reload   (trong thư m�
 import random
 import sqlite3
 import string
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
+import httpx
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -379,9 +381,24 @@ def register(request: Request, full_name: str = Form(...), email: str = Form(...
     return RedirectResponse("/", status_code=303)
 
 
+def revoke_chat_tokens(customer_id: str) -> None:
+    """Logging out also cuts off the chat tokens this customer received (Agent Server, contract C3)."""
+    if not config.WRITE_KEY:
+        return
+    try:
+        httpx.post(f"{config.AGENT_SERVER_URL}/v1/shops/{config.SHOP_ID}/logout",
+                   json={"customer_id": customer_id, "logout_at": int(time.time())},
+                   headers={"Authorization": f"Bearer {config.WRITE_KEY}"}, timeout=3)
+    except httpx.HTTPError:
+        pass  # Logging out must not fail when the chat server is down; tokens still expire in 15 min.
+
+
 @app.post("/logout")
 def logout(request: Request):
+    customer_id = request.session.get("cid")
     request.session.clear()
+    if customer_id:
+        revoke_chat_tokens(customer_id)
     return RedirectResponse("/", status_code=303)
 
 
@@ -406,7 +423,7 @@ def checkout(request: Request, ship_name: str = Form(...), ship_phone: str = For
     if not user:
         return to_login(request)
     t = cart_totals(request, db)
-    lines, subtotal, fee, discount = t["lines"], t["subtotal"], t["fee"], t["discount"]
+    lines, fee, discount = t["lines"], t["fee"], t["discount"]
     if not lines:
         return RedirectResponse("/cart", status_code=303)
     if payment_method not in PAYMENT_LABEL:

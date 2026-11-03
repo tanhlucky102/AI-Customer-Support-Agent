@@ -19,7 +19,7 @@ hay chuyển cho nhân viên. Agent chạy trong vòng lặp Reason → Act → 
   Agent chỉ thấy tool ứng với khả năng thật của shop. Xem [docs/INTEGRATION.md](docs/INTEGRATION.md).
 - **Bảo mật:**
   - shop có dữ liệu khách bắt buộc đăng nhập (JWT do shop ký); chế độ khách chỉ dành cho shop mức 0;
-  - `customer_id` chỉ lấy từ token;
+  - `customer_id` chỉ lấy từ token; khách đăng xuất thì token đã cấp mất hiệu lực ngay;
   - widget chạy trong iframe với CSP `frame-ancestors`;
   - kiểm tra Origin, giới hạn tần suất gọi;
   - che PII trong log và trace;
