@@ -463,8 +463,10 @@ phần còn lại bằng LLM-judge với prompt cố định, `temperature=0`. J
 và ghi rõ trong `eval/results/README.md`.
 
 **15. Token JWT bị lộ thì sao? (M1)** Token sống 15 phút, ràng buộc `iss` (shop) và `aud`; chỉ dùng được với đúng
-shop đó. Shop có thể xoay khóa ký bằng `rotate_chat_secret`. Hạn chế: `jti` có trong token nhưng server chưa
-kiểm tra, nên trong 15 phút token có thể dùng lại (xem mục 5).
+shop đó. Shop có thể xoay khóa ký bằng `rotate_chat_secret`. Hạn chế: token là loại "ai cầm cũng dùng được"
+(bearer). Ai lấy được token thật của khách thì hỏi được như khách đó cho tới khi token hết hạn (tối đa 15 phút),
+và khi khách đăng xuất, token cũ vẫn còn hạn (server không có danh sách token đã huỷ; `jti` có trong token nhưng
+chưa dùng). Đây là cách làm phổ biến của access token ngắn hạn; xem mục 5.
 
 ## 5. Điểm code còn có thể bị chê
 
@@ -489,7 +491,7 @@ Nếu thầy chỉ ra, nên nhận và nói hướng sửa; đừng cãi. Danh s
 | 15 | `shop_demo/app.py` (654 dòng) | Một file chứa catalogue, giỏ hàng, thanh toán, đơn, tài khoản, trợ giúp, token | Tách thành các router như `api.py` |
 | 16 | `shop_demo/app.py:584`, `shop_demo/demo_chat.py` | Chatbot quy tắc cũ (`WIDGET_MODE=demo`) và bảng chính sách viết tay trùng nội dung `data/kb`; `templates/policy.html` không còn route nào render | Xoá hoặc ghi rõ là code cũ |
 | 17 | `eval/run.py:216`, `eval/agent_eval.py:151` | Hàm bọc không làm gì thêm; tham số `ctx` không dùng | Gọi thẳng `tool_data`; bỏ tham số |
-| 18 | `agent_server/auth.py:12` | `jti` được SDK sinh (`sdk/ati_sdk.py:33`) nhưng không kiểm tra: token dùng lại được trong 15 phút | Lưu `jti` đã dùng tới khi hết hạn nếu cần chống replay |
+| 18 | `agent_server/auth.py:12` | Token chat không thu hồi được: khách đăng xuất thì token cũ vẫn dùng được tới khi hết hạn (tối đa 15 phút). `jti` được SDK sinh (`sdk/ati_sdk.py:33`) nhưng server chưa dùng | Khi khách đăng xuất, backend shop gọi Agent Server huỷ token theo `jti` (danh sách đen tới lúc hết hạn), hoặc rút hạn token xuống 5 phút. **Không** bắt mỗi token chỉ dùng 1 lần: widget cố ý dùng 1 token cho nhiều câu hỏi |
 | 19 | `agent_server/app.py:166` | Mã khách vãng lai do trình duyệt tự sinh; đổi mã là né được giới hạn "mỗi khách/phút" (giới hạn theo IP và theo ngày vẫn còn) | Giới hạn chặt hơn theo IP cho khách vãng lai |
 | 20 | Test | Không có test tự động cho `widget/*.js` (chỉ `scripts/browser_smoke.mjs` chạy tay, đường dẫn Chrome viết cứng `scripts/browser_smoke.mjs:8`); 2 test của `shop_demo/` không chạy trong lệnh test chính | Thêm vào CI hoặc ghi rõ lệnh chạy riêng |
 
