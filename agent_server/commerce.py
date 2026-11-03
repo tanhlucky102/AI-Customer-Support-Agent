@@ -14,6 +14,7 @@ size-capped; customer_id always comes from the verified chat token.
 """
 
 import copy
+import json
 from typing import Protocol
 from urllib.parse import quote
 
@@ -44,7 +45,7 @@ STANDARD_PROFILE = {
                             "params": {"q": "{query}", "category": "{category}",
                                        "max_price": "{max_price}", "limit": "{limit}"}},
     },
-    "links": {"order": "/orders/{order_id}", "product": "/products/{product_id}"},
+    "links": {"order": "/orders/{order_id}", "product": "/products/{product_id}", "orders": "/orders"},
 }
 
 ORDER_FIELDS = ("id", "status", "total", "shipping_fee", "discount", "payment_method", "placed_at",
@@ -67,6 +68,7 @@ class CommerceAdapter(Protocol):
     async def get_customer(self, customer_id: str) -> dict | None: ...
     async def search_products(self, query: str, category: str | None, max_price: int | None,
                               limit: int) -> list[dict]: ...
+    def orders_page(self) -> str | None: ...
 
 
 def pick(data, path: str | None):
@@ -161,17 +163,20 @@ class RestCommerceAdapter:
             async with httpx.AsyncClient(base_url=self.base_url, transport=self.transport,
                                          timeout=float(self.config.get("timeout_seconds", 6)),
                                          follow_redirects=False) as client:
-                response = await client.get(path, params=params, headers=self._headers())
+                async with client.stream("GET", path, params=params, headers=self._headers()) as response:
+                    if response.status_code == 404:
+                        return None
+                    if response.status_code != 200:
+                        raise CommerceError(f"{operation}: HTTP {response.status_code}")
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():  # Stop reading past the cap.
+                        body += chunk
+                        if len(body) > MAX_RESPONSE_BYTES:
+                            raise CommerceError(f"{operation}: response too large")
         except httpx.HTTPError as error:
             raise CommerceError(f"{operation}: {type(error).__name__}") from None
-        if response.status_code == 404:
-            return None
-        if response.status_code != 200:
-            raise CommerceError(f"{operation}: HTTP {response.status_code}")
-        if len(response.content) > MAX_RESPONSE_BYTES:
-            raise CommerceError(f"{operation}: response too large")
         try:
-            data = response.json()
+            data = json.loads(body)
         except ValueError:
             raise CommerceError(f"{operation}: invalid JSON") from None
         result = pick(data, spec.get("result"))
@@ -204,6 +209,10 @@ class RestCommerceAdapter:
     def _map(self, operation: str, record: dict, fields: tuple[str, ...]) -> dict:
         mapping = self._spec(operation, "fields") or {}
         return {name: pick(record, mapping.get(name, name)) for name in fields}
+
+    def orders_page(self) -> str | None:
+        """The customer's order-list page, if the mapping declares `links.orders`."""
+        return self._link("orders")
 
     def _link(self, kind: str, **values) -> str | None:
         template = (self.config.get("links") or {}).get(kind)

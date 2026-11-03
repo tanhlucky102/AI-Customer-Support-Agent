@@ -51,6 +51,8 @@ def main() -> None:
     parser.add_argument("--commerce-api-key", help="Server-to-server key for that API")
     parser.add_argument("--chat-token-secret", help="Reuse an existing secret instead of a new one")
     parser.add_argument("--faq-write-key", help="Reuse an existing write key instead of a new one")
+    parser.add_argument("--guest-chat", action="store_true",
+                        help="Level 0 only: let visitors chat without logging in (documents and FAQ only)")
     args = parser.parse_args()
 
     if not re.fullmatch(r"[a-z][a-z0-9_-]{2,63}", args.shop_id):
@@ -66,6 +68,8 @@ def main() -> None:
     commerce = load_commerce_config(args.commerce_config, parser) if args.commerce_config else None
     if commerce and not args.commerce_api_key:
         parser.error("--commerce-config needs --commerce-api-key")
+    if commerce and args.guest_chat:
+        parser.error("--guest-chat is only for level-0 shops (no commerce API)")
 
     public_key = "pk_" + secrets.token_urlsafe(16)
     faq_write_key = args.faq_write_key or "sk_" + secrets.token_urlsafe(32)
@@ -76,14 +80,15 @@ def main() -> None:
                     title=args.title, greeting=args.greeting, primary_color=args.color,
                     shop_url=args.shop_url, allowed_origins=origins,
                     chat_token_secret=chat_token_secret, suggestions=args.suggestion,
-                    tone=args.tone, commerce_config=commerce, commerce_api_key=args.commerce_api_key)
+                    tone=args.tone, commerce_config=commerce, commerce_api_key=args.commerce_api_key,
+                    guest_chat=args.guest_chat)
     except psycopg.errors.UniqueViolation:
         parser.error("shop-id already exists; choose a new one")
     capabilities = sorted(resolve_config(commerce)["operations"]) if commerce else []
     print(json.dumps({"shop_id": args.shop_id, "public_key": public_key,
                       "faq_write_key": faq_write_key, "chat_token_secret": chat_token_secret,
                       "allowed_origins": origins, "integration_level": 1 if commerce else 0,
-                      "commerce_capabilities": capabilities},
+                      "commerce_capabilities": capabilities, "guest_chat": args.guest_chat},
                      ensure_ascii=True, indent=2))
 
 

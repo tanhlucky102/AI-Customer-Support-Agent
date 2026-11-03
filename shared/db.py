@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS shops (
     offers_updated_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Level-0 shops without customer accounts may let visitors chat without logging in (guest mode).
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS guest_chat BOOLEAN NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS faqs (
     shop_id TEXT NOT NULL REFERENCES shops(shop_id) ON DELETE CASCADE,

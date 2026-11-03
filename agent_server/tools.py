@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from agent_server import store
 from agent_server.commerce import ORDER_STATUSES, CommerceAdapter, CommerceError
 from shared.pii import PiiFilter, mask_address, mask_email, mask_phone
+from shared.text import source_label
 
 VIETNAM = timezone(timedelta(hours=7))  # The shops' time zone; also used for today's date.
 
@@ -81,6 +82,11 @@ class TurnContext:
         self.sources[number] = {"label": label, "href": href}
         return number
 
+    @property
+    def guest(self) -> bool:
+        """A visitor of a guest-enabled shop, not a logged-in customer (see require_customer)."""
+        return self.customer_id.startswith("guest:")
+
 
 @dataclass
 class Outcome:
@@ -122,7 +128,7 @@ async def search_knowledge_base(ctx: TurnContext, args: SearchArgs) -> Outcome:
                                 "finds nothing, the documents do not cover it. Do not guess."})
     results = []
     for hit in hits:
-        number = ctx.cite(f"{hit['doc_title']} – {hit['section']}", hit.get("url"))
+        number = ctx.cite(source_label(hit), hit.get("url"))
         results.append({"ref": number, "document": hit["doc_title"], "section": hit["section"],
                         "text": hit["content"].split("\n", 1)[-1]})
     return Outcome({"results": results})
@@ -151,9 +157,11 @@ async def get_order_status(ctx: TurnContext, args: OrderArgs) -> Outcome:
 async def list_customer_orders(ctx: TurnContext, args: ListOrdersArgs) -> Outcome:
     orders = await ctx.adapter.list_orders(ctx.customer_id, args.limit, args.status)
     if ctx.adapter and orders:
-        orders_page = ctx.shop["shop_url"].rstrip("/") + "/orders"
-        _link(ctx, "Đơn hàng của tôi", orders_page if ctx.shop["shop_id"] == "demo_shop"
-              else orders[0].get("url"))
+        page = ctx.adapter.orders_page()
+        if page:
+            _link(ctx, "Đơn hàng của tôi", page)
+        else:  # No order-list page mapped: link the newest order under its own name.
+            _link(ctx, f"Xem đơn {orders[0]['id']}", orders[0].get("url"))
     return Outcome({"orders": [_order_for_model({**order, "items": None}) for order in orders],
                     "count": len(orders)})
 
@@ -261,10 +269,12 @@ TOOLS = [
 BY_NAME = {tool.name: tool for tool in TOOLS}
 
 
-def toolset_for(adapter: CommerceAdapter | None) -> list[Tool]:
-    """Offer only the tools the shop's integration supports (level 0 has no commerce tools)."""
-    capabilities = adapter.capabilities if adapter else frozenset()
-    return [tool for tool in TOOLS if tool.capability is None or tool.capability in capabilities]
+def toolset_for(adapter: CommerceAdapter | None, guest: bool = False) -> list[Tool]:
+    """Offer only the tools the shop's integration supports (level 0 has no commerce tools).
+    A guest gets no commerce tools and no handover: staff could not reach someone without an account."""
+    capabilities = adapter.capabilities if adapter and not guest else frozenset()
+    return [tool for tool in TOOLS if (tool.capability is None or tool.capability in capabilities)
+            and not (guest and tool.name == "escalate_to_human")]
 
 
 def definitions(tools: list[Tool]) -> list[dict]:

@@ -39,9 +39,9 @@ def cited_sources(reply: str, ctx: TurnContext) -> list[dict]:
 async def run(ctx: TurnContext, history: list[dict], message: str,
               llm: LLMProvider | None = None) -> AsyncIterator[dict]:
     llm = llm or LLMProvider()
-    tools = toolset_for(ctx.adapter)
+    tools = toolset_for(ctx.adapter, guest=ctx.guest)
     tool_definitions = definitions(tools)
-    messages = [{"role": "system", "content": system_prompt(ctx.shop, tools)},
+    messages = [{"role": "system", "content": system_prompt(ctx.shop, tools, guest=ctx.guest)},
                 {"role": "system", "content": context_message(message=message)},
                 *history_messages(history), {"role": "user", "content": message}]
     usage, calls, reply = Usage(), [], ""

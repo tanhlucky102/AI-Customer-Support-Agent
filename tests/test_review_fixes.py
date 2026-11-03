@@ -87,6 +87,35 @@ class CommerceScopingTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([order["id"] for order in orders], ["1", "2"])
         self.assertEqual(seen[0], {"limit": "50"})  # No single shop status to send: fetch, then filter.
 
+    async def test_order_list_link_is_the_list_page_or_names_the_order_it_opens(self):
+        from agent_server.tools import ListOrdersArgs, TurnContext, list_customer_orders
+        api = httpx.MockTransport(lambda r: httpx.Response(200, json=[{"id": "A1", "status": "pending"}]))
+        operations = {"list_orders": {"path": "/c/{customer_id}/orders"}}
+        for links, expected in (({"order": "/o/{order_id}", "orders": "/my-orders"}, ("Đơn hàng của tôi", "http://shop/my-orders")),
+                                ({"order": "/o/{order_id}"}, ("Xem đơn A1", "http://shop/o/A1"))):
+            adapter = RestCommerceAdapter({"base_url": "http://api", "links": links, "operations": operations},
+                                          "k", "http://shop", transport=api)
+            ctx = TurnContext(shop={"shop_id": "other", "shop_url": "http://shop"}, customer_id="U1",
+                              conversation_id="c", turn_key="t", adapter=adapter, search=lambda *a, **k: [])
+            await list_customer_orders(ctx, ListOrdersArgs())
+            self.assertEqual((ctx.links[0]["label"], ctx.links[0]["href"]), expected)
+
+    async def test_an_oversized_shop_response_is_cut_off_while_streaming(self):
+        from agent_server.commerce import MAX_RESPONSE_BYTES, CommerceError
+        sent = []
+
+        async def chunks():
+            for _ in range(10):  # 10 x 200 KB: reading must stop after about 1 MB.
+                sent.append(1)
+                yield b" " * 200_000
+
+        api = httpx.MockTransport(lambda r: httpx.Response(200, content=chunks()))
+        shop = RestCommerceAdapter({"base_url": "http://api", "operations": {
+            "get_order": {"path": "/c/{customer_id}/o/{order_id}"}}}, "k", "http://shop", transport=api)
+        with self.assertRaises(CommerceError):
+            await shop.get_order("A1", "U1")
+        self.assertLessEqual(len(sent) * 200_000, MAX_RESPONSE_BYTES + 200_000)
+
     async def test_broken_link_template_does_not_break_the_order(self):
         shop = RestCommerceAdapter({"base_url": "http://shop", "links": {"order": "/o/{code}"}, "operations": {
             "get_order": {"path": "/c/{customer_id}/o/{order_id}"}}}, "k", "http://shop",
@@ -192,11 +221,19 @@ class TextAndChunkingTest(unittest.TestCase):
     def test_english_is_told_apart_from_unaccented_vietnamese(self):
         from shared.text import looks_english
         for text in ("Do I have to pay shipping on a 250k order?", "Who won the 2022 FIFA World Cup?",
-                     "how do i back up my iphone to my laptop"):
+                     "how do i back up my iphone to my laptop",
+                     # Short questions with few function words (found by scripts/bad_cases.py).
+                     "Is the iPhone 16 in stock?", "Hi, do you ship to Da Nang?", "Hello, any discount today?"):
             self.assertTrue(looks_english(text), text)
         for text in ("mua tai nghe tra gop duoc ko, the atm thi sao", "don 450k co mat phi ship ko",
-                     "upate ios xong bi dung o logo tao tao hon 1 tieng roi", "Đơn của tôi đâu?", "ok"):
+                     "upate ios xong bi dung o logo tao tao hon 1 tieng roi", "Đơn của tôi đâu?", "ok",
+                     "hi shop", "gia iphone 16 pro max", "check don hang giup em"):
             self.assertFalse(looks_english(text), text)
+
+    def test_faq_citation_label_does_not_repeat_the_question(self):
+        from shared.text import source_label
+        self.assertEqual(source_label({"doc_title": "Giờ mở cửa?", "section": "Giờ mở cửa?"}), "Giờ mở cửa?")
+        self.assertEqual(source_label({"doc_title": "Đổi trả", "section": "Thời hạn"}), "Đổi trả – Thời hạn")
 
     def test_no_chunk_repeats_a_subset_of_the_previous_one(self):
         text = "\n".join(["a " * 20, "b " * 20, "c " * 20, "d " * 70])

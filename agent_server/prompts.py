@@ -7,8 +7,8 @@ from datetime import datetime
 from agent_server.tools import VIETNAM, Tool
 from shared.text import looks_english
 
-BASE = """You are the customer-support assistant of the online shop "{title}" ({url}). You chat with a \
-customer who is logged in to this shop's website, inside the chat widget on that website.
+BASE = """You are the customer-support assistant of the online shop "{title}" ({url}). You chat with \
+{who}, inside the chat widget on that website.
 
 # Answering
 - Reply in the customer's language (Vietnamese by default), even when tool results are in Vietnamese{tone}. In Vietnamese, call yourself "mình" and the customer "bạn". Be brief: usually 1-4 short sentences, or a short "- " list for steps or several items. Plain text with at most **bold**; no tables, headings or emoji.
@@ -54,25 +54,40 @@ def tool_rules(tools: list[Tool]) -> str:
     for tool in tools:
         if tool.capability in COMMERCE_RULES:
             rules.append(COMMERCE_RULES[tool.capability])
-    if "get_order_status" not in names:
+    handover = "escalate_to_human" in names
+    if "get_order_status" not in names and handover:
         rules.append("- This shop has not connected its order system: you cannot look up orders, "
                      "accounts or live product data. Say so, point to the shop's website or "
                      "hotline from the documents, and offer a handover.")
+    elif "get_order_status" not in names:  # A guest: name only the contact channels the documents give.
+        rules.append("- This shop has not connected its order system and the visitor is not logged in: "
+                     "no order or account can be looked up here, so never ask for an order ID. For a "
+                     "question about an order, first search the documents with a short query such as "
+                     "'kiểm tra tình trạng đơn hàng', then say that you cannot see orders and give what the "
+                     "documents say about asking the shop; never name a channel (hotline, e-mail, address) "
+                     "they do not state.")
     if "get_promotions" in names:
         rules.append("- get_promotions: current or upcoming promotions and events the shop has "
                      "published (coupon rules are in the documents).")
-    rules.append("- escalate_to_human: call it at once when the customer asks for a person or makes a "
-                 "complaint. When a request needs staff (a refund, cancelling or changing an order "
-                 "that is already shipping, changing the address), first check the facts and explain "
-                 "what the documents say, then ASK whether they want a handover; call the tool only "
-                 "after they agree. It ends your turn.")
+    if handover:
+        rules.append("- escalate_to_human: call it at once when the customer asks for a person or makes a "
+                     "complaint. When a request needs staff (a refund, cancelling or changing an order "
+                     "that is already shipping, changing the address), first check the facts and explain "
+                     "what the documents say, then ASK whether they want a handover; call the tool only "
+                     "after they agree. It ends your turn.")
+    else:
+        rules.append("- The visitor is not logged in, so this chat cannot be handed over to staff. When "
+                     "they need a person, search the documents with a short query such as 'liên hệ hỗ trợ' "
+                     "and give the contact channel they state.")
     return "\n".join(rules)
 
 
-def system_prompt(shop: dict, tools: list[Tool]) -> str:
+def system_prompt(shop: dict, tools: list[Tool], guest: bool = False) -> str:
     tone = f"; tone: {shop['tone']}" if shop.get("tone") else ""
+    who = ("a visitor who is not logged in to this shop's website" if guest
+           else "a customer who is logged in to this shop's website")
     return BASE.format(title=shop["title"].removeprefix("Trợ lý ").strip(), url=shop["shop_url"],
-                       tone=tone, tool_rules=tool_rules(tools))
+                       who=who, tone=tone, tool_rules=tool_rules(tools))
 
 
 def context_message(now: datetime | None = None, message: str = "") -> str:

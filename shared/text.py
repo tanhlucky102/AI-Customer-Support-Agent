@@ -66,10 +66,20 @@ is are am was were be been i you your my me we our it its this that these those 
 when which who whose there here have has had will would should could does did not and or with for of
 from about please get use need want any some many much order orders policy return shipping if than
 then they them he she his her won tell show give make know like just still while can't don't
+hello hi hey thanks thank lot stock available discount discounts today tomorrow deliver delivery
+delivered price prices cost warranty refund cancel change address phone phones buy pay payment
+store hours status track tracking receive received arrive arrived late sell sold open close
 """.split())
 UNACCENTED_VIETNAMESE = frozenset("""
 khong ko k duoc dc thi la co toi minh ban sao nao gi nhe oi cua cho voi mua bao nhieu hang don roi
+em anh chi giup gium nha vay het con cai nay dau giao doi tra
 """.split())
+
+
+def source_label(hit: dict) -> str:
+    """Citation label 'document – section'; an FAQ entry's section repeats its title, so it is shown once."""
+    title, section = hit["doc_title"], hit.get("section") or ""
+    return title if not section or section == title else f"{title} – {section}"
 
 
 def looks_english(text: str) -> bool:

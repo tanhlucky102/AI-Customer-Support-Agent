@@ -11,13 +11,14 @@ hay chuyển cho nhân viên. Agent chạy trong vòng lặp Reason → Act → 
   gộp bằng RRF, rerank bằng `bge-reranker-v2-m3`, trả về đoạn cha kèm trích dẫn, và trả `no_results` khi
   điểm thấp hơn ngưỡng τ.
 - **Tích hợp shop theo mức:**
-  - mức 0: shop chỉ có nội dung;
+  - mức 0: shop chỉ có nội dung, không có API; nếu shop không có tài khoản khách thì bật chế độ khách:
+    khách hỏi ngay không cần đăng nhập, agent chỉ trả lời từ tài liệu/FAQ;
   - mức 1: shop có API theo hợp đồng C2, hoặc API riêng được ánh xạ bằng một file JSON, không phải viết
     code.
 
   Agent chỉ thấy tool ứng với khả năng thật của shop. Xem [docs/INTEGRATION.md](docs/INTEGRATION.md).
 - **Bảo mật:**
-  - đăng nhập bắt buộc (JWT do shop ký);
+  - shop có dữ liệu khách bắt buộc đăng nhập (JWT do shop ký); chế độ khách chỉ dành cho shop mức 0;
   - `customer_id` chỉ lấy từ token;
   - widget chạy trong iframe với CSP `frame-ancestors`;
   - kiểm tra Origin, giới hạn tần suất gọi;
@@ -51,7 +52,7 @@ copy .env.example .env        # điền AI_BOX_API_KEY
 |-------|-----------|--------------|
 | http://localhost:8001 — Demo Mobile | `an@demo.vn` / `demo1234` (có đơn SO10293) | 1, API theo hợp đồng C2 |
 | http://localhost:8003 — Phụ Kiện Xanh | `chau@pkx.vn` / `demo1234` (có đơn PKX204518) | 1, API riêng + `commerce.json` |
-| http://localhost:8002 — Sample Store | (trang tĩnh, chỉ có FAQ) | 0 |
+| http://localhost:8002 — Sample Store | không cần (trang tĩnh, chỉ có FAQ, chế độ khách) | 0 |
 
 Chat trong terminal, không cần widget:
 
@@ -80,7 +81,7 @@ docker compose run --rm agent python scripts/setup_demo.py
 | `sdk/` | `sign_user_token` cho backend shop |
 | `eval/` | Bộ đánh giá: 90 câu truy hồi, 50 ca chọn tool, 20 câu ngoài phạm vi, 15 kịch bản tấn công; harness và kết quả |
 | `tests/` | Unit test và test hợp đồng (chạy với embedder giả, không gọi LLM) |
-| `docs/` | Hướng dẫn tích hợp, các hợp đồng C1–C6 |
+| `docs/` | Hướng dẫn tích hợp, các hợp đồng C1–C6, [hướng dẫn đọc code](docs/CODE_WALKTHROUGH.md) cho từng thành viên |
 
 ## Kiểm thử và đánh giá
 
@@ -90,7 +91,14 @@ docker compose run --rm agent python scripts/setup_demo.py
 .venv\Scripts\python -m eval.run agent                              # chọn tool, groundedness, từ chối, tấn công
 .venv\Scripts\python -m eval.run baseline                           # nhồi cả kho vào prompt vs RAG
 .venv\Scripts\python scripts\smoke_live.py                          # khi run_all.py đang chạy
+.venv\Scripts\python scripts\bad_cases.py                           # 26 tình huống khó qua server thật
+node scripts\record_demo.mjs demo.mp4                               # quay video demo có chú thích
+.venv\Scripts\python -m eval.human_review export eval\results\agent_v9.json review.xlsx   # bảng để nhóm chấm tay
 ```
+
+Bad case chạy thật (quyền riêng tư, prompt injection, tài liệu không có, dữ liệu không tồn tại, tiếng Anh,
+không dấu, yêu cầu huỷ đơn, khách vãng lai, AI Box sập): [eval/results/bad_cases.md](eval/results/bad_cases.md),
+26 ca, 24 xử lý đúng, 2 hạn chế đã biết.
 
 Kết quả đã chạy nằm trong `eval/results/` (xem `eval/results/README.md`). Cấu hình cuối cùng:
 

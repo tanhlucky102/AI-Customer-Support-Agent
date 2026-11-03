@@ -17,3 +17,4 @@ mcp>=1.0               # imported by recent LiteLLM releases
 sentence-transformers>=3.0
 torch>=2.2
 numpy>=1.26
+openpyxl>=3.1             # eval/human_review.py (sheet for the team to check the judge)

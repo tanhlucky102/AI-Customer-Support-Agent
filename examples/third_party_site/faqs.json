@@ -2,16 +2,44 @@
   "faqs": [
     {
       "id": "opening-hours",
-      "question": "Website này mở cửa lúc nào?",
-      "answer": "Đây là website thử nghiệm. Bộ phận hỗ trợ hoạt động từ 8:00 đến 17:00, thứ Hai đến thứ Sáu.",
-      "keywords": ["giờ mở cửa", "giờ hỗ trợ", "mấy giờ"],
+      "question": "Shop làm việc lúc nào?",
+      "answer": "Bộ phận hỗ trợ của Sample Store làm việc từ 8:00 đến 17:00, thứ Hai đến thứ Sáu. Tin nhắn gửi ngoài giờ được trả lời vào sáng ngày làm việc tiếp theo.",
+      "keywords": ["giờ mở cửa", "giờ làm việc", "giờ hỗ trợ", "mấy giờ"],
       "source_url": "http://localhost:8002/"
     },
     {
       "id": "contact",
-      "question": "Làm sao liên hệ hỗ trợ?",
-      "answer": "Đây là website thử nghiệm. Hãy gửi câu hỏi qua biểu mẫu liên hệ của website.",
-      "keywords": ["liên hệ", "hỗ trợ", "contact"],
+      "question": "Làm sao liên hệ hoặc gặp nhân viên hỗ trợ?",
+      "answer": "Bạn gửi câu hỏi qua biểu mẫu liên hệ ở cuối trang web (ghi tên, số điện thoại và nội dung cần hỗ trợ). Nhân viên sẽ gọi lại hoặc trả lời qua email trong giờ làm việc.",
+      "keywords": ["liên hệ", "gặp nhân viên", "nói chuyện với nhân viên", "chăm sóc khách hàng", "hỗ trợ", "contact"],
+      "source_url": "http://localhost:8002/"
+    },
+    {
+      "id": "order-status",
+      "question": "Kiểm tra tình trạng đơn hàng ở đâu?",
+      "answer": "Sample Store chưa có trang tra cứu đơn hàng trực tuyến. Để hỏi tình trạng đơn, bạn gửi mã đơn trong email xác nhận qua biểu mẫu liên hệ ở cuối trang web; nhân viên sẽ trả lời trong giờ làm việc.",
+      "keywords": ["đơn hàng", "tra cứu đơn", "đơn tới đâu", "mã đơn", "tình trạng đơn"],
+      "source_url": "http://localhost:8002/"
+    },
+    {
+      "id": "shipping",
+      "question": "Phí giao hàng và thời gian giao bao lâu?",
+      "answer": "Sample Store giao hàng toàn quốc, phí 25.000₫ mỗi đơn và miễn phí cho đơn từ 300.000₫. Nội thành giao trong 1–2 ngày, các tỉnh khác 3–5 ngày.",
+      "keywords": ["phí ship", "giao hàng", "vận chuyển", "bao lâu nhận được hàng"],
+      "source_url": "http://localhost:8002/"
+    },
+    {
+      "id": "returns",
+      "question": "Đổi trả sản phẩm thế nào?",
+      "answer": "Sản phẩm lỗi do nhà sản xuất được đổi trong 7 ngày kể từ khi nhận, khi còn đủ hộp và phụ kiện. Bạn gửi yêu cầu qua biểu mẫu liên hệ, kèm mã đơn và ảnh lỗi. Sample Store không nhận trả hàng vì đổi ý.",
+      "keywords": ["đổi trả", "đổi hàng", "trả hàng", "hàng lỗi", "bảo hành"],
+      "source_url": "http://localhost:8002/"
+    },
+    {
+      "id": "payment",
+      "question": "Thanh toán bằng cách nào?",
+      "answer": "Sample Store nhận thanh toán khi nhận hàng (COD) hoặc chuyển khoản ngân hàng. Thông tin chuyển khoản có trong email xác nhận đơn.",
+      "keywords": ["thanh toán", "COD", "chuyển khoản", "trả tiền"],
       "source_url": "http://localhost:8002/"
     }
   ]

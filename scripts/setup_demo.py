@@ -7,7 +7,7 @@ It is idempotent. Steps:
   1. create missing secrets in .env (shared by the Agent Server and the demo websites);
   2. seed the demo shop's SQLite data if empty;
   3. register three shops, one per integration level:
-       sample_store  level 0  content only (pushed FAQ), no commerce API
+       sample_store  level 0  content only (pushed FAQ), no commerce API, guests chat without login
        demo_shop     level 1  commerce API implementing contract C2 ("standard" profile)
        second_shop   level 1  its own foreign API, read through examples/second_shop/commerce.json
   4. index the knowledge bases (data/kb/<shop>) and the sample store's FAQ;
@@ -90,13 +90,14 @@ def main() -> None:
     if store.shop_by_id("sample_store"):
         store.refresh_shop("sample_store", faq_write_key=env("SAMPLE_STORE_WRITE_KEY"),
                            chat_token_secret=env("SAMPLE_STORE_TOKEN_SECRET"),
-                           shop_url="http://localhost:8002", allowed_origins=sample_origins)
+                           shop_url="http://localhost:8002", allowed_origins=sample_origins,
+                           guest_chat=True)
     else:
         store.create_shop(
             shop_id="sample_store", public_key="pk_sample_store", faq_write_key=env("SAMPLE_STORE_WRITE_KEY"),
             title="Trợ lý Sample Store", greeting="Xin chào! Tôi có thể giúp gì cho bạn?",
             primary_color="#334155", shop_url="http://localhost:8002", allowed_origins=sample_origins,
-            chat_token_secret=env("SAMPLE_STORE_TOKEN_SECRET"),
+            chat_token_secret=env("SAMPLE_STORE_TOKEN_SECRET"), guest_chat=True,
             suggestions=["Giờ mở cửa?", "Làm sao liên hệ hỗ trợ?"])
     print("shops:", [(shop, "level 1" if (store.shop_by_id(shop) or {}).get("commerce_config") else "level 0")
                      for shop in ("demo_shop", "second_shop", "sample_store")])

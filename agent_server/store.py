@@ -91,16 +91,18 @@ def create_shop(*, shop_id: str, public_key: str, faq_write_key: str, title: str
                 greeting: str, primary_color: str, shop_url: str,
                 allowed_origins: list[str], chat_token_secret: str,
                 suggestions: list[str] | None = None, tone: str = "",
-                commerce_config: dict | None = None, commerce_api_key: str | None = None) -> None:
+                commerce_config: dict | None = None, commerce_api_key: str | None = None,
+                guest_chat: bool = False) -> None:
     with connect() as db:
         db.execute("""INSERT INTO shops
             (shop_id, public_key, faq_key_digest, title, greeting, primary_color, shop_url,
-             allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
+             allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key,
+             guest_chat)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
             shop_id, public_key, key_digest(faq_write_key), title, greeting, primary_color,
             shop_url.rstrip("/"), Jsonb(sorted(set(allowed_origins))), Jsonb(suggestions or []),
             chat_token_secret, tone, Jsonb(commerce_config) if commerce_config else None,
-            commerce_api_key,
+            commerce_api_key, guest_chat,
         ))
 
 
@@ -112,15 +114,21 @@ def set_chat_token_secret(shop_id: str, secret: str) -> bool:
 
 def refresh_shop(shop_id: str, *, faq_write_key: str, chat_token_secret: str, shop_url: str,
                  allowed_origins: list[str], commerce_config: dict | None = None,
-                 commerce_api_key: str | None = None) -> None:
+                 commerce_api_key: str | None = None, guest_chat: bool = False) -> None:
     """Bring an existing shop's keys, URL and commerce settings in line with the given values."""
     with connect() as db:
         db.execute("""UPDATE shops SET faq_key_digest = %s, chat_token_secret = %s, shop_url = %s,
-                      allowed_origins = %s, commerce_config = %s, commerce_api_key = %s
-                      WHERE shop_id = %s""", (
+                      allowed_origins = %s, commerce_config = %s, commerce_api_key = %s,
+                      guest_chat = %s WHERE shop_id = %s""", (
             key_digest(faq_write_key), chat_token_secret, shop_url.rstrip("/"),
             Jsonb(sorted(set(allowed_origins))), Jsonb(commerce_config) if commerce_config else None,
-            commerce_api_key, shop_id))
+            commerce_api_key, guest_chat, shop_id))
+
+
+def guest_allowed(shop: dict) -> bool:
+    """Guests (no login) may chat only with a shop that opted in and has no commerce API, so a
+    guest can never reach order or account tools."""
+    return bool(shop.get("guest_chat")) and not shop.get("commerce_config")
 
 
 def set_commerce(shop_id: str, config: dict | None, api_key: str | None) -> bool:

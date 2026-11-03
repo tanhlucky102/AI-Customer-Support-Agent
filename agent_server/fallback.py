@@ -6,7 +6,7 @@ No text is generated: replies quote the shop's order data or one retrieved docum
 import asyncio
 import re
 
-from shared.text import fold
+from shared.text import fold, source_label
 
 # Order codes such as SO10293, PKX204518 or SO#10293: a letter prefix attached to 5-8 digits.
 # No space is allowed, so "sdt 0912345678" or "ck 500000" are not taken for order codes.
@@ -63,9 +63,9 @@ async def answer(ctx, message: str) -> tuple[str, str, list[dict]]:
         body = best["content"].split("\n", 1)[-1].strip()
         if len(body) > 700:
             body = body[:700].rsplit(" ", 1)[0] + "..."
-        reply = f"Theo tài liệu “{best['doc_title']} – {best['section']}”:\n{body}\n{OFFLINE_NOTE}"
+        reply = f"Theo tài liệu “{source_label(best)}”:\n{body}\n{OFFLINE_NOTE}"
         return "Đã tìm trong tài liệu của shop", reply, [
-            {"ref": 1, "label": f"{best['doc_title']} – {best['section']}", "href": best.get("url")}]
+            {"ref": 1, "label": source_label(best), "href": best.get("url")}]
     return ("Chưa có dữ liệu phù hợp",
             "Mình chưa tìm thấy thông tin phù hợp trong tài liệu của shop. Vui lòng liên hệ shop "
             "qua thông tin trên website để được hỗ trợ chính xác.",

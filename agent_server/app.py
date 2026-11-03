@@ -6,6 +6,7 @@ Run from the repository root:  uvicorn agent_server.app:app --port 8000
 import asyncio
 import json
 import logging
+import re
 import threading
 import time
 import uuid
@@ -22,7 +23,7 @@ from agent_server.auth import verify_customer_token
 from agent_server.commerce import adapter_for
 from agent_server.rate_limit import ChatLimiter
 from agent_server.store import (append_turn, conversation_owned, create_conversation,
-                                delete_empty_conversation, init_db,
+                                delete_empty_conversation, guest_allowed, init_db,
                                 list_conversations, list_faqs, list_messages, list_offers,
                                 list_tickets, origin_of, replace_faqs, replace_offers, save_trace,
                                 shop_by_id, shop_by_public_key, verify_faq_key)
@@ -162,14 +163,23 @@ def require_write_key(shop_id: str, authorization: str | None) -> None:
         raise HTTPException(401, "invalid_faq_write_key", headers={"WWW-Authenticate": "Bearer"})
 
 
-def require_customer(shop: dict, authorization: str | None) -> str:
+GUEST_ID = re.compile(r"[0-9a-f]{32}")
+
+
+def require_customer(shop: dict, authorization: str | None, guest_id: str | None = None) -> str:
+    """The customer from the shop-signed token; without one, a guest of a shop that allows guests.
+
+    A guest ID is a random value the widget keeps in the browser. It is not a login: it only
+    groups the guest's own conversations, and guest shops have no order or account tools."""
     scheme, _, token = (authorization or "").partition(" ")
-    if scheme.lower() != "bearer" or not token:
-        raise HTTPException(401, "login_required", headers={"WWW-Authenticate": "Bearer"})
-    customer_id = verify_customer_token(token, shop)
-    if not customer_id:
-        raise HTTPException(401, "invalid_chat_token", headers={"WWW-Authenticate": "Bearer"})
-    return customer_id
+    if scheme.lower() == "bearer" and token:
+        customer_id = verify_customer_token(token, shop)
+        if not customer_id:
+            raise HTTPException(401, "invalid_chat_token", headers={"WWW-Authenticate": "Bearer"})
+        return customer_id
+    if guest_id and guest_allowed(shop) and GUEST_ID.fullmatch(guest_id):
+        return f"guest:{guest_id}"
+    raise HTTPException(401, "login_required", headers={"WWW-Authenticate": "Bearer"})
 
 
 def require_widget_origin(request: Request) -> None:
@@ -242,6 +252,7 @@ async def widget_config(shop_key: str):
         "suggestions": shop["suggestions"],
         "shop_url": shop["shop_url"],
         "mode": mode(),
+        "guest_chat": guest_allowed(shop),
     }
 
 
@@ -353,10 +364,11 @@ def turn_context(shop: dict, customer_id: str, conversation_id: str) -> TurnCont
 
 @app.post("/v1/chat")
 async def chat(payload: ChatRequest, request: Request,
-               authorization: str | None = Header(default=None)):
+               authorization: str | None = Header(default=None),
+               x_ati_guest: str | None = Header(default=None)):
     require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
-    customer_id = require_customer(shop, authorization)
+    customer_id = require_customer(shop, authorization, x_ati_guest)
 
     message = payload.message.strip()
     if not message:
@@ -435,18 +447,20 @@ async def chat(payload: ChatRequest, request: Request,
 
 
 @app.get("/v1/conversations")
-async def conversations(shop_key: str, authorization: str | None = Header(default=None)):
+async def conversations(shop_key: str, authorization: str | None = Header(default=None),
+                        x_ati_guest: str | None = Header(default=None)):
     shop = require_shop_key(shop_key)
-    customer_id = require_customer(shop, authorization)
+    customer_id = require_customer(shop, authorization, x_ati_guest)
     return JSONResponse({"conversations": list_conversations(shop["shop_id"], customer_id)},
                         headers={"Cache-Control": "no-store"})
 
 
 @app.get("/v1/conversations/{conversation_id}")
 async def conversation(conversation_id: str, shop_key: str,
-                       authorization: str | None = Header(default=None)):
+                       authorization: str | None = Header(default=None),
+                       x_ati_guest: str | None = Header(default=None)):
     shop = require_shop_key(shop_key)
-    customer_id = require_customer(shop, authorization)
+    customer_id = require_customer(shop, authorization, x_ati_guest)
     messages = list_messages(conversation_id, shop["shop_id"], customer_id)
     if messages is None:
         raise HTTPException(404, "unknown_conversation")
@@ -456,10 +470,11 @@ async def conversation(conversation_id: str, shop_key: str,
 
 @app.post("/v1/feedback")
 async def feedback(payload: FeedbackRequest, request: Request,
-                   authorization: str | None = Header(default=None)):
+                   authorization: str | None = Header(default=None),
+                   x_ati_guest: str | None = Header(default=None)):
     require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
-    customer_id = require_customer(shop, authorization)
+    customer_id = require_customer(shop, authorization, x_ati_guest)
     if not conversation_owned(payload.conversation_id, shop["shop_id"], customer_id):
         raise HTTPException(404, "unknown_conversation")
     if payload.rating not in feedback_counts:

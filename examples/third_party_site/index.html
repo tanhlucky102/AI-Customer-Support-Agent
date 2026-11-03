@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Website thứ hai · thử widget</title>
+  <title>Sample Store · shop mức 0</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 0; background: #f8fafc; color: #0f172a; }
     header { padding: 24px; background: #0f172a; color: white; }
@@ -13,16 +13,16 @@
   </style>
 </head>
 <body>
-  <header>Website thử nghiệm khác origin</header>
+  <header>Sample Store · website tĩnh, không có API, không có tài khoản khách</header>
   <main>
-    <h1>Thử cùng một widget trên website thứ hai</h1>
-    <p>Trang tĩnh này minh họa cách nhúng widget từ server khác origin. Vì không có hệ thống đăng nhập và endpoint cấp JWT, chatbot sẽ yêu cầu đăng nhập và không cho gửi câu hỏi.</p>
-    <p>Khi đã cấp shop riêng, thêm <code>?shop_key=pk_...</code> vào URL để thử widget bằng public key mới.</p>
+    <h1>Shop mức 0: chỉ cần một thẻ script</h1>
+    <p>Trang tĩnh này không có backend, không có API đơn hàng và không có đăng nhập. Shop chỉ đẩy FAQ lên Agent Server (<code>examples/push_faq.py</code>) và nhúng widget. Khách hỏi ngay mà không cần đăng nhập (chế độ khách); trợ lý chỉ trả lời từ nội dung shop đã cung cấp và không xem được đơn hàng.</p>
+    <p>Thêm <code>?shop_key=pk_demo_shop</code> vào URL để thấy widget của một shop mức 1 trên website khác origin: shop đó bắt đăng nhập, nên ở đây widget bị khoá.</p>
   </main>
   <script>
     const widget = document.createElement('script');
     widget.src = 'http://localhost:8000/widget/loader.js';
-    widget.dataset.shopKey = new URLSearchParams(location.search).get('shop_key') || 'pk_demo_shop';
+    widget.dataset.shopKey = new URLSearchParams(location.search).get('shop_key') || 'pk_sample_store';
     widget.async = true;
     document.body.appendChild(widget);
   </script>

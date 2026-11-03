@@ -18,6 +18,7 @@
   var sendButton = document.getElementById("chat-send");
   var config = null;
   var token = null;
+  var guestId = null;
   var customerKey = null;
   var authReceived = false;
   var authWaiters = [];
@@ -116,9 +117,36 @@
     } catch (_) { return null; }
   }
 
+  function canChat() { return Boolean(token || guestId); }
+
+  function authHeaders(headers) {
+    headers = headers || {};
+    if (token) headers.Authorization = "Bearer " + token;
+    else if (guestId) headers["X-ATI-Guest"] = guestId;
+    return headers;
+  }
+
+  // Guest mode (level-0 shops without customer accounts): a random ID kept in this browser
+  // groups the visitor's own conversations. It is not a login and reaches no order data.
+  function loadGuestId() {
+    var key = "ati-guest:" + shopKey;
+    try {
+      var saved = window.localStorage.getItem(key);
+      if (/^[0-9a-f]{32}$/.test(saved || "")) return saved;
+    } catch (_) {}
+    var bytes = new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    var value = Array.prototype.map.call(bytes, function (byte) {
+      return ("0" + byte.toString(16)).slice(-2);
+    }).join("");
+    try { window.localStorage.setItem(key, value); } catch (_) {}
+    return value;
+  }
+
   function setAuthUI() {
-    var signedIn = Boolean(token);
-    auth.textContent = signedIn ? auth.textContent : "Vui lòng đăng nhập để hỏi và xem lịch sử chat.";
+    var signedIn = canChat();
+    if (!token) auth.textContent = guestId ? "Bạn đang chat với tư cách khách, không cần đăng nhập."
+                                           : "Vui lòng đăng nhập để hỏi và xem lịch sử chat.";
     input.disabled = !signedIn;
     sendButton.disabled = !signedIn || sending;
     newChat.disabled = !signedIn;
@@ -135,11 +163,11 @@
   }
 
   async function loadHistory() {
-    if (!token) return;
+    if (!canChat()) return;
     var requestToken = token;
     try {
       var response = await fetch("/v1/conversations?shop_key=" + encodeURIComponent(shopKey), {
-        headers: { Authorization: "Bearer " + requestToken }, cache: "no-store"
+        headers: authHeaders(), cache: "no-store"
       });
       if (!response.ok) throw new Error("history_failed");
       var data = await response.json();
@@ -168,12 +196,12 @@
   }
 
   async function openConversation(id) {
-    if (!token || sending) return;
+    if (!canChat() || sending) return;
     var requestToken = token;
     try {
       var response = await fetch("/v1/conversations/" + encodeURIComponent(id) +
                                  "?shop_key=" + encodeURIComponent(shopKey), {
-        headers: { Authorization: "Bearer " + requestToken }, cache: "no-store"
+        headers: authHeaders(), cache: "no-store"
       });
       if (!response.ok) throw new Error("history_failed");
       var data = await response.json();
@@ -238,7 +266,7 @@
         try {
           var response = await fetch("/v1/feedback", {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+            headers: authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ shop_key: shopKey, conversation_id: targetConversationId,
                                    rating: rating })
           });
@@ -305,14 +333,13 @@
 
   async function callChat(question, pending, retry) {
     abortController = new AbortController();
-    var headers = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = "Bearer " + token;
+    var headers = authHeaders({ "Content-Type": "application/json" });
     var response = await fetch("/v1/chat", {
       method: "POST", headers: headers, signal: abortController.signal,
       body: JSON.stringify({ shop_key: shopKey, message: question,
                              conversation_id: conversationId })
     });
-    if (response.status === 401 && retry) {
+    if (response.status === 401 && retry && !guestId) {
       authReceived = false;
       notifyParent("ati:token-request");
       await waitForAuth(5000);
@@ -332,7 +359,7 @@
 
   async function send(question) {
     question = question.trim();
-    if (!question || sending || !token) return;
+    if (!question || sending || !canChat()) return;
     sending = true;
     sendButton.disabled = true;
     addMessage(question, "user");
@@ -376,7 +403,7 @@
       auth.textContent = token ? "Đang hỗ trợ: " + (data.customerName || "khách đã đăng nhập")
                                : "Vui lòng đăng nhập để hỏi và xem lịch sử chat.";
       setAuthUI();
-      if (token) loadHistory();
+      if (canChat()) loadHistory();
       authWaiters.splice(0).forEach(function (resolve) { resolve(); });
     } else if (data.type === "ati:reset") {
       token = null;
@@ -395,14 +422,14 @@
     notifyParent("ati:close");
   });
   newChat.addEventListener("click", function () {
-    if (!token || sending) return;
+    if (!canChat() || sending) return;
     resetConversation();
     historyPanel.hidden = true;
     historyToggle.setAttribute("aria-expanded", "false");
     input.focus();
   });
   historyToggle.addEventListener("click", function () {
-    if (!token || sending) return;
+    if (!canChat() || sending) return;
     historyPanel.hidden = !historyPanel.hidden;
     historyToggle.setAttribute("aria-expanded", String(!historyPanel.hidden));
     if (!historyPanel.hidden) loadHistory();
@@ -430,7 +457,9 @@
         button.addEventListener("click", function () { send(question); });
         suggestions.appendChild(button);
       });
+      if (config.guest_chat) guestId = loadGuestId();
       setAuthUI();
+      if (guestId) loadHistory();
       notifyParent("ati:ready");
     } catch (error) {
       addMessage(error.message || "Không tải được widget.", "bot");

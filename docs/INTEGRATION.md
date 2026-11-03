@@ -10,13 +10,14 @@ nhóm**: shop cung cấp được gì thì agent dùng cái đó. Mỗi thao tá
 
 | Mức | Shop có gì | Shop phải làm | Agent được dùng | Ví dụ trong repo |
 |-----|-----------|---------------|-----------------|------------------|
-| **0 — Chỉ nội dung** | Không có API | Đẩy FAQ/ưu đãi qua API ghi, hoặc gửi tài liệu Markdown | `search_knowledge_base`, `get_promotions`, `escalate_to_human` | `sample_store` (cổng 8002) |
+| **0 — Chỉ nội dung** | Không có API, có thể không có cả tài khoản khách | Đẩy FAQ/ưu đãi qua API ghi, hoặc gửi tài liệu Markdown; nhúng thẻ `<script>` | `search_knowledge_base`, `get_promotions`, `escalate_to_human` (khách vãng lai: không có tool chuyển nhân viên) | `sample_store` (cổng 8002, chế độ khách) |
 | **1a — API theo hợp đồng C2** | Viết 3–4 endpoint theo mẫu | Cấu hình `{"profile": "standard", "base_url": ...}` + API key | + tra đơn, danh sách đơn, hồ sơ khách, tìm sản phẩm | `demo_shop` (cổng 8001) |
 | **1b — API sẵn có của shop** | API riêng, định dạng bất kỳ | Viết **một file JSON ánh xạ**, không viết code | Các tool ứng với thao tác đã ánh xạ | `second_shop` (cổng 8003) |
 | **2 — Nền tảng có sẵn** *(hướng phát triển)* | Shopify, WooCommerce, Haravan... | Chỉ nhập khóa | Như mức 1 | Chưa làm; mỗi nền tảng là một file ánh xạ dựng sẵn |
 
-Với **mọi mức**, website phải có đăng nhập và một endpoint cấp token chat (khoảng 10 dòng nhờ SDK, mục 4).
-Đây là quyết định T17: mọi câu hỏi đều cần khách đã đăng nhập.
+Shop có dữ liệu khách (mức 1, 2) phải có đăng nhập và một endpoint cấp token chat (khoảng 10 dòng nhờ
+SDK, mục 4). Shop mức 0 không có tài khoản khách thì bật **chế độ khách** (mục 1): website tĩnh chỉ cần
+nhúng thẻ `<script>`, không cần backend nào. Khi khách đăng nhập (token) thì token luôn được ưu tiên.
 
 ## 1. Mức 0: shop chỉ có nội dung
 
@@ -36,6 +37,12 @@ PUT /v1/shops/{shop_id}/offers   (khuyến mãi và sự kiện có ngày bắt 
 - `source_url` phải cùng origin với website của shop, vì widget chỉ hiện link về đúng shop đó.
 - Shop có nhiều tài liệu chính sách thì đặt file Markdown vào `data/kb/<shop_id>/` (định dạng ở mục 6) rồi
   chạy `python -m rag.ingest --shop <shop_id>`.
+- **Chế độ khách** (`--guest-chat` khi cấp shop, mục 5): khách hỏi mà không cần đăng nhập. Widget tự tạo
+  một mã ngẫu nhiên lưu trong trình duyệt và gửi trong header `X-ATI-Guest`; mã này chỉ dùng để gom lịch sử
+  chat của chính khách đó, không phải đăng nhập. Server chỉ nhận khách khi shop đã bật cờ **và** không có API
+  đơn hàng (`agent_server/store.py: guest_allowed`), nên khách không bao giờ chạm được tool đơn hàng. Khách
+  cũng không có tool chuyển nhân viên (nhân viên không có cách liên hệ lại); agent đưa kênh liên hệ trong tài
+  liệu. Giới hạn theo IP và hạn mức mỗi ngày của shop vẫn áp dụng. Test: `tests/test_guest_mode.py`.
 - Khi khách hỏi đơn hàng, agent trả lời rằng shop chưa kết nối hệ thống đơn hàng, chỉ khách tới kênh liên hệ
   trong tài liệu và đề nghị chuyển cho nhân viên. Agent không được thấy tool tra đơn nên không thể bịa ra kết
   quả.
@@ -93,7 +100,7 @@ Ví dụ thật: `examples/second_shop/commerce.json`. API của Phụ Kiện Xa
 | `operations.<op>.fields` | Tên trường chuẩn → đường dẫn trong dữ liệu của shop (`amount.value`) |
 | `operations.<op>.items` | Danh sách sản phẩm trong đơn: `path` và `fields` |
 | `status_map` | Trạng thái của shop → 6 trạng thái chuẩn; dùng cả hai chiều khi lọc |
-| `links` | Mẫu link trang đơn/sản phẩm để gắn dưới câu trả lời |
+| `links` | Mẫu link gắn dưới câu trả lời: `order` (trang một đơn), `product`, `orders` (trang danh sách đơn của khách, không có biến) |
 
 `list_orders` dùng lại `fields`/`items` của `get_order` nếu không tự khai báo.
 
@@ -113,7 +120,7 @@ Ví dụ thật: `examples/second_shop/commerce.json`. API của Phụ Kiện Xa
 Test của phần này nằm ở `tests/test_commerce.py` và `tests/test_review_fixes.py` (ràng buộc theo khách,
 `owner_field`, đường dẫn tuyệt đối, phản hồi thiếu `result`).
 
-## 4. Đăng nhập và token chat (mọi mức)
+## 4. Đăng nhập và token chat (shop có tài khoản khách)
 
 Backend shop ký JWT HS256 cho khách đang đăng nhập (hợp đồng C3) bằng `chat_token_secret`:
 
@@ -136,7 +143,7 @@ Nhúng widget vào trang:
 
 ```bash
 # Mức 0
-python -m agent_server.provision_shop --shop-id sample_store --shop-url http://localhost:8002 --title "Trợ lý Sample Store"
+python -m agent_server.provision_shop --shop-id sample_store --shop-url http://localhost:8002 --title "Trợ lý Sample Store" --guest-chat
 # Mức 1
 python -m agent_server.provision_shop --shop-id second_shop --shop-url http://localhost:8003 \
     --title "Trợ lý Phụ Kiện Xanh" --commerce-config examples/second_shop/commerce.json \
