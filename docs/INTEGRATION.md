@@ -136,7 +136,25 @@ Nhúng widget vào trang:
 
 ```html
 <script src="https://<agent-server>/widget/loader.js" data-shop-key="pk_..."
-        data-token-url="/api/chat-token"></script>
+        data-token-url="/api/chat-token" data-login-url="/dang-nhap"></script>
+```
+
+- `data-token-url`: endpoint cấp token chat ở trên. Phải cùng origin với trang.
+- `data-login-url` (không bắt buộc): trang đăng nhập của shop. Khi khách chưa đăng nhập, widget hiện link
+  tới trang này. Link phải cùng origin với trang nhúng widget; link khác origin bị bỏ qua.
+- Shop mức 0 dùng chế độ khách thì chỉ cần `data-shop-key`.
+
+Widget không chứa gì riêng của shop nào: tên, lời chào, màu và câu gợi ý lấy từ cấu hình shop lúc cấp
+(mục 5). Agent Server chỉ tự tạo shop Demo Mobile trên máy đã chạy `scripts/setup_demo.py` (hoặc khi
+`DEMO_SHOP=1`); máy triển khai thật chỉ phục vụ các shop được cấp bằng `provision_shop`.
+
+**Thử thêm một shop mới (đã chạy thật ngày 04/11/2026).** Một tiệm bánh không có API, không có tài khoản khách:
+
+```bash
+python -m agent_server.provision_shop --shop-id tiem_banh_mai --shop-url http://127.0.0.1:8002 \
+    --title "Trợ lý Tiệm Bánh Mai" --color "#b45309" --guest-chat          # in ra public_key, faq_write_key
+ATI_SHOP_ID=tiem_banh_mai ATI_FAQ_WRITE_KEY=sk_... python examples/push_faq.py faqs.json
+# mở http://127.0.0.1:8002/?shop_key=pk_... và hỏi: widget mang tên, màu của tiệm, trả lời từ FAQ có trích dẫn
 ```
 
 ## 5. Cấp shop (đội vận hành)

@@ -7,6 +7,7 @@
   var serverOrigin = new URL(script.src).origin;
   var shopKey = script.dataset.shopKey;
   var tokenPath = script.dataset.tokenUrl || "";
+  var loginPath = script.dataset.loginUrl || "";  // the shop's own login page, shown to signed-out visitors
   var frame;
   var panel;
   var launcher;
@@ -65,6 +66,12 @@
     var url = new URL("/widget/frame", serverOrigin);
     url.searchParams.set("shop_key", shopKey);
     url.searchParams.set("parent_origin", window.location.origin);
+    if (loginPath) {
+      try {
+        var login = new URL(loginPath, window.location.href);
+        if (login.origin === window.location.origin) url.searchParams.set("login_url", login.href);
+      } catch (_) {}
+    }
     frame.src = url.href;
     panel.appendChild(frame);
 

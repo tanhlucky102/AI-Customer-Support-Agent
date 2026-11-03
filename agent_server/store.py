@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from psycopg.types.json import Jsonb
 
 from shared.db import connect, init_schema
-from shared.settings import env
+from shared.settings import env, env_flag
 
 DEMO_DATA = json.loads((Path(__file__).parent / "demo_data.json").read_text(encoding="utf-8"))
 DEMO_SHOP_URL = env("DEMO_SHOP_URL", "http://localhost:8001").rstrip("/")
@@ -46,8 +46,17 @@ def demo_commerce_config() -> dict:
             "base_url": env("DEMO_SHOP_API_URL", DEMO_SHOP_URL).rstrip("/")}
 
 
+def demo_shop_enabled() -> bool:
+    """Create the Demo Mobile shop at start-up only on a machine set up for the demo (its keys are in
+    .env, as scripts/setup_demo.py writes them) or when DEMO_SHOP=1. A real deployment has neither, so
+    it serves only the shops created with provision_shop."""
+    return env_flag("DEMO_SHOP", bool(env("DEMO_SHOP_TOKEN_SECRET")))
+
+
 def init_db() -> None:
     init_schema()
+    if not demo_shop_enabled():
+        return
     origins = ["http://localhost:8001", "http://127.0.0.1:8001",
                "http://localhost:8002", "http://127.0.0.1:8002"]
     origins.extend(item.strip() for item in env("WIDGET_ALLOWED_ORIGINS").split(",") if item.strip())

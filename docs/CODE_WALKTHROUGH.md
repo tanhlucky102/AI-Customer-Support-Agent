@@ -48,20 +48,20 @@ dòng có thể lệch vài dòng; tìm theo tên hàm là chắc nhất.
 
 | Bước | Ở đâu | Chuyện gì xảy ra |
 |---|---|---|
-| 1 | `shop_demo/templates/base.html:84` | Trang shop nhúng `loader.js` với `data-shop-key` và `data-token-url` |
-| 2 | `widget/loader.js:50` | Tạo Shadow DOM và iframe `/widget/frame?shop_key=...&parent_origin=...` (`widget/loader.js:67`) |
+| 1 | `shop_demo/templates/base.html:84` | Trang shop nhúng `loader.js` với `data-shop-key`, `data-token-url` và (không bắt buộc) `data-login-url` |
+| 2 | `widget/loader.js:51` | Tạo Shadow DOM và iframe `/widget/frame?shop_key=...&parent_origin=...` (`widget/loader.js:68`); thêm `login_url` nếu trang đăng nhập cùng origin với shop (`widget/loader.js:72`) |
 | 3 | `agent_server/app.py:218` | Agent Server chỉ trả iframe nếu `parent_origin` nằm trong `allowed_origins` của shop, và đặt CSP `frame-ancestors` (`agent_server/app.py:225`) |
-| 4 | `widget/frame.js:442` | iframe tải `/v1/widget-config`, báo `ati:ready` cho trang cha |
-| 5 | `widget/loader.js:20` | `loader.js` gọi `/api/chat-token` của shop (bắt buộc cùng origin, `widget/loader.js:28`) |
+| 4 | `widget/frame.js:447` | iframe tải `/v1/widget-config`, báo `ati:ready` cho trang cha |
+| 5 | `widget/loader.js:21` | `loader.js` gọi `/api/chat-token` của shop (bắt buộc cùng origin, `widget/loader.js:29`) |
 | 6 | `shop_demo/app.py:632` → `shop_demo/security.py:30` → `sdk/ati_sdk.py:25` | Shop ký JWT HS256 (`iss`=shop, `sub`=mã khách, `aud`, `exp` sau 900 s) |
-| 7 | `widget/frame.js:390` | iframe nhận `ati:auth` (chỉ từ đúng trang cha, `widget/frame.js:391`) và giữ token trong bộ nhớ |
+| 7 | `widget/frame.js:395` | iframe nhận `ati:auth` (chỉ từ đúng trang cha, `widget/frame.js:396`) và giữ token trong bộ nhớ; chưa đăng nhập thì hiện link tới `login_url` của shop (`widget/frame.js:162`) |
 
 ### 2.2 "Đơn SO10293 của tôi tới đâu rồi?"
 
-1. **Widget gửi câu hỏi.** `send` (`widget/frame.js:360`) vẽ bong bóng của khách và một
-   bong bóng trống cho bot, rồi `callChat` (`widget/frame.js:334`) gửi
+1. **Widget gửi câu hỏi.** `send` (`widget/frame.js:365`) vẽ bong bóng của khách và một
+   bong bóng trống cho bot, rồi `callChat` (`widget/frame.js:339`) gửi
    `POST /v1/chat` với `Authorization: Bearer <JWT>` và body `{shop_key, message, conversation_id}`. Gặp 401
-   thì xin token mới và thử lại một lần (`widget/frame.js:342`); gặp 429 thì báo khách chờ.
+   thì xin token mới và thử lại một lần (`widget/frame.js:347`); gặp 429 thì báo khách chờ.
 2. **Agent Server kiểm tra.** `chat` (`agent_server/app.py:366`) lần lượt:
    - `require_widget_origin` (`agent_server/app.py:185`): trình duyệt luôn gửi `Origin` với POST,
      và nó phải là origin của Agent Server, tức là chỉ iframe widget được gọi.
@@ -104,14 +104,14 @@ dòng có thể lệch vài dòng; tìm theo tên hàm là chắc nhất.
     chữ là một sự kiện `token`, được `app.py` đổi thành SSE (`agent_server/app.py:192`, `agent_server/app.py:412`).
 11. **Kết thúc lượt.** `cited_sources` (`agent_server/agent.py:33`) gom nguồn; dữ liệu đơn không
     cần số `[n]` nên chỉ có link trang đơn. Agent phát `citations` rồi `done` (kèm `reply`, `tools`, `usage`).
-12. **Lưu và trace.** `app.py` lưu câu hỏi và câu trả lời (`agent_server/store.py:223`), ghi trace
+12. **Lưu và trace.** `app.py` lưu câu hỏi và câu trả lời (`agent_server/store.py:232`), ghi trace
     chỉ gồm tên tool, tham số đã che và thời gian (`agent_server/app.py:349`,
-    `agent_server/store.py:284`), rồi gửi SSE `done` (`agent_server/app.py:442`). Có lỗi bất kỳ thì gửi
+    `agent_server/store.py:293`), rồi gửi SSE `done` (`agent_server/app.py:442`). Có lỗi bất kỳ thì gửi
     `error` (`agent_server/app.py:433`), không bao giờ cắt luồng im lặng.
-13. **Widget vẽ.** `consumeStream` (`widget/frame.js:297`) tách từng khối SSE
-    (`widget/frame.js:285`): `status` hiện dòng trạng thái, `token` nối chữ và vẽ lại bằng
-    `renderMarkdown` (`widget/frame.js:60`), `replace` thay toàn bộ bong bóng, `citations` gọi
-    `addSources` (`widget/frame.js:233`, chỉ hiện link cùng origin với shop), `done` lưu `conversation_id`.
+13. **Widget vẽ.** `consumeStream` (`widget/frame.js:302`) tách từng khối SSE
+    (`widget/frame.js:290`): `status` hiện dòng trạng thái, `token` nối chữ và vẽ lại bằng
+    `renderMarkdown` (`widget/frame.js:65`), `replace` thay toàn bộ bong bóng, `citations` gọi
+    `addSources` (`widget/frame.js:238`, chỉ hiện link cùng origin với shop), `done` lưu `conversation_id`.
 
 `scripts/smoke_live.py` kiểm tra đúng luồng này trên server thật: câu trả lời phải có mã vận đơn mà chỉ API
 shop biết (`scripts/smoke_live.py:53`), và khách khác hỏi cùng mã đơn thì không thấy tổng tiền
@@ -149,10 +149,10 @@ Shop không có tài khoản khách thì không ký được JWT. Luồng khác 
 1. Trang tĩnh nhúng `loader.js` với `pk_sample_store` và không có `data-token-url`
    (`examples/third_party_site/index.html:25`), nên `loader.js` gửi `ati:auth` với token rỗng.
 2. `/v1/widget-config` trả `guest_chat` (`agent_server/app.py:255`). Khi đó widget lấy mã khách
-   (`widget/frame.js:131`): 32 ký tự hex ngẫu nhiên từ `crypto.getRandomValues`, lưu trong `localStorage`
-   theo từng shop key. `authHeaders` (`widget/frame.js:122`) gửi `X-ATI-Guest` khi không có token.
+   (`widget/frame.js:136`): 32 ký tự hex ngẫu nhiên từ `crypto.getRandomValues`, lưu trong `localStorage`
+   theo từng shop key. `authHeaders` (`widget/frame.js:127`) gửi `X-ATI-Guest` khi không có token.
 3. `require_customer` (`agent_server/app.py:169`): có Bearer thì luôn dùng token; không có thì chỉ nhận
-   mã khách nếu đúng định dạng và `guest_allowed(shop)` (`agent_server/store.py:128`): shop bật cờ
+   mã khách nếu đúng định dạng và `guest_allowed(shop)` (`agent_server/store.py:137`): shop bật cờ
    `guest_chat` **và** không có `commerce_config`. Mã khách thành `customer_id = "guest:<mã>"`.
 4. `TurnContext.guest` (`agent_server/tools.py:86`) báo cho agent. `toolset_for` bỏ tool đơn hàng và
    `escalate_to_human` (`agent_server/tools.py:277`); prompt nói đây là khách chưa đăng
@@ -277,10 +277,10 @@ Tại sao làm thế này:
 
 | Hàm | Dòng | Làm gì |
 |---|---|---|
-| `verify_faq_key` | `agent_server/store.py:84` | So SHA-256 của khóa ghi bằng `compare_digest`; DB chỉ lưu bản băm |
-| `replace_faqs` | `agent_server/store.py:150` | Thay cả bộ FAQ trong một giao dịch, khóa dòng shop (`FOR UPDATE`) |
-| `create_ticket` | `agent_server/store.py:262` | `ON CONFLICT (idempotency_key)`: gọi hai lần trong một lượt vẫn một phiếu |
-| `guest_allowed` | `agent_server/store.py:128` | Khách vãng lai chỉ được phép ở shop bật `guest_chat` và không có API đơn hàng |
+| `verify_faq_key` | `agent_server/store.py:93` | So SHA-256 của khóa ghi bằng `compare_digest`; DB chỉ lưu bản băm |
+| `replace_faqs` | `agent_server/store.py:159` | Thay cả bộ FAQ trong một giao dịch, khóa dòng shop (`FOR UPDATE`) |
+| `create_ticket` | `agent_server/store.py:271` | `ON CONFLICT (idempotency_key)`: gọi hai lần trong một lượt vẫn một phiếu |
+| `guest_allowed` | `agent_server/store.py:137` | Khách vãng lai chỉ được phép ở shop bật `guest_chat` và không có API đơn hàng |
 | `fallback.answer` | `agent_server/fallback.py:37` | Có mã đơn thì tra đơn; hỏi "đơn của tôi" thì liệt kê; còn lại trích nguyên văn mục tài liệu tốt nhất |
 | `load_commerce_config` | `agent_server/provision_shop.py:21` | Kiểm tra `base_url`, tên thao tác, `config_problems` trước khi cấp shop |
 
@@ -349,11 +349,11 @@ Tại sao làm thế này:
 | | `own_order`, `advance_order` | `shop_demo/app.py:483` | Nút [Demo] đẩy đơn sang trạng thái kế tiếp để thử chatbot |
 | `shop_demo/help_pages.py` | `render`, `page` | `shop_demo/help_pages.py:33` | Trang `/help` render từ cùng file Markdown, mỗi `##` có anchor `muc-n` |
 | `shop_demo/sync_assistant.py` | `snapshot`, `main` | `shop_demo/sync_assistant.py:17` | Dựng bộ ưu đãi/sự kiện từ `events.json`; `main` gửi lên Agent Server bằng khóa ghi |
-| `widget/loader.js` | `mount`, `refreshAuth` | `widget/loader.js:50` | Tạo nút và iframe trong Shadow DOM; lấy token từ shop |
-| `widget/frame.js` | `callChat`, `consumeStream` | `widget/frame.js:297` | Gửi câu hỏi, đọc SSE |
-| | `renderMarkdown`, `appendInline` | `widget/frame.js:39` | Markdown tối thiểu (đoạn, danh sách, in đậm, `[n]`) chỉ bằng DOM |
-| | `addSources` | `widget/frame.js:233` | Hiện link nguồn nếu cùng origin với shop |
-| | `canChat`, `authHeaders`, `loadGuestId` | `widget/frame.js:120` | Chọn token hay mã khách cho mỗi request; tạo và nhớ mã khách |
+| `widget/loader.js` | `mount`, `refreshAuth` | `widget/loader.js:51` | Tạo nút và iframe trong Shadow DOM; đọc `data-shop-key`, `data-token-url`, `data-login-url`; lấy token từ shop |
+| `widget/frame.js` | `callChat`, `consumeStream` | `widget/frame.js:302` | Gửi câu hỏi, đọc SSE |
+| | `renderMarkdown`, `appendInline` | `widget/frame.js:44` | Markdown tối thiểu (đoạn, danh sách, in đậm, `[n]`) chỉ bằng DOM |
+| | `addSources` | `widget/frame.js:238` | Hiện link nguồn nếu cùng origin với shop |
+| | `canChat`, `authHeaders`, `loadGuestId` | `widget/frame.js:125` | Chọn token hay mã khách cho mỗi request; tạo và nhớ mã khách |
 | `examples/second_shop/app.py` | `api_order` | `examples/second_shop/app.py:86` | API "lạ" (`/v2`, `X-Api-Key`, `data.order`) để chứng minh mức 1b |
 | `eval/agent_eval.py` | `Runner.run_case` | `eval/agent_eval.py:90` | Gọi `agent.run` trực tiếp cho từng ca, lưu cache |
 | | `Judge`, `GROUNDED` | `eval/agent_eval.py:165` | LLM-judge chấm groundedness, đúng/sai, từ chối, tấn công |
@@ -364,11 +364,13 @@ Tại sao làm thế này:
 
 Tại sao làm thế này:
 - **Iframe + Shadow DOM**: CSS của shop không phá giao diện chat, JS của shop không đọc được hội thoại. Tin
-  `postMessage` được kiểm tra origin ở cả hai phía (`widget/loader.js:83`).
-- **Không dùng `innerHTML`** (`widget/frame.js:38`): dù model bị lừa sinh HTML/script thì
-  widget vẫn chỉ hiện chữ. Link nguồn khác origin của shop bị bỏ (`widget/frame.js:241`).
+  `postMessage` được kiểm tra origin ở cả hai phía (`widget/loader.js:90`).
+- **Không có gì riêng cho một shop trong code widget**: tên, màu, lời chào, gợi ý lấy từ `/v1/widget-config`; link đăng
+  nhập lấy từ `data-login-url` và chỉ nhận trang cùng origin với shop (`widget/frame.js:9`).
+- **Không dùng `innerHTML`** (`widget/frame.js:43`): dù model bị lừa sinh HTML/script thì
+  widget vẫn chỉ hiện chữ. Link nguồn khác origin của shop bị bỏ (`widget/frame.js:246`).
 - **Mã khách vãng lai không phải đăng nhập**: widget chỉ gửi nó khi không có token, và server bỏ qua nó ở
-  shop có API đơn hàng. Khách vãng lai gặp 401 thì không xin token lại (`widget/frame.js:342`).
+  shop có API đơn hàng. Khách vãng lai gặp 401 thì không xin token lại (`widget/frame.js:347`).
 - **API shop tự lọc theo khách** (`shop_demo/api.py:3`): phòng thủ nhiều lớp, kể cả khi Agent Server có lỗi.
 - **Eval gọi đúng hàm production**: shop API chạy trong tiến trình qua `httpx.ASGITransport`
   (`eval/agent_eval.py:44`), không cần mở server. Kết quả cache theo hash của ca, prompt, tool,
@@ -392,10 +394,16 @@ prompt dặn "shop chưa kết nối hệ thống đơn hàng" (`agent_server/pr
 backend. Khách hỏi ngay, nhưng chỉ có tool tài liệu và ưu đãi, không có tra đơn và chuyển nhân viên (mục 2.4). Nếu sau này
 shop nối API đơn hàng thì `guest_allowed` tự trả `False`, khách vãng lai bị từ chối.
 
+**1c. Widget có dùng được cho shop khác ngoài demo không? (M3 + M1)** Có. Code widget không có gì riêng cho shop nào:
+tiêu đề, màu, lời chào, gợi ý đến từ cấu hình lúc cấp shop (`agent_server/app.py:245`); đường dẫn token và trang đăng
+nhập do thẻ nhúng của từng shop khai báo. Repo chạy cùng một widget trên 3 website khác origin (cổng 8001, 8002, 8003).
+Một shop thứ tư (tiệm bánh, mức 0, chế độ khách) đã được cấp và chạy thật bằng 3 lệnh, ghi trong
+`docs/INTEGRATION.md` mục 4. Agent Server có shop demo hay không cũng là tuỳ chọn (`demo_shop_enabled`).
+
 **2. Làm sao agent không lộ đơn của khách khác? (M1)** Nhiều lớp, không lớp nào dựa vào prompt: mã khách chỉ
 lấy từ JWT do shop ký; tool không có tham số mã khách và `extra="forbid"`; adapter đặt mã khách vào path
 hoặc kiểm `owner_field` (`agent_server/commerce.py:103`); cấu hình không ràng buộc bị từ chối; API shop tự lọc
-(`shop_demo/api.py:63`); hội thoại kiểm tra chủ (`agent_server/store.py:199`). Test:
+(`shop_demo/api.py:63`); hội thoại kiểm tra chủ (`agent_server/store.py:208`). Test:
 `tests/test_agent_server.py:102`, `tests/test_review_fixes.py:53`.
 
 **3. Prompt injection trong tài liệu hoặc kết quả tool? (M1)** Prompt coi kết quả tool là dữ liệu; nhưng quan
@@ -470,21 +478,20 @@ Nếu thầy chỉ ra, nên nhận và nói hướng sửa; đừng cãi. Danh s
 | 4 | `agent_server/app.py:70` | Nút đánh giá "Hữu ích / Chưa hữu ích" chỉ đếm trong RAM, mất khi khởi động lại | Lưu vào bảng trong PostgreSQL |
 | 5 | `agent_server/app.py:71`, `agent_server/app.py:96` | Đối tượng toàn cục giữ trạng thái trong RAM (khóa hội thoại, bộ đếm): chỉ đúng khi chạy 1 tiến trình | Redis/DB nếu chạy nhiều worker |
 | 6 | `agent_server/app.py:454`, `agent_server/tools.py:190` | Gọi DB đồng bộ trong hàm `async` mà không qua `asyncio.to_thread` (chỗ khác thì có), chặn event loop một chút | Thống nhất dùng `to_thread` hoặc driver async |
-| 7 | `agent_server/store.py:49`, `agent_server/store.py:90`, `agent_server/store.py:115` | Ba câu SQL ghi bảng `shops` gần giống nhau; `init_db` của lõi còn tự tạo shop demo từ `demo_data.json` | Gom một hàm `upsert_shop`; chuyển seed demo sang `scripts/setup_demo.py` |
+| 7 | `agent_server/store.py:56`, `agent_server/store.py:99`, `agent_server/store.py:124` | Ba câu SQL ghi bảng `shops` gần giống nhau (việc tạo shop demo trong `init_db` nay đã tuỳ chọn, chỉ chạy khi `demo_shop_enabled()`, `agent_server/store.py:49`) | Gom một hàm `upsert_shop` |
 | 8 | `agent_server/demo_data.json` | Khóa `faq` (5 câu) không còn được code nào đọc; `store.py` chỉ đọc 6 khóa khác | Xoá khóa thừa |
-| 9 | `widget/frame.js:157` | Widget viết cứng `demo_shop` để quyết định hiện nút "Đăng nhập" | Trả `login_url` trong `/v1/widget-config` |
-| 10 | `agent_server/tools.py:269` | `BY_NAME` không được dùng; agent và `execute` mỗi nơi tự tìm tool bằng vòng lặp | Dùng `BY_NAME` hoặc xoá |
-| 11 | `agent_server/commerce.py:163` | Mỗi lần gọi API shop tạo một `AsyncClient` mới, không dùng lại kết nối | Giữ một client cho mỗi adapter |
-| 12 | `agent_server/app.py:263` | Tạo event loop mới trong thread vì `index_faqs` là `async` nhưng làm việc đồng bộ | Cho ingest FAQ một hàm đồng bộ |
-| 13 | `shared/llm.py:68` | Mã vá cấu hình cũ từ tuần 1 | Xoá, chỉ đọc `LLM_MODEL` |
-| 14 | `rag/documents.py:27` | Trường `intro` luôn rỗng vì `parse` đã nhập đoạn mở đầu vào mục đầu tiên (`rag/documents.py:79`) | Bỏ trường |
-| 15 | `rag/search.py:56` | Tham số `category` của tìm kiếm không còn được agent dùng (tool luôn truyền `None`) | Giữ cho hợp đồng C1 nhưng ghi rõ, hoặc bỏ |
-| 16 | `shop_demo/app.py` (654 dòng) | Một file chứa catalogue, giỏ hàng, thanh toán, đơn, tài khoản, trợ giúp, token | Tách thành các router như `api.py` |
-| 17 | `shop_demo/app.py:584`, `shop_demo/demo_chat.py` | Chatbot quy tắc cũ (`WIDGET_MODE=demo`) và bảng chính sách viết tay trùng nội dung `data/kb`; `templates/policy.html` không còn route nào render | Xoá hoặc ghi rõ là code cũ |
-| 18 | `eval/run.py:216`, `eval/agent_eval.py:151` | Hàm bọc không làm gì thêm; tham số `ctx` không dùng | Gọi thẳng `tool_data`; bỏ tham số |
-| 19 | `agent_server/auth.py:12` | `jti` được SDK sinh (`sdk/ati_sdk.py:33`) nhưng không kiểm tra: token dùng lại được trong 15 phút | Lưu `jti` đã dùng tới khi hết hạn nếu cần chống replay |
-| 20 | `agent_server/app.py:166` | Mã khách vãng lai do trình duyệt tự sinh; đổi mã là né được giới hạn "mỗi khách/phút" (giới hạn theo IP và theo ngày vẫn còn) | Giới hạn chặt hơn theo IP cho khách vãng lai |
-| 21 | Test | Không có test tự động cho `widget/*.js` (chỉ `scripts/browser_smoke.mjs` chạy tay, đường dẫn Chrome viết cứng `scripts/browser_smoke.mjs:8`); 2 test của `shop_demo/` không chạy trong lệnh test chính | Thêm vào CI hoặc ghi rõ lệnh chạy riêng |
+| 9 | `agent_server/tools.py:269` | `BY_NAME` không được dùng; agent và `execute` mỗi nơi tự tìm tool bằng vòng lặp | Dùng `BY_NAME` hoặc xoá |
+| 10 | `agent_server/commerce.py:163` | Mỗi lần gọi API shop tạo một `AsyncClient` mới, không dùng lại kết nối | Giữ một client cho mỗi adapter |
+| 11 | `agent_server/app.py:263` | Tạo event loop mới trong thread vì `index_faqs` là `async` nhưng làm việc đồng bộ | Cho ingest FAQ một hàm đồng bộ |
+| 12 | `shared/llm.py:68` | Mã vá cấu hình cũ từ tuần 1 | Xoá, chỉ đọc `LLM_MODEL` |
+| 13 | `rag/documents.py:27` | Trường `intro` luôn rỗng vì `parse` đã nhập đoạn mở đầu vào mục đầu tiên (`rag/documents.py:79`) | Bỏ trường |
+| 14 | `rag/search.py:56` | Tham số `category` của tìm kiếm không còn được agent dùng (tool luôn truyền `None`) | Giữ cho hợp đồng C1 nhưng ghi rõ, hoặc bỏ |
+| 15 | `shop_demo/app.py` (654 dòng) | Một file chứa catalogue, giỏ hàng, thanh toán, đơn, tài khoản, trợ giúp, token | Tách thành các router như `api.py` |
+| 16 | `shop_demo/app.py:584`, `shop_demo/demo_chat.py` | Chatbot quy tắc cũ (`WIDGET_MODE=demo`) và bảng chính sách viết tay trùng nội dung `data/kb`; `templates/policy.html` không còn route nào render | Xoá hoặc ghi rõ là code cũ |
+| 17 | `eval/run.py:216`, `eval/agent_eval.py:151` | Hàm bọc không làm gì thêm; tham số `ctx` không dùng | Gọi thẳng `tool_data`; bỏ tham số |
+| 18 | `agent_server/auth.py:12` | `jti` được SDK sinh (`sdk/ati_sdk.py:33`) nhưng không kiểm tra: token dùng lại được trong 15 phút | Lưu `jti` đã dùng tới khi hết hạn nếu cần chống replay |
+| 19 | `agent_server/app.py:166` | Mã khách vãng lai do trình duyệt tự sinh; đổi mã là né được giới hạn "mỗi khách/phút" (giới hạn theo IP và theo ngày vẫn còn) | Giới hạn chặt hơn theo IP cho khách vãng lai |
+| 20 | Test | Không có test tự động cho `widget/*.js` (chỉ `scripts/browser_smoke.mjs` chạy tay, đường dẫn Chrome viết cứng `scripts/browser_smoke.mjs:8`); 2 test của `shop_demo/` không chạy trong lệnh test chính | Thêm vào CI hoặc ghi rõ lệnh chạy riêng |
 
 ## 6. Cách chạy và debug nhanh
 
@@ -498,7 +505,7 @@ copy .env.example .env                          # điền AI_BOX_API_KEY
 .venv\Scripts\python scripts\run_all.py         # 8000 agent, 8001 Demo Mobile, 8002 Sample Store, 8003 Phụ Kiện Xanh
 ```
 
-Kiểm thử (Git Bash; 73 test, khoảng 25 giây, không gọi LLM). Trong lúc chạy có in traceback `pool timeout`: đó là
+Kiểm thử (Git Bash; 74 test, khoảng 25 giây, không gọi LLM). Trong lúc chạy có in traceback `pool timeout`: đó là
 test cố tình giả lỗi tool, kết quả cuối phải là `OK`.
 
 ```bash

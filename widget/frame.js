@@ -3,6 +3,11 @@
   var params = new URLSearchParams(window.location.search);
   var shopKey = params.get("shop_key") || "";
   var parentOrigin = params.get("parent_origin") || "";
+  var loginUrl = "";  // Set by the shop's embed (data-login-url); only a page of the embedding site.
+  try {
+    var requestedLogin = params.get("login_url");
+    if (requestedLogin && new URL(requestedLogin).origin === parentOrigin) loginUrl = requestedLogin;
+  } catch (_) {}
   var title = document.getElementById("chat-title");
   var mode = document.getElementById("chat-mode");
   var auth = document.getElementById("chat-auth");
@@ -154,8 +159,8 @@
     suggestions.querySelectorAll("button").forEach(function (button) {
       button.disabled = !signedIn;
     });
-    login.hidden = signedIn || !config || config.shop_id !== "demo_shop";
-    if (!login.hidden) login.href = new URL("/login", config.shop_url).href;
+    login.hidden = signedIn || !loginUrl;
+    if (!login.hidden) login.href = loginUrl;
     if (!signedIn) {
       historyPanel.hidden = true;
       historyToggle.setAttribute("aria-expanded", "false");

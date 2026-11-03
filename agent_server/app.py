@@ -23,7 +23,7 @@ from agent_server.auth import verify_customer_token
 from agent_server.commerce import adapter_for
 from agent_server.rate_limit import ChatLimiter
 from agent_server.store import (append_turn, conversation_owned, create_conversation,
-                                delete_empty_conversation, guest_allowed, init_db,
+                                delete_empty_conversation, demo_shop_enabled, guest_allowed, init_db,
                                 list_conversations, list_faqs, list_messages, list_offers,
                                 list_tickets, origin_of, replace_faqs, replace_offers, save_trace,
                                 shop_by_id, shop_by_public_key, verify_faq_key)
@@ -58,7 +58,7 @@ def warm_up() -> None:
 async def lifespan(_: FastAPI):
     init_db()
     missing = [name for name in ("DEMO_SHOP_API_KEY", "DEMO_SHOP_TOKEN_SECRET") if not env(name)]
-    if missing:
+    if demo_shop_enabled() and missing:
         print("[agent_server] WARNING: " + ", ".join(missing) + " missing in .env; demo shop chat "
               "tokens are rejected and shop API calls fail until both servers share these keys.")
     if env_flag("RAG_WARMUP", True):

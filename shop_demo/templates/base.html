@@ -82,7 +82,7 @@
 <script defer src="/static/demo-chat.js"></script>
 {% elif cfg.WIDGET_MODE == 'external' %}
 <script src="{{ cfg.AGENT_SERVER_URL }}/widget/loader.js" data-shop-key="{{ cfg.PUBLIC_KEY }}"
-        data-token-url="/api/chat-token" async></script>
+        data-token-url="/api/chat-token" data-login-url="/login" async></script>
 {% endif %}
 {% endif %}
 </body>

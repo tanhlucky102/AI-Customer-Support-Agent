@@ -113,7 +113,7 @@ def page(title: str, body: str, user: dict | None) -> HTMLResponse:
     widget = ""
     if PUBLIC_KEY:
         widget = (f'<script src="{AGENT_URL}/widget/loader.js" data-shop-key="{html.escape(PUBLIC_KEY)}" '
-                  f'data-token-url="/api/chat-token"></script>')
+                  f'data-token-url="/api/chat-token" data-login-url="/login"></script>')
         if not user:
             widget += '<script>window.addEventListener("load",function(){window.ATI&&ATI.reset();});</script>'
     return HTMLResponse(f"""<!doctype html><html lang="vi"><head><meta charset="utf-8">

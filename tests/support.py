@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 # The bag-of-words test embedder gives lower cosine scores than BGE-M3, hence the lower τ.
-os.environ.update({"RAG_EMBEDDER": "hash", "RAG_RERANK": "0", "RAG_WARMUP": "0",
+os.environ.update({"DEMO_SHOP": "1", "RAG_EMBEDDER": "hash", "RAG_RERANK": "0", "RAG_WARMUP": "0",
                    "RAG_TAU_NO_RERANK": "0.15", "AI_BOX_API_KEY": "",
                    "DAILY_CHAT_QUOTA_PER_SHOP": "500"})
 

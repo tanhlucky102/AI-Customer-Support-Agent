@@ -93,5 +93,24 @@ class GuestModeTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(follow_up.status_code, 404)
 
 
+class DemoShopIsOptionalTest(unittest.TestCase):
+    """A real deployment serves only the shops it provisioned: no built-in demo shop."""
+
+    def test_demo_shop_is_created_only_where_the_demo_is_set_up(self):
+        from agent_server.store import demo_shop_enabled, init_db, shop_by_id
+        from shared import db
+        for flag, secret, expected in (("", "", False), ("", "x", True), ("0", "x", False), ("1", "", True)):
+            with patch.dict("os.environ", {"DEMO_SHOP": flag, "DEMO_SHOP_TOKEN_SECRET": secret}):
+                self.assertEqual(demo_shop_enabled(), expected, (flag, secret))
+        try:
+            with patch.dict("os.environ", {"DEMO_SHOP": "0"}):
+                with db.connect() as connection:
+                    connection.execute("TRUNCATE shops RESTART IDENTITY CASCADE")
+                init_db()
+                self.assertIsNone(shop_by_id("demo_shop"))
+        finally:
+            support.reset_database()  # Put the demo shop back for the other tests.
+
+
 if __name__ == "__main__":
     unittest.main()
