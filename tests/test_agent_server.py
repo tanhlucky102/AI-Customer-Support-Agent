@@ -183,7 +183,7 @@ class AgentServerTest(unittest.IsolatedAsyncioTestCase):
         llm = FakeLLM("Vâng.")
         await self.ask("còn đơn trên 500k?", llm=llm, conversation_id=conversation_id)
         roles = [m["role"] for m in llm.requests[0]["messages"]]
-        self.assertEqual(roles, ["system", "system", "user", "assistant", "user"])
+        self.assertEqual(roles, ["system", "user", "assistant", "system", "user"])  # date after history
         stranger = await self.client.post("/v1/chat", headers=bearer("C0099"), json={
             "shop_key": "pk_demo_shop", "message": "hi", "conversation_id": conversation_id})
         self.assertEqual(stranger.status_code, 404)

@@ -81,12 +81,18 @@ def parse(text: str, slug: str) -> Document:
 
 
 def load_dir(directory: Path) -> list[Document]:
-    return [parse(path.read_text(encoding="utf-8-sig"), path.stem)
-            for path in sorted(directory.glob("*.md"))]
+    paths = sorted(directory.glob("*.md"))
+    clashing = [path.name for path in paths if path.stem.startswith("faq-")]
+    if clashing:  # "faq-<id>" is the slug of pushed FAQ entries; a file must not overwrite one.
+        raise ValueError(f"rename {', '.join(clashing)}: file names may not start with 'faq-'")
+    return [parse(path.read_text(encoding="utf-8-sig"), path.stem) for path in paths]
 
 
 def faq_document(faq: dict) -> Document:
     """A pushed FAQ entry becomes a one-section document, so search covers it like any page."""
+    # The shop's keywords (synonyms such as "VAT") are indexed with the entry, not shown to the model.
+    keywords = ", ".join(keyword for keyword in faq.get("keywords") or [] if keyword)
     return Document(slug=f"faq-{faq['id']}", title=faq["question"], category="faq", updated_at=None,
-                    intro="", sections=[Section(0, faq["question"], faq["answer"])],
+                    intro=f"Từ khoá: {keywords}" if keywords else "",
+                    sections=[Section(0, faq["question"], faq["answer"])],
                     source_url=faq.get("source_url"), origin="faq")

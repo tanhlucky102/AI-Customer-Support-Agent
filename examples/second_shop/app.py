@@ -30,6 +30,7 @@ from shared.settings import env  # noqa: E402
 SHOP_ID = "second_shop"
 SHOP_URL = env("SECOND_SHOP_URL", "http://localhost:8003").rstrip("/")
 AGENT_URL = env("AGENT_SERVER_URL", "http://localhost:8000").rstrip("/")
+AGENT_INTERNAL_URL = env("AGENT_SERVER_INTERNAL_URL", AGENT_URL).rstrip("/")  # server-to-server calls
 API_KEY = env("SECOND_SHOP_API_KEY")
 TOKEN_SECRET = env("SECOND_SHOP_TOKEN_SECRET")
 WRITE_KEY = env("SECOND_SHOP_WRITE_KEY")
@@ -73,7 +74,21 @@ ORDERS = {order["code"]: order for order in [
 app = FastAPI(title="Phụ Kiện Xanh (second demo shop)")
 # Never a published default: without a configured secret, sessions use a per-process random key.
 app.add_middleware(SessionMiddleware, secret_key=env("SECOND_SHOP_SESSION_SECRET") or secrets.token_urlsafe(32),
-                   https_only=False, same_site="lax")
+                   https_only=False, same_site="lax",
+                   session_cookie="pkx_session")  # not "session": Demo Mobile runs on the same host
+
+
+@app.middleware("http")
+async def same_origin_forms(request: Request, call_next):
+    """Form POSTs only from this website (CSRF, including login CSRF); account pages are not cached."""
+    if request.method == "POST" and not request.url.path.startswith(("/v2/", "/api/")):
+        origin = request.headers.get("origin")
+        if origin and origin not in {f"{request.url.scheme}://{request.url.netloc}", SHOP_URL}:
+            return HTMLResponse("cross-site request", status_code=403)
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def require_key(x_api_key: str | None = Header(default=None)) -> None:
@@ -115,8 +130,6 @@ def page(title: str, body: str, user: dict | None) -> HTMLResponse:
     if PUBLIC_KEY:
         widget = (f'<script src="{AGENT_URL}/widget/loader.js" data-shop-key="{html.escape(PUBLIC_KEY)}" '
                   f'data-token-url="/api/chat-token" data-login-url="/login"></script>')
-        if not user:
-            widget += '<script>window.addEventListener("load",function(){window.ATI&&ATI.reset();});</script>'
     return HTMLResponse(f"""<!doctype html><html lang="vi"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)} · Phụ Kiện Xanh</title>
 <style>body{{font-family:system-ui,sans-serif;margin:0;color:#14332a}}header{{background:#0f7a5c;color:#fff;
@@ -166,7 +179,7 @@ def logout(request: Request):
     uid = request.session.get("uid")
     request.session.clear()
     if uid and WRITE_KEY:  # also cut off the chat tokens this customer already received
-        revoke_user_tokens(uid, shop_id=SHOP_ID, write_key=WRITE_KEY, server_url=AGENT_URL)
+        revoke_user_tokens(uid, shop_id=SHOP_ID, write_key=WRITE_KEY, server_url=AGENT_INTERNAL_URL)
     return RedirectResponse("/", status_code=303)
 
 

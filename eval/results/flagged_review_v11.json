@@ -1,0 +1,74 @@
+{
+ "run": "agent_v11 (04/11/2026)",
+ "reviewer": "Claude Code (AI assistant), not yet confirmed by the team",
+ "method": "Each flagged claim compared with the data the bot received (eval/runs/v11/results.json). Only flagged answers were reviewed.",
+ "items": [
+  {
+   "id": "t-01",
+   "claim": "đơn có thể tới trễ hơn một chút",
+   "verdict": "unsupported",
+   "reason": "The order was 32 days past its estimated date; calling the delay 'a little' misstates it. Led to the v12 rule on late orders."
+  },
+  {
+   "id": "t-02",
+   "claim": "dự kiến giao ngày 21/07/2026",
+   "verdict": "supported",
+   "reason": "get_order_status returned eta 2026-07-21."
+  },
+  {
+   "id": "t-17",
+   "claim": "đang diễn ra",
+   "verdict": "supported",
+   "reason": "get_promotions listed Hot Sale Cuối Tuần under current."
+  },
+  {
+   "id": "t-19",
+   "claim": "đã trễ khoảng 32 ngày",
+   "verdict": "supported",
+   "reason": "eta 03/10/2026, today 04/11/2026."
+  },
+  {
+   "id": "t-20",
+   "claim": "dự kiến giao ngày 21/07/2026; quá 30 ngày (ước tính)",
+   "verdict": "supported",
+   "reason": "eta from the order; the prompt asks for an approximate count from the eta."
+  },
+  {
+   "id": "t-35",
+   "claim": "chính sách đền bù giao trễ",
+   "verdict": "supported",
+   "reason": "An offer to look up the policy, not a statement of fact."
+  },
+  {
+   "id": "t-36",
+   "claim": "còn trong thời hạn bảo hành 12 tháng",
+   "verdict": "supported",
+   "reason": "12-month warranty in the documents; bought 2 months ago."
+  },
+  {
+   "id": "t-46",
+   "claim": "mình chỉ thấy được dạng ẩn một phần vì lý do bảo mật",
+   "verdict": "unsupported",
+   "reason": "An explanation of the masking that the data does not give (also in v10 t-08). Led to the v12 rule on masked values."
+  },
+  {
+   "id": "q-r-pol-017",
+   "claim": "đến nay đã trễ khoảng 1 tháng",
+   "verdict": "supported",
+   "reason": "eta 03/10/2026, today 04/11/2026."
+  },
+  {
+   "id": "q-r-gd-012",
+   "claim": "best value pairing; 1,020,000₫; a shorter cable or a bundle",
+   "verdict": "supported",
+   "reason": "The cheapest charger plus the only cable; 444,000 + 576,000 = 1,020,000; the last two are offers to look further."
+  }
+ ],
+ "summary": {
+  "flagged": 10,
+  "supported": 8,
+  "unsupported": 2,
+  "groundedness_judged": 0.889,
+  "groundedness_after_review": 0.978
+ }
+}

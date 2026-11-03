@@ -30,6 +30,7 @@
   var conversationId = null;
   var sending = false;
   var abortController = null;
+  var opening = false;  // a saved conversation is being loaded
 
   function notifyParent(type) {
     if (parentOrigin) window.parent.postMessage({ type: type }, parentOrigin);
@@ -54,6 +55,7 @@
       } else {
         var cite = document.createElement("sup");
         cite.className = "cite";
+        cite.dataset.ref = match[2];  // clicking it shows the matching source below the answer
         cite.textContent = "[" + match[2] + "]";
         parent.appendChild(cite);
       }
@@ -102,8 +104,20 @@
     return message;
   }
 
+  // Tokens arrive faster than the screen refreshes: render at most once per frame, not per token.
   function appendToken(message, text) {
     message.raw += text;
+    if (message.frame) return;
+    message.frame = window.requestAnimationFrame(function () {
+      message.frame = 0;
+      renderMarkdown(message.body, message.raw);
+      scrollToBottom();
+    });
+  }
+
+  function flush(message) {
+    if (message.frame) window.cancelAnimationFrame(message.frame);
+    message.frame = 0;
     renderMarkdown(message.body, message.raw);
   }
 
@@ -154,8 +168,8 @@
                                            : "Vui lòng đăng nhập để hỏi và xem lịch sử chat.";
     input.disabled = !signedIn;
     sendButton.disabled = !signedIn || sending;
-    newChat.disabled = !signedIn;
-    historyToggle.disabled = !signedIn;
+    newChat.disabled = !signedIn;  // also stops an answer that is still streaming
+    historyToggle.disabled = !signedIn || sending;
     suggestions.querySelectorAll("button").forEach(function (button) {
       button.disabled = !signedIn;
     });
@@ -171,9 +185,8 @@
     if (!canChat()) return;
     var requestToken = token;
     try {
-      var response = await fetch("/v1/conversations?shop_key=" + encodeURIComponent(shopKey), {
-        headers: authHeaders(), cache: "no-store"
-      });
+      var response = await apiFetch("/v1/conversations?shop_key=" + encodeURIComponent(shopKey),
+                                    { cache: "no-store" });
       if (!response.ok) throw new Error("history_failed");
       var data = await response.json();
       if (token !== requestToken) return;
@@ -201,16 +214,15 @@
   }
 
   async function openConversation(id) {
-    if (!canChat() || sending) return;
+    if (!canChat() || sending || opening) return;
     var requestToken = token;
+    opening = true;
     try {
-      var response = await fetch("/v1/conversations/" + encodeURIComponent(id) +
-                                 "?shop_key=" + encodeURIComponent(shopKey), {
-        headers: authHeaders(), cache: "no-store"
-      });
+      var response = await apiFetch("/v1/conversations/" + encodeURIComponent(id) +
+                                    "?shop_key=" + encodeURIComponent(shopKey), { cache: "no-store" });
       if (!response.ok) throw new Error("history_failed");
       var data = await response.json();
-      if (token !== requestToken) return;
+      if (token !== requestToken || sending) return;
       conversationId = id;
       messages.replaceChildren();
       data.messages.forEach(function (row) {
@@ -224,6 +236,8 @@
       if (token !== requestToken) return;
       status.textContent = "Chưa mở được hội thoại. Vui lòng thử lại.";
       status.hidden = false;
+    } finally {
+      opening = false;
     }
   }
 
@@ -233,6 +247,29 @@
       var timer = setTimeout(resolve, timeoutMs);
       authWaiters.push(function () { clearTimeout(timer); resolve(); });
     });
+  }
+
+  // One request to the Agent Server. If the shop's token expired or was revoked (401), ask the page
+  // for a fresh one and retry once; if another account signed in meanwhile, drop the request.
+  async function apiFetch(path, options) {
+    options = options || {};
+    var extra = options.headers || {};
+    var customerAtStart = customerKey;
+    function request() {
+      return fetch(path, Object.assign({}, options, { headers: authHeaders(Object.assign({}, extra)) }));
+    }
+    var response = await request();
+    if (response.status !== 401 || !token) return response;
+    authReceived = false;
+    notifyParent("ati:token-request");
+    await waitForAuth(5000);
+    if (customerKey !== customerAtStart) {
+      var switched = new Error("account_changed");
+      switched.name = "AbortError";
+      throw switched;
+    }
+    if (!token) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trên website.");
+    return request();
   }
 
   function addSources(item, sources) {
@@ -249,6 +286,7 @@
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.textContent = (source.ref ? "[" + source.ref + "] " : "") + (source.label || "Xem nguồn");
+        if (source.ref) link.dataset.ref = String(source.ref);
         links.appendChild(link);
       } catch (_) { /* Ignore malformed source links. */ }
     });
@@ -268,15 +306,16 @@
       button.textContent = rating === "yes" ? "👍" : "👎";
       button.setAttribute("aria-label", rating === "yes" ? "Hữu ích" : "Chưa hữu ích");
       button.addEventListener("click", async function () {
+        row.querySelectorAll("button").forEach(function (other) { other.disabled = true; });
         try {
-          var response = await fetch("/v1/feedback", {
+          var response = await apiFetch("/v1/feedback", {
             method: "POST",
-            headers: authHeaders({ "Content-Type": "application/json" }),
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ shop_key: shopKey, conversation_id: targetConversationId,
                                    rating: rating })
           });
           if (!response.ok) throw new Error("feedback_failed");
-          row.replaceChildren(document.createTextNode("Đã ghi nhận phản hồi trong server thử."));
+          row.replaceChildren(document.createTextNode("Cảm ơn bạn đã phản hồi."));
         } catch (_) {
           row.replaceChildren(document.createTextNode("Chưa gửi được phản hồi."));
         }
@@ -336,54 +375,61 @@
     if (!doneEvent) throw new Error("Luồng trả lời đã ngắt trước khi hoàn thành.");
   }
 
-  async function callChat(question, pending, retry) {
+  var DAILY_LIMITS = {
+    daily_quota_exceeded: "Trợ lý đã hết lượt trả lời trong hôm nay. Vui lòng liên hệ trực tiếp với shop.",
+    customer_daily_limit: "Bạn đã hỏi nhiều câu trong hôm nay. Vui lòng quay lại vào ngày mai hoặc liên hệ shop.",
+    ip_daily_limit: "Mạng của bạn đã gửi quá nhiều câu hỏi trong hôm nay. Vui lòng thử lại vào ngày mai."
+  };
+
+  async function callChat(question, pending) {
     abortController = new AbortController();
-    var headers = authHeaders({ "Content-Type": "application/json" });
-    var response = await fetch("/v1/chat", {
-      method: "POST", headers: headers, signal: abortController.signal,
+    var response = await apiFetch("/v1/chat", {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal: abortController.signal,
       body: JSON.stringify({ shop_key: shopKey, message: question,
                              conversation_id: conversationId })
     });
-    if (response.status === 401 && retry && !guestId) {
-      authReceived = false;
-      notifyParent("ati:token-request");
-      await waitForAuth(5000);
-      if (token) return callChat(question, pending, false);
-      throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trên website.");
-    }
     if (response.status === 429) {
       var limit = await response.json().catch(function () { return {}; });
       var wait = Number(response.headers.get("Retry-After")) || 60;
-      throw new Error(limit.detail === "daily_quota_exceeded"
-        ? "Trợ lý đã hết lượt trả lời trong hôm nay. Vui lòng liên hệ trực tiếp với shop."
-        : "Bạn gửi câu hỏi hơi nhanh. Vui lòng thử lại sau khoảng " + wait + " giây.");
+      throw new Error(DAILY_LIMITS[limit.detail] ||
+                      "Bạn gửi câu hỏi hơi nhanh. Vui lòng thử lại sau khoảng " + wait + " giây.");
     }
+    if (response.status === 401) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trên website.");
     if (!response.ok) throw new Error("Chatbot server trả lỗi HTTP " + response.status + ".");
     await consumeStream(response, pending);
   }
 
   async function send(question) {
     question = question.trim();
-    if (!question || sending || !canChat()) return;
+    if (!question || sending || opening || !canChat()) return;
     sending = true;
-    sendButton.disabled = true;
+    setAuthUI();
     addMessage(question, "user");
     input.value = "";
     var pending = addMessage("", "bot");
+    messages.setAttribute("aria-busy", "true");  // screen readers announce the answer once, at the end
     status.textContent = "Đang kết nối chatbot...";
     status.hidden = false;
     try {
       await waitForAuth(5000);
-      await callChat(question, pending, true);
+      await callChat(question, pending);
+      flush(pending);
       if (!pending.raw) appendToken(pending, "Chưa có câu trả lời.");
       addFeedback(pending.item, conversationId);
-      await loadHistory();
+      if (!historyPanel.hidden) loadHistory();
     } catch (error) {
       if (error.name !== "AbortError") {
-        pending.raw = "";
-        appendToken(pending, error.message || "Không kết nối được chatbot server.");
+        var text = error.message || "Không kết nối được chatbot server.";
+        if (pending.item.isConnected) {
+          pending.raw = "";
+          appendToken(pending, text);
+        } else {
+          addMessage(text, "bot");  // the conversation was reset meanwhile (logged out)
+        }
       }
     } finally {
+      flush(pending);
+      messages.removeAttribute("aria-busy");
       status.hidden = true;
       sending = false;
       setAuthUI();
@@ -408,7 +454,7 @@
       auth.textContent = token ? "Đang hỗ trợ: " + (data.customerName || "khách đã đăng nhập")
                                : "Vui lòng đăng nhập để hỏi và xem lịch sử chat.";
       setAuthUI();
-      if (canChat()) loadHistory();
+      if (canChat() && !historyPanel.hidden) loadHistory();
       authWaiters.splice(0).forEach(function (resolve) { resolve(); });
     } else if (data.type === "ati:reset") {
       if (token) {  // The shop logged the customer out: their chat tokens stop working on the server too.
@@ -432,8 +478,8 @@
     notifyParent("ati:close");
   });
   newChat.addEventListener("click", function () {
-    if (!canChat() || sending) return;
-    resetConversation();
+    if (!canChat()) return;
+    resetConversation();  // also aborts an answer that is still streaming
     historyPanel.hidden = true;
     historyToggle.setAttribute("aria-expanded", "false");
     input.focus();
@@ -448,6 +494,28 @@
     event.preventDefault();
     send(input.value);
   });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") notifyParent("ati:close");
+  });
+  messages.addEventListener("click", function (event) {
+    var cite = event.target.closest ? event.target.closest(".cite") : null;
+    if (!cite) return;
+    var message = cite.closest(".message");
+    var link = message && message.querySelector('.message__sources a[data-ref="' + cite.dataset.ref + '"]');
+    if (link) {
+      link.scrollIntoView({ block: "nearest" });
+      link.focus();
+    }
+  });
+
+  // White text on a light shop colour is unreadable: pick dark text for light colours.
+  function textColourFor(hex) {
+    var value = parseInt(hex.slice(1), 16);
+    var channel = function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    var luminance = 0.2126 * channel(value >> 16 & 255) + 0.7152 * channel(value >> 8 & 255) +
+                    0.0722 * channel(value & 255);
+    return luminance > 0.45 ? "#0f172a" : "#ffffff";
+  }
 
   async function initialize() {
     try {
@@ -458,6 +526,7 @@
       mode.textContent = config.mode === "agent" ? "AI HỖ TRỢ" : "CHẾ ĐỘ DỰ PHÒNG · KHÔNG DÙNG AI";
       if (/^#[0-9a-fA-F]{6}$/.test(config.primary_color)) {
         document.documentElement.style.setProperty("--accent", config.primary_color);
+        document.documentElement.style.setProperty("--accent-text", textColourFor(config.primary_color));
       }
       addMessage(config.greeting, "bot");
       (config.suggestions || []).forEach(function (question) {
@@ -468,8 +537,7 @@
         suggestions.appendChild(button);
       });
       if (config.guest_chat) guestId = loadGuestId();
-      setAuthUI();
-      if (guestId) loadHistory();
+      setAuthUI();  // history is loaded when the history panel is opened
       notifyParent("ati:ready");
     } catch (error) {
       addMessage(error.message || "Không tải được widget.", "bot");

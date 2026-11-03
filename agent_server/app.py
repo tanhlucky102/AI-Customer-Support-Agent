@@ -9,25 +9,28 @@ import logging
 import re
 import threading
 import time
+import unicodedata
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Literal
 
+import psycopg
 from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from agent_server import agent
-from agent_server.auth import verify_customer_claims
+from agent_server.auth import MAX_TOKEN_LIFETIME, verify_customer_claims
 from agent_server.commerce import adapter_for
 from agent_server.rate_limit import ChatLimiter
-from agent_server.store import (append_turn, conversation_owned, create_conversation,
-                                delete_empty_conversation, demo_shop_enabled, guest_allowed, init_db,
-                                list_conversations, list_faqs, list_messages, list_offers,
-                                list_tickets, origin_of, replace_faqs, replace_offers,
-                                revoke_customer_tokens, save_trace, shop_by_id, shop_by_public_key,
-                                token_revoked, verify_faq_key)
+from agent_server.store import (append_turn, close_ticket, conversation_owned, create_conversation,
+                                delete_empty_conversation, demo_shop_enabled, feedback_counts,
+                                guest_allowed, init_db, list_conversations, list_faqs, list_messages,
+                                list_offers, list_tickets, origin_of, replace_faqs, replace_offers,
+                                revoke_customer_tokens, save_feedback, save_trace, shop_by_id,
+                                shop_by_public_key, token_revoked, turns_since, verify_faq_key)
 from agent_server.tools import TurnContext
 from rag.search import search
 from shared.llm import LLMProvider
@@ -67,9 +70,63 @@ async def lifespan(_: FastAPI):
     yield
 
 
+class BodyTooLarge(Exception):
+    pass
+
+
+class BodyLimit:
+    """Refuse request bodies over the limit before they are read whole (chat: 64 KB; content
+    pushes under /v1/shops/: 4 MB). A body is otherwise parsed before any key or origin check."""
+
+    def __init__(self, app, default: int = 64_000, content: int = 4_000_000) -> None:
+        self.app, self.default, self.content = app, default, content
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        limit = self.content if scope["path"].startswith("/v1/shops/") else self.default
+        length = dict(scope.get("headers") or []).get(b"content-length", b"")
+        if length.isdigit() and int(length) > limit:
+            return await self.reject(send)
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    raise BodyTooLarge
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except BodyTooLarge:
+            await self.reject(send)
+
+    @staticmethod
+    async def reject(send) -> None:
+        await send({"type": "http.response.start", "status": 413,
+                    "headers": [(b"content-type", b"application/json")]})
+        await send({"type": "http.response.body", "body": b'{"detail":"request_too_large"}'})
+
+
 app = FastAPI(title="ATI Agent Server", version="1.0.0", lifespan=lifespan)
-feedback_counts = {"yes": 0, "no": 0}  # In-memory and reset whenever the server restarts.
+app.add_middleware(BodyLimit)
 llm = LLMProvider()
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_: Request, error: RequestValidationError):
+    """422 without echoing the input back (it can be large or carry personal data)."""
+    return JSONResponse({"detail": [{"loc": item.get("loc"), "msg": item.get("msg")}
+                                    for item in error.errors()[:5]]}, status_code=422)
+
+
+@app.exception_handler(psycopg.DataError)
+async def invalid_data(_: Request, error: psycopg.DataError):
+    """Values PostgreSQL cannot store (a NUL byte in an identifier) are a bad request, not a crash."""
+    return JSONResponse({"detail": "invalid_characters"}, status_code=400)
 
 
 class ConversationLocks:
@@ -94,11 +151,22 @@ class ConversationLocks:
 
 
 conversation_locks = ConversationLocks()
+def turns_today(shop_id: str) -> int:
+    midnight = datetime.combine(datetime.now().date(), datetime.min.time()).astimezone()
+    return turns_since(shop_id, midnight)
+
+
 chat_limiter = ChatLimiter(
     per_customer_per_minute=env_int("RATE_LIMIT_PER_SESSION_PER_MINUTE", 10),
     per_ip_per_minute=env_int("RATE_LIMIT_PER_IP_PER_MINUTE", 30),
     daily_per_shop=env_int("DAILY_CHAT_QUOTA_PER_SHOP", 500),
+    # One sender must not be able to use up the whole shop's day.
+    daily_per_customer=env_int("DAILY_CHAT_QUOTA_PER_CUSTOMER", 100),
+    daily_per_ip=env_int("DAILY_CHAT_QUOTA_PER_IP", 300),
+    daily_used=turns_today,
 )
+# Pending background work (traces), kept referenced until done.
+background_tasks: set[asyncio.Task] = set()
 
 
 class ChatRequest(BaseModel):
@@ -111,7 +179,9 @@ class ChatRequest(BaseModel):
     @field_validator("message")
     @classmethod
     def printable(cls, value: str) -> str:
-        """Drop control characters (Postgres rejects NUL, after a whole answer was streamed)."""
+        """Composed Unicode (Unikey "tổ hợp", macOS paste) and no control characters (Postgres
+        rejects NUL, after a whole answer was streamed)."""
+        value = unicodedata.normalize("NFC", value)
         return "".join(char for char in value if char in "\n\t" or ord(char) >= 32)
 
 
@@ -126,9 +196,9 @@ class ShopLogout(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    shop_key: str
-    conversation_id: str
-    rating: str
+    shop_key: str = Field(min_length=1, max_length=100)
+    conversation_id: str = Field(min_length=1, max_length=100)
+    rating: Literal["yes", "no"]
 
 
 class FaqItem(BaseModel):
@@ -161,8 +231,24 @@ class OfferSnapshot(BaseModel):
     offers: list[OfferItem] = Field(max_length=100)
 
 
+SHOP_CACHE_SECONDS = 10.0
+_shop_cache: dict[str, tuple[float, dict | None]] = {}
+
+
+def clear_shop_cache() -> None:
+    _shop_cache.clear()
+
+
 def require_shop_key(shop_key: str) -> dict:
-    shop = shop_by_public_key(shop_key)
+    """The shop row, cached for a few seconds: every widget request needs it, and it rarely changes."""
+    hit = _shop_cache.get(shop_key)
+    if hit and time.monotonic() - hit[0] < SHOP_CACHE_SECONDS:
+        shop = hit[1]
+    else:
+        shop = shop_by_public_key(shop_key)
+        if len(_shop_cache) > 1000:
+            _shop_cache.clear()
+        _shop_cache[shop_key] = (time.monotonic(), shop)
     if not shop:
         raise HTTPException(404, "unknown_shop_key")
     return shop
@@ -288,7 +374,7 @@ async def sync_faqs(shop_id: str, payload: FaqSnapshot,
     shop = shop_by_id(shop_id)
     if not shop:
         raise HTTPException(404, "unknown_shop")
-    faqs = [faq.model_dump() for faq in payload.faqs]
+    faqs = [faq.model_dump() for faq in payload.faqs]  # validated below, then stored and indexed
     if len({faq["id"] for faq in faqs}) != len(faqs):
         raise HTTPException(422, "duplicate_faq_id")
     expected_origin = origin_of(shop["shop_url"])
@@ -302,9 +388,15 @@ async def sync_faqs(shop_id: str, payload: FaqSnapshot,
             raise HTTPException(422, "invalid_keyword")
         if faq["source_url"] and origin_of(faq["source_url"]) != expected_origin:
             raise HTTPException(422, "source_url_must_match_shop_origin")
-    count, revision = replace_faqs(shop_id, faqs)
-    indexed = await reindex_faqs(shop, faqs)
+    # One push at a time per shop, and the index is built from what the table now holds, so two
+    # overlapping pushes cannot leave the search index on the older snapshot.
+    async with faq_locks.setdefault(shop_id, asyncio.Lock()):
+        count, revision = await asyncio.to_thread(replace_faqs, shop_id, faqs)
+        indexed = await reindex_faqs(shop, await asyncio.to_thread(list_faqs, shop_id))
     return {"shop_id": shop_id, "count": count, "revision": revision, "indexed": indexed}
+
+
+faq_locks: dict[str, asyncio.Lock] = {}
 
 
 @app.get("/v1/shops/{shop_id}/faqs")
@@ -350,10 +442,30 @@ async def get_offers(shop_id: str, authorization: str | None = Header(default=No
 
 
 @app.get("/v1/shops/{shop_id}/tickets")
-async def get_tickets(shop_id: str, authorization: str | None = Header(default=None)):
-    """Handover tickets for the shop's staff (same write key as content pushes)."""
+async def get_tickets(shop_id: str, authorization: str | None = Header(default=None),
+                      status: Literal["open", "closed"] | None = None,
+                      before: int | None = Query(default=None, ge=1)):
+    """Handover tickets for the shop's staff (same write key as content pushes), newest first;
+    `before` = the smallest id of the previous page."""
     require_write_key(shop_id, authorization)
-    return {"shop_id": shop_id, "tickets": list_tickets(shop_id)}
+    tickets = await asyncio.to_thread(list_tickets, shop_id, status, before)
+    return {"shop_id": shop_id, "tickets": tickets,
+            "next_before": tickets[-1]["id"] if len(tickets) == 100 else None}
+
+
+@app.post("/v1/shops/{shop_id}/tickets/{ticket_id}/close")
+async def close_shop_ticket(shop_id: str, ticket_id: int, authorization: str | None = Header(default=None)):
+    require_write_key(shop_id, authorization)
+    if not await asyncio.to_thread(close_ticket, shop_id, ticket_id):
+        raise HTTPException(404, "unknown_ticket")
+    return {"ok": True}
+
+
+@app.get("/v1/shops/{shop_id}/feedback")
+async def get_feedback(shop_id: str, authorization: str | None = Header(default=None)):
+    """👍/👎 counts for the shop's staff (one rating per conversation)."""
+    require_write_key(shop_id, authorization)
+    return {"shop_id": shop_id, **await asyncio.to_thread(feedback_counts, shop_id)}
 
 
 TRACE_ARG_LIMIT = 80
@@ -381,17 +493,18 @@ async def chat(payload: ChatRequest, request: Request,
                x_ati_guest: str | None = Header(default=None)):
     require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
-    customer_id = require_customer(shop, authorization, x_ati_guest)
+    customer_id = await asyncio.to_thread(require_customer, shop, authorization, x_ati_guest)
 
     message = payload.message.strip()
     if not message:
         raise HTTPException(400, "empty_message")
     conversation_id = payload.conversation_id or uuid.uuid4().hex
-    if payload.conversation_id and not conversation_owned(
-            conversation_id, shop["shop_id"], customer_id):
+    if payload.conversation_id and not await asyncio.to_thread(
+            conversation_owned, conversation_id, shop["shop_id"], customer_id):
         raise HTTPException(404, "unknown_conversation")
     limited = chat_limiter.check(shop["shop_id"], customer_id,
-                                 request.client.host if request.client else "unknown")
+                                 request.client.host if request.client else "unknown",
+                                 guest=customer_id.startswith("guest:"))
     if limited:
         reason, retry_after = limited
         raise HTTPException(429, reason, headers={"Retry-After": str(retry_after)})
@@ -403,6 +516,7 @@ async def chat(payload: ChatRequest, request: Request,
         created = False
         try:
             async with conversation_locks.hold(conversation_id):
+                turn_started = time.perf_counter()  # waiting for an earlier turn does not count
                 history = (await asyncio.to_thread(list_messages, conversation_id, shop["shop_id"],
                                                    customer_id, 8) if payload.conversation_id else [])
                 if not payload.conversation_id:
@@ -412,7 +526,7 @@ async def chat(payload: ChatRequest, request: Request,
                 ctx = turn_context(shop, customer_id, conversation_id)
                 done = None
                 async for event in agent.run(ctx, history or [], message, llm=llm):
-                    if time.perf_counter() - started > TURN_TIMEOUT:
+                    if time.perf_counter() - turn_started > TURN_TIMEOUT:
                         raise TimeoutError("chat turn took too long")
                     if first_ms is None:
                         first_ms = round((time.perf_counter() - started) * 1000)
@@ -433,6 +547,10 @@ async def chat(payload: ChatRequest, request: Request,
                              latency_first_token_ms=done.get("first_token_ms"),
                              **{key: done["usage"][key] for key in
                                 ("input_tokens", "output_tokens", "cached_tokens")})
+                trace.update(latency_first_ms=first_ms,
+                             latency_total_ms=round((time.perf_counter() - started) * 1000))
+            # The customer gets "done" now; the trace is written after it.
+            yield sse("done", {"conversation_id": conversation_id, "mode": done["mode"]})
         except Exception as error:
             # Contract C4: end with an error event instead of a silently cut stream.
             # The question itself is not logged because it may contain personal data.
@@ -446,13 +564,12 @@ async def chat(payload: ChatRequest, request: Request,
             yield sse("error", {"message": "Chatbot chưa xử lý được câu hỏi. Vui lòng thử lại sau."})
             return
         finally:
-            trace.update(latency_first_ms=first_ms,
-                         latency_total_ms=round((time.perf_counter() - started) * 1000))
+            trace.setdefault("latency_first_ms", first_ms)
+            trace.setdefault("latency_total_ms", round((time.perf_counter() - started) * 1000))
             try:
                 await asyncio.to_thread(save_trace, trace)
             except Exception:
                 logger.exception("trace not saved")
-        yield sse("done", {"conversation_id": conversation_id, "mode": done["mode"]})
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={
         "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no",
@@ -463,9 +580,9 @@ async def chat(payload: ChatRequest, request: Request,
 async def conversations(shop_key: str, authorization: str | None = Header(default=None),
                         x_ati_guest: str | None = Header(default=None)):
     shop = require_shop_key(shop_key)
-    customer_id = require_customer(shop, authorization, x_ati_guest)
-    return JSONResponse({"conversations": list_conversations(shop["shop_id"], customer_id)},
-                        headers={"Cache-Control": "no-store"})
+    customer_id = await asyncio.to_thread(require_customer, shop, authorization, x_ati_guest)
+    rows = await asyncio.to_thread(list_conversations, shop["shop_id"], customer_id)
+    return JSONResponse({"conversations": rows}, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/v1/conversations/{conversation_id}")
@@ -473,8 +590,8 @@ async def conversation(conversation_id: str, shop_key: str,
                        authorization: str | None = Header(default=None),
                        x_ati_guest: str | None = Header(default=None)):
     shop = require_shop_key(shop_key)
-    customer_id = require_customer(shop, authorization, x_ati_guest)
-    messages = list_messages(conversation_id, shop["shop_id"], customer_id)
+    customer_id = await asyncio.to_thread(require_customer, shop, authorization, x_ati_guest)
+    messages = await asyncio.to_thread(list_messages, conversation_id, shop["shop_id"], customer_id)
     if messages is None:
         raise HTTPException(404, "unknown_conversation")
     return JSONResponse({"conversation_id": conversation_id, "messages": messages},
@@ -484,16 +601,17 @@ async def conversation(conversation_id: str, shop_key: str,
 @app.post("/v1/logout")
 async def logout(payload: LogoutRequest, request: Request,
                  authorization: str | None = Header(default=None)):
-    """The widget, when the shop page calls ATI.reset() on logout: the customer's chat tokens issued
-    until now, including the one presented, stop working at once."""
+    """The widget, when the shop page calls ATI.reset() on logout: the token it holds, and every
+    earlier token of that customer, stop working at once. An expired token is accepted here (it
+    only removes rights), and its own `iat` is the cut-off, so the shop's clock decides, not ours."""
     require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
     scheme, _, token = (authorization or "").partition(" ")
-    claims = verify_customer_claims(token, shop) if scheme.lower() == "bearer" and token else None
+    claims = (verify_customer_claims(token, shop, expired_grace=MAX_TOKEN_LIFETIME)
+              if scheme.lower() == "bearer" and token else None)
     if not claims:
         raise HTTPException(401, "invalid_chat_token", headers={"WWW-Authenticate": "Bearer"})
-    # max(): the token itself is cut off even if the shop's clock runs ahead of this server's.
-    revoke_customer_tokens(shop["shop_id"], claims["sub"], max(int(time.time()), claims["iat"]))
+    await asyncio.to_thread(revoke_customer_tokens, shop["shop_id"], claims["sub"], claims["iat"])
     return {"ok": True}
 
 
@@ -504,7 +622,7 @@ async def shop_logout(shop_id: str, payload: ShopLogout, authorization: str | No
     require_write_key(shop_id, authorization)
     now = int(time.time())
     logout_at = min(payload.logout_at, now + 300) if payload.logout_at else now
-    revoke_customer_tokens(shop_id, payload.customer_id, logout_at)
+    await asyncio.to_thread(revoke_customer_tokens, shop_id, payload.customer_id, logout_at)
     return {"ok": True}
 
 
@@ -514,15 +632,14 @@ async def feedback(payload: FeedbackRequest, request: Request,
                    x_ati_guest: str | None = Header(default=None)):
     require_widget_origin(request)
     shop = require_shop_key(payload.shop_key)
-    customer_id = require_customer(shop, authorization, x_ati_guest)
-    if not conversation_owned(payload.conversation_id, shop["shop_id"], customer_id):
+    customer_id = await asyncio.to_thread(require_customer, shop, authorization, x_ati_guest)
+    if not await asyncio.to_thread(conversation_owned, payload.conversation_id, shop["shop_id"], customer_id):
         raise HTTPException(404, "unknown_conversation")
-    if payload.rating not in feedback_counts:
-        raise HTTPException(400, "invalid_rating")
-    feedback_counts[payload.rating] += 1
-    return {"ok": True, "stored": "memory_only"}
+    await asyncio.to_thread(save_feedback, payload.conversation_id, shop["shop_id"], payload.rating)
+    return {"ok": True}
 
 
 @app.get("/v1/demo-stats")
 async def demo_stats():
-    return {"mode": mode(), "feedback": feedback_counts.copy()}
+    """Public: only whether the model is in use. Feedback counts are per shop, behind its key."""
+    return {"mode": mode()}

@@ -48,12 +48,12 @@ def revoke_user_tokens(customer_id, *, shop_id: str, write_key: str, server_url:
                        timeout: float = 3.0) -> bool:
     """Call when the customer logs out: every chat token issued to them until now stops working, on
     every device. Returns False instead of raising, so logging out never fails because of the chat."""
-    body = json.dumps({"customer_id": str(customer_id), "logout_at": int(time.time())}).encode()
-    request = urllib.request.Request(
-        f"{server_url.rstrip('/')}/v1/shops/{quote(shop_id, safe='')}/logout", data=body, method="POST",
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {write_key}"})
-    try:
+    try:  # Everything inside: a bad URL or a broken reply must not break the shop's logout.
+        body = json.dumps({"customer_id": str(customer_id), "logout_at": int(time.time())}).encode()
+        request = urllib.request.Request(
+            f"{server_url.rstrip('/')}/v1/shops/{quote(shop_id, safe='')}/logout", data=body,
+            method="POST", headers={"Content-Type": "application/json", "Authorization": f"Bearer {write_key}"})
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return response.status == 200
-    except OSError:  # URLError, HTTPError and timeouts
+    except Exception:
         return False

@@ -51,6 +51,9 @@ def main() -> None:
     parser.add_argument("--commerce-api-key", help="Server-to-server key for that API")
     parser.add_argument("--chat-token-secret", help="Reuse an existing secret instead of a new one")
     parser.add_argument("--faq-write-key", help="Reuse an existing write key instead of a new one")
+    parser.add_argument("--handover-note", default="",
+                        help="Shown after a handover, e.g. 'Nhân viên phản hồi qua email trong 24 giờ.'")
+    parser.add_argument("--handover-note-en", default="", help="The same promise in English")
     parser.add_argument("--guest-chat", action="store_true",
                         help="Level 0 only: let visitors chat without logging in (documents and FAQ only)")
     args = parser.parse_args()
@@ -81,7 +84,8 @@ def main() -> None:
                     shop_url=args.shop_url, allowed_origins=origins,
                     chat_token_secret=chat_token_secret, suggestions=args.suggestion,
                     tone=args.tone, commerce_config=commerce, commerce_api_key=args.commerce_api_key,
-                    guest_chat=args.guest_chat)
+                    guest_chat=args.guest_chat, handover_note=args.handover_note.strip(),
+                    handover_note_en=args.handover_note_en.strip())
     except psycopg.errors.UniqueViolation:
         parser.error("shop-id already exists; choose a new one")
     capabilities = sorted(resolve_config(commerce)["operations"]) if commerce else []

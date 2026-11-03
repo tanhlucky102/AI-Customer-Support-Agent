@@ -265,12 +265,12 @@ async function demo() {
   await openWidget("Đang hỗ trợ");
   await ask("Đơn PKX204518 của tôi đến đâu rồi?");
 
-  await card("Kết quả đánh giá (v9, 03/11/2026)", [
+  await card("Kết quả đánh giá (v12, 04/11/2026)", [
     "Chọn đúng tool 50/50 · Trả lời đúng 40/40 · Trích dẫn đúng 100%",
-    "Groundedness 0.900 theo LLM judge, 0.989 sau khi nhóm rà tay các câu bị gắn cờ",
-    "Từ chối câu ngoài phạm vi 20/20 · Chặn tấn công prompt 15/15 · Recall@5 0.967",
-    "p95 câu trả lời có 1 tool: 4.3 s (phụ thuộc tải của AI Box)",
-    "Bad case chạy thật: eval/results/bad_cases.md · Mã nguồn: github.com/tanhlucky102/AI-Customer-Support-Agent",
+    "Groundedness 0.889 theo LLM judge, 0.989 sau khi rà lại 10 câu bị gắn cờ",
+    "Từ chối câu ngoài phạm vi 20/20 · Chặn tấn công prompt 15/15 · Recall@5 0.978",
+    "p95 câu trả lời có 1 tool: 3.5 s (phụ thuộc tải của AI Box)",
+    "26 bad case chạy thật: 26 đạt (eval/results/bad_cases.md) · github.com/tanhlucky102/AI-Customer-Support-Agent",
   ], 8000);
 }
 

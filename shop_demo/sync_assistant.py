@@ -34,7 +34,7 @@ def main() -> None:
     write_key = os.getenv("DEMO_FAQ_WRITE_KEY")
     if not write_key:
         raise SystemExit("Set DEMO_FAQ_WRITE_KEY in .env (the demo shop's content write key)")
-    response = httpx.put(f"{config.AGENT_SERVER_URL}/v1/shops/demo_shop/offers", json=snapshot(),
+    response = httpx.put(f"{config.AGENT_SERVER_INTERNAL_URL}/v1/shops/demo_shop/offers", json=snapshot(),
                          headers={"Authorization": f"Bearer {write_key}"}, timeout=15)
     response.raise_for_status()
     print(response.json())

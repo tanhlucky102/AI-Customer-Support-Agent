@@ -31,11 +31,11 @@ def fingerprints(shop_id: str, origin: str) -> dict[str, str]:
     return {row["slug"]: row["content_hash"] for row in rows}
 
 
-def delete_documents(shop_id: str, slugs: list[str]) -> None:
+def delete_documents(shop_id: str, slugs: list[str], origin: str | None = None) -> None:
     if slugs:
         with connect() as db:
-            db.execute("DELETE FROM kb_documents WHERE shop_id = %s AND slug = ANY(%s)",
-                       (shop_id, slugs))
+            db.execute("""DELETE FROM kb_documents WHERE shop_id = %s AND slug = ANY(%s)
+                          AND (%s::text IS NULL OR origin = %s)""", (shop_id, slugs, origin, origin))
 
 
 def replace_document(shop_id: str, document, sections: list, contexts: dict[str, str],

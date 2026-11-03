@@ -37,9 +37,10 @@ class SearchArgs(Args):
 
 
 class OrderArgs(Args):
-    # Letters, digits and _ - . #, up to 64 characters (UUIDs, "#1001"); sent as typed, because
-    # some shops' order codes are case-sensitive. The adapter URL-encodes it.
-    order_id: str = Field(pattern=r"^[A-Za-z0-9#][A-Za-z0-9_.#-]{1,63}$")
+    # Letters (also accented, "ĐH10293"), digits and _ - . #, up to 64 characters; a number is read
+    # as text. Sent as typed, because some shops' codes are case-sensitive; the adapter URL-encodes it.
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
+    order_id: str = Field(pattern=r"^[\w#][\w.#-]{0,63}$")
 
 
 class ListOrdersArgs(Args):
@@ -76,10 +77,16 @@ class TurnContext:
     search: Callable[..., list[dict]]
     sources: dict[int, dict] = field(default_factory=dict)  # citation number -> {label, href}
     links: list[dict] = field(default_factory=list)          # order / product / promotion pages
+    english: bool = False  # the customer's message is in English (set by agent.run)
 
     def cite(self, label: str, href: str | None) -> int:
+        """One number per section: found again by a second search, it keeps its first number."""
+        source = {"label": label, "href": href}
+        for number, known in self.sources.items():
+            if known == source:
+                return number
         number = len(self.sources) + 1
-        self.sources[number] = {"label": label, "href": href}
+        self.sources[number] = source
         return number
 
     @property
@@ -163,7 +170,9 @@ async def list_customer_orders(ctx: TurnContext, args: ListOrdersArgs) -> Outcom
         else:  # No order-list page mapped: link the newest order under its own name.
             _link(ctx, f"Xem đơn {orders[0]['id']}", orders[0].get("url"))
     return Outcome({"orders": [_order_for_model({**order, "items": None}) for order in orders],
-                    "count": len(orders)})
+                    "shown": len(orders),
+                    # A full page means there may be older orders; "shown" is not the customer's total.
+                    "may_have_more": len(orders) == args.limit})
 
 
 async def get_customer_profile(ctx: TurnContext, args: NoArgs) -> Outcome:
@@ -180,7 +189,7 @@ async def get_customer_profile(ctx: TurnContext, args: NoArgs) -> Outcome:
 async def search_products(ctx: TurnContext, args: ProductArgs) -> Outcome:
     products = await ctx.adapter.search_products(args.query, args.category, args.max_price, 5)
     for product in products[:3]:
-        _link(ctx, f"Xem {product['name']}", product.get("url"))
+        _link(ctx, f"Xem {product.get('name') or 'sản phẩm'}", product.get("url"))
     return Outcome({"products": [{key: value for key, value in product.items()
                                   if key != "url" and value is not None} for product in products],
                     "count": len(products)})
@@ -205,7 +214,8 @@ async def get_promotions(ctx: TurnContext, args: PromotionArgs) -> Outcome:
         item.update({key: moment.astimezone(VIETNAM).strftime("%Y-%m-%d %H:%M")
                      for key, moment in (("starts_at", start), ("ends_at", end)) if moment})
         (upcoming if start and start > now else current).append(item)
-        _link(ctx, offer["title"], offer.get("source_url"))
+        if len(current) + len(upcoming) <= 3:  # a few links, not one chip per published offer
+            _link(ctx, offer["title"], offer.get("source_url"))
     return Outcome({"current": current, "upcoming": upcoming,
                     "published_at": local_time(snapshot["updated_at"])})
 
@@ -219,9 +229,14 @@ async def escalate_to_human(ctx: TurnContext, args: EscalateArgs) -> Outcome:
         store.create_ticket, conversation_id=ctx.conversation_id, shop_id=ctx.shop["shop_id"],
         customer_id=ctx.customer_id, reason=args.reason, summary=args.transcript_summary,
         idempotency_key=ctx.turn_key)
-    return Outcome({"ticket": code}, final_text=(
-        f"Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ (mã phiếu {code}). "
-        "Nhân viên sẽ liên hệ với bạn qua email trong vòng 24 giờ."))
+    # The follow-up promise is the shop's own (handover_note); without one, no time is promised.
+    if ctx.english:
+        note = ctx.shop.get("handover_note_en") or "Our staff will get back to you as soon as possible."
+        text = f"I have passed your request to our support staff (ticket {code}). {note}"
+    else:
+        note = ctx.shop.get("handover_note") or "Nhân viên của shop sẽ liên hệ lại với bạn sớm nhất có thể."
+        text = f"Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ (mã phiếu {code}). {note}"
+    return Outcome({"ticket": code}, final_text=text)
 
 
 TOOLS = [
@@ -259,11 +274,13 @@ TOOLS = [
          "Get the promotions and dated events this shop has currently published, with dates.",
          PromotionArgs, "Đang xem ưu đãi của shop...", None, get_promotions),
     Tool("escalate_to_human",
-         "Open a support ticket so that a human agent takes over. Use it when the customer asks "
-         "for a person, makes a complaint, needs something only staff can do (refund, cancelling "
-         "or changing an order that is already shipping, changing the delivery address), or still "
-         "needs help after the documents had no answer. Do not use it for questions the other "
-         "tools can answer. Staff reply by e-mail within 24 hours.",
+         "Open a support ticket so that a human agent takes over. Call it at once when the "
+         "customer asks for a person or makes a complaint. For something only staff can do (a "
+         "refund, cancelling or changing an order that is already shipping, changing the delivery "
+         "address) or a question the documents could not answer, first explain what you found and "
+         "ask whether they want a handover; call it only after they agree. Do not use it for "
+         "questions the other tools can answer. The customer then gets a fixed confirmation with "
+         "the shop's own follow-up promise.",
          EscalateArgs, "Đang chuyển cho nhân viên hỗ trợ...", None, escalate_to_human),
 ]
 BY_NAME = {tool.name: tool for tool in TOOLS}

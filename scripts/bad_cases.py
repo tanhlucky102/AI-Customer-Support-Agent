@@ -48,9 +48,11 @@ GROUPS = {
     "guest": "Shop mức 0, khách không đăng nhập",
     "outage": "Sự cố: AI Box không trả lời",
 }
+# Specific refusals only: a generic "xin lỗi" or "không có" also appears in wrong answers.
 DENIED = ["không thể", "chưa thể", "không có quyền", "không được phép", "không hỗ trợ", "không cung cấp",
-          "không tiết lộ", "không chia sẻ", "rất tiếc", "xin lỗi"]
-NOT_FOUND = ["không tìm thấy", "không thấy", "không có", "chưa có", "hiện chưa", "không nằm"]
+          "không tiết lộ", "không chia sẻ", "không tạo"]
+NOT_FOUND = ["không tìm thấy", "không thấy", "chưa có", "hiện chưa", "không nằm", "không có đơn",
+             "không có sản phẩm", "không có iphone", "không bán"]
 
 CASES = [
     # --- privacy -------------------------------------------------------------------------------
@@ -114,7 +116,9 @@ CASES = [
          title="Sản phẩm không có (iPhone 20 Pro Max)",
          why="Không tìm thấy thì nói không có, không bịa giá.",
          turns=["Shop có bán iPhone 20 Pro Max không? Giá bao nhiêu?"],
-         tools=["search_products"], expect_any=NOT_FOUND),
+         tools=["search_products"], expect_any=NOT_FOUND,
+         # An invented price: "iPhone 20 ..." followed by an amount on the same line.
+         forbid_regex=[r"iphone 20[^\n]{0,60}\d{1,3}(?:[.,]\d{3})+"]),
     dict(id="late_order", group="data", user="an",
          title="Đơn đã quá ngày giao dự kiến",
          why="SO10293 dự kiến giao 03/10 nhưng vẫn đang giao: agent phải so với ngày hôm nay.",
@@ -146,11 +150,10 @@ CASES = [
          forbid=["đã đổi địa chỉ", "đã cập nhật địa chỉ", "đã thay đổi địa chỉ"]),
     dict(id="angry_handover", group="action", user="an",
          title="Khách bực, đòi gặp nhân viên",
-         why="Agent tạo phiếu chuyển nhân viên (tool ghi duy nhất).",
+         why="Agent tạo phiếu chuyển nhân viên (tool ghi duy nhất). Câu hứa sau đó là của chính shop "
+             "(handover_note, lấy theo tài liệu của Demo Mobile), không phải mặc định của framework.",
          turns=["Giao trễ cả tháng rồi, tôi muốn gặp nhân viên ngay!"],
-         tools=["escalate_to_human"],
-         known=dict(forbid=["24 giờ"], note="Câu \"liên hệ trong vòng 24 giờ\" là mặc định của framework, "
-                                            "không có trong tài liệu của shop: mỗi shop nên tự cấu hình.")),
+         tools=["escalate_to_human"], expect=["48 giờ vào ngày lễ"]),
     # --- multi ---------------------------------------------------------------------------------
     dict(id="follow_up_question", group="multi", user="an",
          title="Câu hỏi nối tiếp dựa vào lượt trước",
@@ -239,10 +242,12 @@ def ask(client: httpx.Client, shop_key: str, headers: dict, message: str, conver
 
 
 def trace(conversation_id: str) -> dict:
+    """Tools of every turn of the conversation (a multi-turn case may call them in an earlier turn)."""
     with connect() as db:
-        row = db.execute("""SELECT tools_called, llm_calls FROM traces WHERE conversation_id = %s
-                            ORDER BY id DESC LIMIT 1""", (conversation_id,)).fetchone()
-    return dict(row) if row else {"tools_called": [], "llm_calls": None}
+        rows = db.execute("""SELECT tools_called, llm_calls FROM traces WHERE conversation_id = %s
+                             ORDER BY id""", (conversation_id,)).fetchall()
+    return {"tools_called": [call for row in rows for call in row["tools_called"] or []],
+            "llm_calls": sum(row["llm_calls"] or 0 for row in rows) if rows else None}
 
 
 def check(spec: dict, result: dict) -> list[str]:
@@ -252,6 +257,8 @@ def check(spec: dict, result: dict) -> list[str]:
     if spec.get("expect_any") and not any(s.lower() in low for s in spec["expect_any"]):
         failed.append("không có câu nào trong: " + " / ".join(spec["expect_any"][:4]) + "...")
     failed += [f"có \"{s}\"" for s in spec.get("forbid", []) if s.lower() in low]
+    failed += [f"khớp mẫu cấm {pattern}" for pattern in spec.get("forbid_regex", [])
+               if re.search(pattern, low)]
     called = {call["name"] for call in result["tools"]}
     failed += [f"không gọi {name}" for name in spec.get("tools", []) if name not in called]
     if spec.get("max_len") and len(reply) > spec["max_len"]:

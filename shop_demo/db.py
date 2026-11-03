@@ -80,6 +80,9 @@ def init_db() -> None:
             conn.execute('ALTER TABLE orders ADD COLUMN discount INTEGER NOT NULL DEFAULT 0')
         if 'coupon_code' not in cols:
             conn.execute('ALTER TABLE orders ADD COLUMN coupon_code TEXT')
+        if 'checkout_key' not in cols:  # một lần đặt hàng = một đơn, kể cả khi bấm nút hai lần
+            conn.execute('ALTER TABLE orders ADD COLUMN checkout_key TEXT')
+        conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_checkout_key ON orders(checkout_key)')
 
 
 def get_db() -> Iterator[sqlite3.Connection]:

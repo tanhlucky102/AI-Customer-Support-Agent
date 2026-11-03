@@ -18,9 +18,11 @@ def verify_customer_token(token: str, shop: dict) -> str | None:
     return claims["sub"] if claims else None
 
 
-def verify_customer_claims(token: str, shop: dict) -> dict | None:
+def verify_customer_claims(token: str, shop: dict, expired_grace: int = 0) -> dict | None:
     """Return the claims (sub, iat, exp, ...) of a valid token signed for this shop, or None.
-    Whether the customer has logged out since is checked by the caller (store.token_revoked)."""
+    Whether the customer has logged out since is checked by the caller (store.token_revoked).
+    `expired_grace` accepts a recently expired token; logout uses it, since logging out only
+    removes rights."""
     try:
         if len(token) > 4096:
             return None
@@ -44,9 +46,9 @@ def verify_customer_claims(token: str, shop: dict) -> dict | None:
             return None
         if claims.get("iss") != shop["shop_id"] or claims.get("aud") != JWT_AUDIENCE:
             return None
-        if not isinstance(claims.get("sub"), str) or not claims["sub"]:
-            return None
-        if not isinstance(claims.get("exp"), int) or claims["exp"] <= now:
+        if not isinstance(claims.get("sub"), str) or not claims["sub"] or claims["sub"].startswith("guest:"):
+            return None  # "guest:" IDs belong to visitors without an account (app.require_customer)
+        if not isinstance(claims.get("exp"), int) or claims["exp"] + expired_grace <= now:
             return None
         if not isinstance(claims.get("iat"), int) or claims["iat"] > now + 60:
             return None

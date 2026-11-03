@@ -31,14 +31,18 @@ def settings_key(contextual: bool, max_tokens: int, overlap: int) -> list[str]:
 
 async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document], *,
                            origin: str = "file", contextual: bool = False, max_tokens: int = 500,
-                           overlap: int = 80, force: bool = False, prune: bool = True) -> dict:
+                           overlap: int = 80, force: bool = False, prune: bool = True,
+                           allow_mass_prune: bool = False) -> dict:
     started = time.perf_counter()
     known = store.fingerprints(shop_id, origin)
     settings = settings_key(contextual, max_tokens, overlap)
     stats = {"documents": len(documents), "indexed": 0, "skipped": 0, "removed": 0, "chunks": 0,
              "llm_calls": 0}
     for document in documents:
-        source_url = document.source_url or f"{shop_url.rstrip('/')}/help/{document.slug}"
+        # A pushed FAQ entry without its own page links to the shop's site, not to a /help page
+        # that a level-0 shop does not have.
+        source_url = document.source_url or (shop_url.rstrip("/") if origin == "faq"
+                                             else f"{shop_url.rstrip('/')}/help/{document.slug}")
         fingerprint = document.fingerprint(*settings, source_url, str(document.updated_at), origin)
         if not force and known.get(document.slug) == fingerprint:
             stats["skipped"] += 1
@@ -50,8 +54,8 @@ async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document
             contexts, calls = await contexts_for(document.text, {cid: child.content for cid, (_, child)
                                                                  in children.items()})
             stats["llm_calls"] += calls
-        index_texts = {cid: "\n".join(part for part in (header(document, section), contexts.get(cid, ""),
-                                                        child.content) if part)
+        index_texts = {cid: "\n".join(part for part in (header(document, section), document.intro,
+                                                        contexts.get(cid, ""), child.content) if part)
                        for cid, (section, child) in children.items()}
         ids = list(index_texts)
         vectors = dict(zip(ids, embedder().encode([index_texts[cid] for cid in ids])))
@@ -64,14 +68,24 @@ async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document
         stats["chunks"] += len(ids)
     if prune:
         stale = sorted(set(known) - {document.slug for document in documents})
-        store.delete_documents(shop_id, stale)
+        # A wrong folder must not empty a shop: removing most of its pages needs explicit consent.
+        # (A pushed FAQ is a full snapshot by contract, so it may shrink freely.)
+        if origin == "file" and len(stale) > max(3, len(known) // 2) and not allow_mass_prune:
+            raise ValueError(f"would remove {len(stale)} of {len(known)} indexed documents of {shop_id}; "
+                             "check the folder, or pass --prune-all if that is intended")
+        store.delete_documents(shop_id, stale, origin)
         stats["removed"] = len(stale)
     stats["seconds"] = round(time.perf_counter() - started, 1)
     return stats
 
 
 async def ingest_dir(shop_id: str, shop_url: str, directory: Path, **options) -> dict:
-    return await ingest_documents(shop_id, shop_url, load_dir(directory), **options)
+    if not directory.is_dir():
+        raise FileNotFoundError(f"{directory} is not a folder; nothing was changed")
+    documents = load_dir(directory)
+    if not documents:
+        raise ValueError(f"{directory} has no .md files; nothing was changed")
+    return await ingest_documents(shop_id, shop_url, documents, **options)
 
 
 async def index_faqs(shop_id: str, shop_url: str, faqs: list[dict]) -> dict:
@@ -89,6 +103,8 @@ def main() -> None:
     parser.add_argument("--chunk-tokens", type=int, default=env_int("RAG_CHUNK_TOKENS", 500))
     parser.add_argument("--overlap", type=int, default=env_int("RAG_CHUNK_OVERLAP", 80))
     parser.add_argument("--force", action="store_true", help="Re-index unchanged documents too")
+    parser.add_argument("--prune-all", action="store_true",
+                        help="Allow removing more than half of the shop's indexed documents")
     args = parser.parse_args()
 
     from agent_server.store import init_db, shop_by_id
@@ -97,7 +113,7 @@ def main() -> None:
     if not shop:
         parser.error(f"unknown shop {args.shop}; provision it first")
     directory = Path(args.dir) if args.dir else ROOT / "data" / "kb" / args.shop
-    stats = asyncio.run(ingest_dir(args.shop, shop["shop_url"], directory,
+    stats = asyncio.run(ingest_dir(args.shop, shop["shop_url"], directory, allow_mass_prune=args.prune_all,
                                    contextual=args.contextual, max_tokens=args.chunk_tokens,
                                    overlap=args.overlap, force=args.force))
     print(stats)

@@ -63,9 +63,15 @@ Chat trong terminal, không cần widget:
 ## Docker Compose
 
 ```bash
+cp .env.example .env                                         # điền AI_BOX_API_KEY
+docker compose run --rm agent python scripts/setup_demo.py    # sinh khóa vào .env, nạp dữ liệu và chỉ mục
 docker compose up --build
-docker compose run --rm agent python scripts/setup_demo.py
 ```
+
+`.env` được mount vào container agent nên khóa do `setup_demo.py` sinh ra nằm trên máy chủ, mọi
+service đọc cùng giá trị. Các service gọi nhau bằng tên (`AGENT_SERVER_INTERNAL_URL`), trình duyệt gọi
+qua `localhost`. Image không chứa `.env`, `.venv` hay dữ liệu (`.dockerignore`). Máy phát triển của
+nhóm không có Docker, nên cấu hình này mới được kiểm tra bằng cách đọc, chưa chạy thật.
 
 ## Cấu trúc thư mục
 
@@ -98,16 +104,16 @@ node scripts\record_demo.mjs demo.mp4                               # quay video
 
 Bad case chạy thật (quyền riêng tư, prompt injection, tài liệu không có, dữ liệu không tồn tại, tiếng Anh,
 không dấu, yêu cầu huỷ đơn, khách vãng lai, AI Box sập): [eval/results/bad_cases.md](eval/results/bad_cases.md),
-26 ca, 24 xử lý đúng, 2 hạn chế đã biết.
+26 ca, 26 xử lý đúng (04/11).
 
 Kết quả đã chạy nằm trong `eval/results/` (xem `eval/results/README.md`). Cấu hình cuối cùng:
 
 | Chỉ số | Mục tiêu | Kết quả |
 |--------|----------|---------|
-| Recall@5 / MRR@10 (90 câu) | ≥ 0.85 / ≥ 0.75 | 0.967 / 0.877 |
+| Recall@5 / MRR@10 (90 câu) | ≥ 0.85 / ≥ 0.75 | 0.978 / 0.889 |
 | Chọn đúng tool (50 ca) | ≥ 0.90 | 1.00 |
 | Trả lời đúng (40 câu, LLM judge) | — | 1.00 |
-| Groundedness (90 câu trả lời) | ≥ 0.95 | 0.900 (0.989 sau khi rà tay) |
+| Groundedness (90 câu trả lời) | ≥ 0.95 | 0.889 theo judge; 0.989 sau khi rà 10 câu bị gắn cờ (AI rà, `flagged_review_v12.json`) |
 | Có trích dẫn / từ chối đúng | ≥ 0.95 / ≥ 0.90 | 1.00 / 1.00 |
 | Tấn công bị chặn (15 injection + 5 xác thực) | 20/20 | 20/20 |
-| p95 câu trả lời có 1 tool | ≤ 6 s | 4.3 s (phụ thuộc tải của AI Box) |
+| p95 câu trả lời có 1 tool | ≤ 6 s | 3.5 s (phụ thuộc tải của AI Box) |

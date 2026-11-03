@@ -12,9 +12,11 @@ BASE = """You are the customer-support assistant of the online shop "{title}" ({
 
 # Answering
 - Reply in the customer's language (Vietnamese by default), even when tool results are in Vietnamese{tone}. In Vietnamese, call yourself "mình" and the customer "bạn". Be brief: usually 1-4 short sentences, or a short "- " list for steps or several items. Plain text with at most **bold**; no tables, headings or emoji.
+- Customers often type without diacritics and with chat abbreviations: ck = chuyển khoản, sp = sản phẩm, dt/đt = điện thoại, k/ko/hok = không, dc/đc = được, bh = bảo hành, cod = thanh toán khi nhận hàng, ship = giao hàng. Read them that way before deciding a question is unclear.
 - Call tools silently: write nothing before or between tool calls (the widget already shows progress). Write only the final answer.
-- Use ONLY facts returned by your tools in this conversation, plus the current date. Do not add advice, steps, conditions, fees, time limits, website menus or explanations that the tool results do not state, even if they seem like common knowledge. If the tools do not give the answer, say so and offer to hand over to staff.
-- An order's "eta" is an estimated delivery date, not the date it was delivered. When a time limit counts from delivery (e.g. days to return an item), compare today's date with the eta and say the result is approximate.
+- Use ONLY facts returned by your tools in this conversation, plus the current date. Do not add advice, steps, conditions, fees, time limits, website menus or explanations that the tool results do not state, even if they seem like common knowledge. If the tools do not give the answer, say so and {no_answer}. When the documents do not mention something (a service, product or rule), say that the shop's documents do not mention it; do not conclude that the shop does not offer it.
+- An order's "eta" is an estimated delivery date, not the date it was delivered. When a time limit counts from delivery (e.g. days to return an item), compare today's date with the eta and say the result is approximate. If an order is not delivered yet and its eta is before today, say that it is late and by about how many days.
+- Show masked values (*** in an e-mail, phone or address) exactly as given, without explaining why they are masked.
 - Knowledge results are numbered. Put the number in square brackets right after the sentence that uses it, e.g. "Bạn được đổi máy trong 30 ngày [1]." Use only numbers you were given. Order, product and promotion data need no number.
 - If the question is ambiguous or misses a detail you need (which order? which product?), ask one short clarifying question instead of guessing. But a general policy question ("đơn giao trễ thì được đền gì?") or a question about how something is done (paying, changing or cancelling an order, returning an item) is answered from the documents first, even if it mentions an order; ask which order only when the answer depends on that order's data.
 
@@ -55,10 +57,12 @@ def tool_rules(tools: list[Tool]) -> str:
         if tool.capability in COMMERCE_RULES:
             rules.append(COMMERCE_RULES[tool.capability])
     handover = "escalate_to_human" in names
+    missing = ("orders or accounts" if "search_products" in names
+               else "orders, accounts or live product data")
     if "get_order_status" not in names and handover:
-        rules.append("- This shop has not connected its order system: you cannot look up orders, "
-                     "accounts or live product data. Say so, point to the shop's website or "
-                     "hotline from the documents, and offer a handover.")
+        rules.append(f"- This shop has not connected its order system: you cannot look up {missing}. "
+                     "Say so, point to the shop's website or hotline from the documents, and offer "
+                     "a handover.")
     elif "get_order_status" not in names:  # A guest: name only the contact channels the documents give.
         rules.append("- This shop has not connected its order system and the visitor is not logged in: "
                      "no order or account can be looked up here, so never ask for an order ID. For a "
@@ -86,8 +90,10 @@ def system_prompt(shop: dict, tools: list[Tool], guest: bool = False) -> str:
     tone = f"; tone: {shop['tone']}" if shop.get("tone") else ""
     who = ("a visitor who is not logged in to this shop's website" if guest
            else "a customer who is logged in to this shop's website")
+    no_answer = ("give the shop's contact channel from the documents" if guest
+                 else "offer to hand over to staff")
     return BASE.format(title=shop["title"].removeprefix("Trợ lý ").strip(), url=shop["shop_url"],
-                       who=who, tone=tone, tool_rules=tool_rules(tools))
+                       who=who, tone=tone, no_answer=no_answer, tool_rules=tool_rules(tools))
 
 
 def context_message(now: datetime | None = None, message: str = "") -> str:

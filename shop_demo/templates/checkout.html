@@ -3,7 +3,8 @@
 {% block content %}
 <h1>Đặt hàng</h1>
 <div class="two">
-  <form action="/checkout" method="post" class="form">
+  <form action="/checkout" method="post" class="form" onsubmit="this.querySelector('button.big').disabled = true">
+    <input type="hidden" name="checkout_key" value="{{ checkout_key }}">
     <label>Người nhận <input name="ship_name" required value="{{ user.full_name }}"></label>
     <label>Số điện thoại <input name="ship_phone" required pattern="[0-9+ ]{9,15}" value="{{ user.phone or '' }}"></label>
     <label>Địa chỉ giao hàng <textarea name="ship_address" required rows="3">{{ user.address or '' }}</textarea></label>

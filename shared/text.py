@@ -21,9 +21,14 @@ is an to of for and or in on my me i you do does what how
 MAX_TERM = 60  # Longer "words" are noise (pasted codes, URLs) and can exceed index limits.
 
 
+def nfc(text: str) -> str:
+    """Composed Unicode: Unikey's "tổ hợp" mode and macOS paste send "ổ" as o + two marks."""
+    return unicodedata.normalize("NFC", text)
+
+
 def fold(text: str) -> str:
     """Lowercase and strip Vietnamese diacritics: 'Đổi trả' -> 'doi tra'."""
-    text = text.lower().replace("đ", "d")
+    text = nfc(text).lower().replace("đ", "d").replace("ð", "d")  # ð: a look-alike typed for đ
     return "".join(char for char in unicodedata.normalize("NFD", text)
                    if unicodedata.category(char) != "Mn")
 
@@ -45,7 +50,7 @@ def terms(text: str) -> list[str]:
 def query_terms(text: str) -> list[str]:
     """Content syllables plus bigrams of adjacent syllables (in the original order, so a removed
     function word never glues two unrelated syllables together)."""
-    raw = [word for word in re.findall(r"\w+", text.lower().replace("_", " ")) if len(word) <= MAX_TERM]
+    raw = [word for word in re.findall(r"\w+", nfc(text).lower().replace("_", " ")) if len(word) <= MAX_TERM]
     pairs = [(word, fold(word)) for word in raw]
     pairs = [(word, folded) for word, folded in pairs if WORD.fullmatch(folded)]
     keep = [not _stopword(word, folded) for word, folded in pairs]
@@ -68,8 +73,11 @@ from about please get use need want any some many much order orders policy retur
 then they them he she his her won tell show give make know like just still while can't don't
 hello hi hey thanks thank lot stock available discount discounts today tomorrow deliver delivery
 delivered price prices cost warranty refund cancel change address phone phones buy pay payment
-store hours status track tracking receive received arrive arrived late sell sold open close
+store hours status track tracking receive received arrive arrived late sell sold open close ship
 """.split())
+# Names that say nothing about the language of the message.
+BRANDS = frozenset("iphone ipad airpods macbook apple samsung galaxy xiaomi oppo vivo realme pixel".split())
+GREETINGS = frozenset("hello hi hey thanks thank".split())
 UNACCENTED_VIETNAMESE = frozenset("""
 khong ko k duoc dc thi la co toi minh ban sao nao gi nhe oi cua cho voi mua bao nhieu hang don roi
 em anh chi giup gium nha vay het con cai nay dau giao doi tra
@@ -85,9 +93,19 @@ def source_label(hit: dict) -> str:
 def looks_english(text: str) -> bool:
     """True for a message written in English, so the answer can be steered to English even though
     the documents and tool results are Vietnamese. Unaccented Vietnamese is not English."""
+    text = nfc(text)
     if fold(text) != text.lower().replace("đ", "d"):
         return False  # It has Vietnamese diacritics.
-    tokens = re.findall(r"\b[a-z']+\b", text.lower())  # "250k" is not the word "k".
-    if any(token in UNACCENTED_VIETNAMESE for token in tokens):
+    raw = re.findall(r"\b[A-Za-z']+\b", text)  # "250k" is not the word "k".
+    tokens = [word.lower() for word in raw]
+    # A capitalised word after the first is a name ("Ho Chi Minh", "Nha Trang"), not Vietnamese text.
+    if any(word.lower() in UNACCENTED_VIETNAMESE and not (index and word[0].isupper())
+           for index, word in enumerate(raw)):
         return False
-    return sum(token in ENGLISH_WORDS for token in tokens) >= 2
+    english = sum(token in ENGLISH_WORDS for token in tokens)
+    content = [word.lower() for index, word in enumerate(raw)  # without brands and names
+               if word.lower() not in BRANDS and not (index and word[0].isupper())]
+    if content and all(token in GREETINGS for token in content):
+        return False  # "hello" alone: Vietnamese customers write it too; keep the default language.
+    # Two English words, or a short message made only of English words ("refund?", "iPhone 15 price?").
+    return english >= 2 or (english >= 1 and all(token in ENGLISH_WORDS for token in content))

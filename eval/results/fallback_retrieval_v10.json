@@ -1,0 +1,1 @@
+{"what": "Fallback search on the customer's raw words (no model to rewrite the question), hybrid_rerank, tau 0.1, 04/11/2026", "answerable_n": 90, "correct_section_returned_tau_only": 63, "correct_section_returned_with_agreement_rule": 68, "unknown_n": 10, "false_accepts_tau_only": 1, "false_accepts_with_agreement_rule": 1}

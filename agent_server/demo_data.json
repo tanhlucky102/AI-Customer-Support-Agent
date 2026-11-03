@@ -4,6 +4,8 @@
   "title": "Trợ lý Demo Mobile",
   "greeting": "Xin chào! Mình hỗ trợ sản phẩm, ưu đãi, sự kiện, chính sách và đơn hàng.",
   "primary_color": "#2563eb",
+  "handover_note": "Nhân viên sẽ phản hồi qua email trong vòng 24 giờ (48 giờ vào ngày lễ).",
+  "handover_note_en": "Our staff will reply by email within 24 hours (48 hours on public holidays).",
   "suggestions": [
     "Chính sách đổi trả",
     "Phí giao hàng là bao nhiêu?",

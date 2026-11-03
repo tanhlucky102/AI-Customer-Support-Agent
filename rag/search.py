@@ -25,13 +25,17 @@ class SearchConfig:
     # τ: minimum reranker probability, or minimum cosine similarity when reranking is off.
     tau: float = 0.1
     tau_no_rerank: float = 0.45
+    # Sections passed to the cross-encoder. 10 instead of 20 cut search time by ~40% and did not lower
+    # Recall@5 (eval/results/retrieval_v10.json); the reranker dominates search time.
+    rerank_top: int = 10
 
     @classmethod
     def from_env(cls) -> "SearchConfig":
         keyword = env("RAG_KEYWORD", "bm25")
         return cls(vector=env_flag("RAG_VECTOR", True), keyword=None if keyword == "none" else keyword,
                    rerank=env_flag("RAG_RERANK", True), candidates=env_int("RAG_CANDIDATES", 20),
-                   tau=env_float("RAG_TAU", 0.1), tau_no_rerank=env_float("RAG_TAU_NO_RERANK", 0.45))
+                   tau=env_float("RAG_TAU", 0.1), tau_no_rerank=env_float("RAG_TAU_NO_RERANK", 0.45),
+                   rerank_top=env_int("RAG_RERANK_TOP", 10))
 
 
 def rrf(rankings: list[list[str]], k: int) -> dict[str, float]:
@@ -47,22 +51,29 @@ def passage(section: dict) -> str:
 
 
 def search(query: str, shop_id: str, category: str | None = None, k: int = 5,
-           config: SearchConfig | None = None, apply_threshold: bool = True) -> list[dict]:
+           config: SearchConfig | None = None, apply_threshold: bool = True,
+           relaxed: bool = False) -> list[dict]:
     """Return up to k passages: {chunk_id, section_id, content, doc_title, section, url, category,
-    score}. An empty list means nothing relevant enough was found."""
+    score}. An empty list means nothing relevant enough was found.
+
+    τ was calibrated on the agent's rewritten queries. A customer's raw words ("don 450k co mat phi
+    ship ko") score far lower against the same right section, so `relaxed` (the fallback, which has
+    no model to rewrite the question) also accepts the top section when the vector search and the
+    keyword search both ranked it first: two independent retrievers agreeing."""
     config = config or SearchConfig.from_env()
     tau = config.tau if config.rerank else config.tau_no_rerank
-    results, confidence = _search(query, shop_id, category, k, config)
+    results, confidence, agreed = _search(query, shop_id, category, k, config)
     if category and confidence < tau:
         # The model may have guessed the category; search the whole knowledge base instead.
-        results, confidence = _search(query, shop_id, None, k, config)
+        results, confidence, agreed = _search(query, shop_id, None, k, config)
     if apply_threshold and confidence < tau:
-        return []
+        return results[:1] if relaxed and agreed else []
     return results
 
 
 def _search(query: str, shop_id: str, category: str | None, k: int,
-            config: SearchConfig) -> tuple[list[dict], float]:
+            config: SearchConfig) -> tuple[list[dict], float, bool]:
+    """(results, confidence, agreed): agreed = vector and keyword search both rank the top result first."""
     rankings, similarity, section_of = [], {}, {}
     if config.vector:
         vector = embedder().encode([query])[0]
@@ -87,7 +98,9 @@ def _search(query: str, shop_id: str, category: str | None, k: int,
         section_id = section_of[chunk_id]
         if section_id not in by_section:
             by_section[section_id] = (score, chunk_id)
-    ordered = list(by_section.items())[:config.candidates]
+    ordered = list(by_section.items())[:min(config.candidates, config.rerank_top if config.rerank else
+                                            config.candidates)]
+    firsts = {section_of[ranking[0]] for ranking in rankings if ranking}
     sections = store.sections([section_id for section_id, _ in ordered])
     results = []
     for section_id, (fused_score, chunk_id) in ordered:
@@ -106,16 +119,18 @@ def _search(query: str, shop_id: str, category: str | None, k: int,
                                if section_of.get(key) == section_id), default=0.0),
         })
     if not results:
-        return [], 0.0
+        return [], 0.0, False
     if config.rerank:
         scores = reranker().score(query, [item["content"] for item in results])
         for item, score in zip(results, scores):
             item["score"] = score
         results.sort(key=lambda item: item["score"], reverse=True)
-        return results[:k], results[0]["score"]
+        agreed = len(rankings) > 1 and firsts == {results[0]["section_id"]}
+        return results[:k], results[0]["score"], agreed
     # Without a reranker the order is the fused order and the gate uses cosine similarity.
     for item in results:
         item["score"] = item["similarity"] if config.vector else item["rrf"]
     confidence = max(item["similarity"] for item in results) if config.vector else 1.0
-    return results[:k], confidence
+    agreed = len(rankings) > 1 and firsts == {results[0]["section_id"]}
+    return results[:k], confidence, agreed
 

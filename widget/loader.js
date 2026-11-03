@@ -2,13 +2,15 @@
 (function () {
   "use strict";
   var script = document.currentScript;
-  if (!script || !script.dataset.shopKey || window.ATI && window.ATI.__mounted) return;
+  if (!script || !script.dataset.shopKey || window.ATI && window.ATI.__mounted || window.__atiLoading) return;
+  window.__atiLoading = true;  // a second copy of the tag, before the first has mounted, does nothing
 
   var serverOrigin = new URL(script.src).origin;
   var shopKey = script.dataset.shopKey;
   var tokenPath = script.dataset.tokenUrl || "";
   var loginPath = script.dataset.loginUrl || "";  // the shop's own login page, shown to signed-out visitors
   var frame;
+  var frameUrl = "";
   var panel;
   var launcher;
   var ready = false;
@@ -38,13 +40,15 @@
   }
 
   function setOpen(open) {
+    var wasOpen = !panel.hidden;
+    if (open && !frame.src) frame.src = frameUrl;  // the chat loads on first open, not on every page view
     panel.hidden = !open;
     launcher.setAttribute("aria-expanded", String(open));
     if (open) {
       refreshAuth();
       send({ type: "ati:focus" });
-    } else {
-      launcher.focus();
+    } else if (wasOpen) {
+      launcher.focus();  // only when closing an open panel, never on a page load
     }
   }
 
@@ -72,7 +76,7 @@
         if (login.origin === window.location.origin) url.searchParams.set("login_url", login.href);
       } catch (_) {}
     }
-    frame.src = url.href;
+    frameUrl = url.href;
     panel.appendChild(frame);
 
     launcher = document.createElement("button");
@@ -92,6 +96,7 @@
       if (data.type === "ati:ready") {
         ready = true;
         refreshAuth();
+        if (!panel.hidden) send({ type: "ati:focus" });
       } else if (data.type === "ati:close") {
         setOpen(false);
       } else if (data.type === "ati:token-request") {

@@ -25,6 +25,8 @@ def main() -> None:
     response.raise_for_status()
     result = response.json()
     print(f"Synced {result['count']} FAQs for {result['shop_id']} (revision {result['revision']})")
+    if not result.get("indexed"):
+        raise SystemExit("Stored, but the search index was not updated; push again or check the server log")
 
 
 if __name__ == "__main__":

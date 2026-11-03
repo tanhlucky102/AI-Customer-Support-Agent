@@ -14,6 +14,8 @@ SHOP_ID = "demo_shop"
 PUBLIC_KEY = "pk_demo_shop"
 
 AGENT_SERVER_URL = os.getenv("AGENT_SERVER_URL", "http://localhost:8000").rstrip("/")
+# Server-to-server calls (logout, offers sync); differs from the browser's URL inside Docker.
+AGENT_SERVER_INTERNAL_URL = (os.getenv("AGENT_SERVER_INTERNAL_URL") or AGENT_SERVER_URL).rstrip("/")
 # The shop's write key for the Agent Server: content pushes and logout (cutting off chat tokens).
 WRITE_KEY = os.getenv("DEMO_FAQ_WRITE_KEY", "")
 SHOP_URL = os.getenv("DEMO_SHOP_URL", "http://localhost:8001").rstrip("/")

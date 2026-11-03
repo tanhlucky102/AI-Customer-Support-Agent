@@ -8,7 +8,8 @@ import path from "node:path";
 const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const port = 9223;
 const testUrl = process.env.ATI_TEST_URL || "http://127.0.0.1:8001/";
-const testGuest = process.env.ATI_TEST_GUEST === "1";
+// ATI_TEST_LOCKED=1: a signed-out visitor of a shop with accounts sees the login prompt and cannot send.
+const testGuest = process.env.ATI_TEST_LOCKED === "1" || process.env.ATI_TEST_GUEST === "1";
 const testLogin = process.env.ATI_TEST_LOGIN !== "0" && !testGuest;
 const testHistory = process.env.ATI_TEST_HISTORY === "1";
 const customQuestion = process.env.ATI_QUESTION || "";
@@ -103,7 +104,7 @@ try {
       "document.querySelector('#chat-send').disabled && " +
       "!document.querySelector('#chat-login').hidden", frameContext);
     if (!locked) throw new Error("Guest chat is not locked");
-    console.log("PASS: guest sees login prompt and cannot send a question");
+    console.log("PASS: signed-out visitor sees the login prompt and cannot send a question");
   } else {
   if (testLogin) {
     await evaluate(`(async () => {

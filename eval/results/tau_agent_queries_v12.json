@@ -1,0 +1,32 @@
+{
+ "run": "agent_v12",
+ "answerable_n": 39,
+ "unanswerable_n": 8,
+ "table": [
+  {
+   "tau": 0.01,
+   "answerable_kept": 1.0,
+   "unanswerable_stopped": 0.375
+  },
+  {
+   "tau": 0.05,
+   "answerable_kept": 1.0,
+   "unanswerable_stopped": 0.625
+  },
+  {
+   "tau": 0.1,
+   "answerable_kept": 1.0,
+   "unanswerable_stopped": 0.75
+  },
+  {
+   "tau": 0.2,
+   "answerable_kept": 1.0,
+   "unanswerable_stopped": 0.875
+  },
+  {
+   "tau": 0.3,
+   "answerable_kept": 0.974,
+   "unanswerable_stopped": 0.875
+  }
+ ]
+}

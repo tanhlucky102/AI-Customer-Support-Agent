@@ -22,6 +22,8 @@ CONFIGS = {
     "hybrid": SearchConfig(vector=True, keyword="bm25", rerank=False),
     "hybrid_tsrank": SearchConfig(vector=True, keyword="tsrank", rerank=False),
     "hybrid_rerank": SearchConfig(vector=True, keyword="bm25", rerank=True),
+    # The earlier setting: twice the reranker's work (it dominates search time).
+    "hybrid_rerank_top20": SearchConfig(vector=True, keyword="bm25", rerank=True, rerank_top=20),
 }
 
 
@@ -41,8 +43,9 @@ def contextual_share() -> float:
 
 
 def evaluate(config: SearchConfig, questions: list[dict]) -> dict:
-    hits1 = hits5 = 0
+    hits1 = hits5 = gated5 = 0
     reciprocal, latencies, misses = 0.0, [], []
+    tau = config.tau if config.rerank else config.tau_no_rerank
     for question in questions:
         expected = {(item["doc"], item["section"]) for item in question["expected"]}
         started = time.perf_counter()
@@ -54,6 +57,10 @@ def evaluate(config: SearchConfig, questions: list[dict]) -> dict:
         first = ranks[0] if ranks else None
         hits1 += first == 1
         hits5 += bool(first and first <= 5)
+        # What a search with the τ gate returns for the customer's raw words (the fallback case).
+        top = results[0].get("score", 0.0) if results else 0.0
+        confidence = top if config.rerank else max((item.get("similarity", 0.0) for item in results), default=0.0)
+        gated5 += bool(first and first <= 5 and confidence >= tau)
         reciprocal += 1 / first if first else 0.0
         if not first or first > 5:
             misses.append({"id": question["id"], "question": question["question"],
@@ -62,6 +69,7 @@ def evaluate(config: SearchConfig, questions: list[dict]) -> dict:
     n = len(questions)
     latencies.sort()
     return {"n": n, "recall@1": round(hits1 / n, 3), "recall@5": round(hits5 / n, 3),
+            "recall@5_gated": round(gated5 / n, 3),
             "mrr@10": round(reciprocal / n, 3),
             "latency_ms_p50": round(nearest_rank(latencies, 0.5)),
             "latency_ms_p95": round(nearest_rank(latencies, 0.95)),

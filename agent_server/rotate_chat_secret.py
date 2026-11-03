@@ -14,6 +14,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Issue or rotate one shop's chat JWT secret")
     parser.add_argument("--shop-id", required=True)
     args = parser.parse_args()
+    from agent_server.store import DEMO_DATA, demo_shop_enabled
+    if args.shop_id == DEMO_DATA["shop_id"] and demo_shop_enabled():
+        parser.error("the demo shop's secret comes from .env (DEMO_SHOP_TOKEN_SECRET), shared with the "
+                     "demo website; change it there and restart both servers")
     init_db()
     secret = secrets.token_urlsafe(32)
     if not set_chat_token_secret(args.shop_id, secret):

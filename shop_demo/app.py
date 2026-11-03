@@ -3,6 +3,7 @@
 Chạy:  python seed.py && uvicorn app:app --port 8001 --reload   (trong thư mục shop_demo/)
 """
 import random
+import secrets
 import sqlite3
 import string
 import time
@@ -46,8 +47,26 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Demo Mobile", lifespan=lifespan)
+# Tên cookie riêng: cookie không phân biệt cổng, nên hai shop demo cùng chạy trên localhost với tên
+# mặc định "session" sẽ ghi đè đăng nhập của nhau.
 app.add_middleware(SessionMiddleware, secret_key=config.SESSION_SECRET, same_site="lax",
-                   https_only=False, max_age=60 * 60 * 24 * 7)  # cookie HttpOnly theo mặc định
+                   https_only=False, max_age=60 * 60 * 24 * 7,
+                   session_cookie="demo_mobile_session")  # cookie HttpOnly theo mặc định
+
+
+@app.middleware("http")
+async def same_origin_forms(request: Request, call_next):
+    """Form POST chỉ nhận từ chính website (chống CSRF, kể cả "login CSRF"); trang HTML không được
+    cache, để bấm Back sau khi đăng xuất không hiện lại thông tin tài khoản."""
+    if request.method == "POST" and not request.url.path.startswith("/api/"):
+        origin = request.headers.get("origin")
+        own = {f"{request.url.scheme}://{request.url.netloc}", config.SHOP_URL}
+        if origin and origin not in own:
+            return JSONResponse({"detail": "cross_site_request"}, status_code=403)
+    response = await call_next(request)
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 app.mount("/static", StaticFiles(directory=config.BASE_DIR / "static"), name="static")
 app.include_router(api_router)
 
@@ -88,7 +107,12 @@ def render(request: Request, db: sqlite3.Connection, name: str, status_code: int
 
 def to_login(request: Request) -> RedirectResponse:
     flash(request, "Vui lòng đăng nhập để tiếp tục.", "warn")
-    return RedirectResponse(f"/login?next={request.url.path}", status_code=303)
+    path = request.url.path
+    if request.method != "GET":  # sau đăng nhập, quay về trang đang xem, không phải URL chỉ nhận POST
+        referer = request.headers.get("referer", "")
+        own = f"{request.url.scheme}://{request.url.netloc}"
+        path = referer[len(own):] if referer.startswith(own + "/") else "/"
+    return RedirectResponse(f"/login?next={safe_next(path)}", status_code=303)
 
 
 def cart_lines(request: Request, db: sqlite3.Connection) -> tuple[list[dict], int]:
@@ -324,7 +348,7 @@ def cart_update(request: Request, product_id: int = Form(...), qty: int = Form(.
     cart = request.session.get("cart", {})
     if str(product_id) in cart:
         stock = db.execute("SELECT stock FROM products WHERE id = ?", (product_id,)).fetchone()
-        if qty <= 0 or not stock:
+        if qty <= 0 or not stock or stock["stock"] <= 0:  # hết hàng: bỏ dòng, không để số lượng 0
             cart.pop(str(product_id))
         else:
             cart[str(product_id)] = min(qty, 10, stock["stock"])
@@ -370,12 +394,22 @@ def register(request: Request, full_name: str = Form(...), email: str = Form(...
         error = "Email đã được đăng ký."
     if error:
         return render(request, db, "register.html", status_code=400, error=error, form=form)
-    n = db.execute("SELECT COALESCE(MAX(CAST(SUBSTR(id, 2) AS INTEGER)), 0) FROM customers").fetchone()[0] + 1
-    cid = f"C{n:04d}"
-    db.execute("INSERT INTO customers(id,email,password_hash,full_name,phone,address,tier,created_at) "
-               "VALUES (?,?,?,?,?,?,?,?)",
-               (cid, email, hash_password(password), full_name.strip(), phone.strip(), "", "standard",
-                datetime.now().strftime("%Y-%m-%d")))
+    password_hash = hash_password(password)
+    for _ in range(5):  # hai người đăng ký cùng lúc có thể lấy cùng số: thử số kế tiếp
+        n = db.execute("SELECT COALESCE(MAX(CAST(SUBSTR(id, 2) AS INTEGER)), 0) FROM customers").fetchone()[0] + 1
+        cid = f"C{n:04d}"
+        try:
+            db.execute("INSERT INTO customers(id,email,password_hash,full_name,phone,address,tier,created_at) "
+                       "VALUES (?,?,?,?,?,?,?,?)",
+                       (cid, email, password_hash, full_name.strip(), phone.strip(), "", "standard",
+                        datetime.now().strftime("%Y-%m-%d")))
+            break
+        except sqlite3.IntegrityError:
+            if db.execute("SELECT 1 FROM customers WHERE email = ?", (email,)).fetchone():
+                return render(request, db, "register.html", status_code=400,
+                              error="Email đã được đăng ký.", form=form)
+    else:
+        raise HTTPException(503, "Vui lòng thử lại.")
     request.session["cid"] = cid
     flash(request, "Tạo tài khoản thành công!")
     return RedirectResponse("/", status_code=303)
@@ -386,7 +420,7 @@ def revoke_chat_tokens(customer_id: str) -> None:
     if not config.WRITE_KEY:
         return
     try:
-        httpx.post(f"{config.AGENT_SERVER_URL}/v1/shops/{config.SHOP_ID}/logout",
+        httpx.post(f"{config.AGENT_SERVER_INTERNAL_URL}/v1/shops/{config.SHOP_ID}/logout",
                    json={"customer_id": customer_id, "logout_at": int(time.time())},
                    headers={"Authorization": f"Bearer {config.WRITE_KEY}"}, timeout=3)
     except httpx.HTTPError:
@@ -412,19 +446,29 @@ def checkout_page(request: Request, db: sqlite3.Connection = Depends(get_db)):
     if not t["lines"]:
         flash(request, "Giỏ hàng đang trống.", "warn")
         return RedirectResponse("/", status_code=303)
-    return render(request, db, "checkout.html", payments=PAYMENT_LABEL, **t)
+    return render(request, db, "checkout.html", payments=PAYMENT_LABEL,
+                  checkout_key=secrets.token_urlsafe(16), **t)
 
 
 @app.post("/checkout")
 def checkout(request: Request, ship_name: str = Form(...), ship_phone: str = Form(...),
              ship_address: str = Form(...), payment_method: str = Form("cod"),
-             db: sqlite3.Connection = Depends(get_db)):
+             checkout_key: str = Form(""), db: sqlite3.Connection = Depends(get_db)):
     user = current_user(request, db)
     if not user:
         return to_login(request)
     t = cart_totals(request, db)
     lines, fee, discount = t["lines"], t["fee"], t["discount"]
+    checkout_key = checkout_key[:64] or None
+    if checkout_key:  # cùng một lần bấm "Xác nhận" (bấm hai lần, gửi lại form): về đơn đã tạo
+        done = db.execute("SELECT id FROM orders WHERE checkout_key = ? AND customer_id = ?",
+                          (checkout_key, user["id"])).fetchone()
+        if done:
+            return RedirectResponse(f"/orders/{done['id']}", status_code=303)
     if not lines:
+        return RedirectResponse("/cart", status_code=303)
+    if any(ln["qty"] <= 0 for ln in lines):
+        flash(request, "Giỏ hàng có sản phẩm số lượng 0, vui lòng kiểm tra lại.", "warn")
         return RedirectResponse("/cart", status_code=303)
     if payment_method not in PAYMENT_LABEL:
         raise HTTPException(400, "Phương thức thanh toán không hợp lệ")
@@ -441,12 +485,18 @@ def checkout(request: Request, ship_name: str = Form(...), ship_phone: str = For
     n = db.execute("SELECT COALESCE(MAX(CAST(SUBSTR(id, 3) AS INTEGER)), 10000) FROM orders").fetchone()[0] + 1
     oid = f"SO{n}"
     now = datetime.now()
-    db.execute(
-        "INSERT INTO orders(id,customer_id,status,total,shipping_fee,payment_method,ship_name,ship_phone,"
-        "ship_address,placed_at,eta,tracking_code,discount,coupon_code) VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,?,?)",
-        (oid, user["id"], "pending", t["total"], fee, payment_method, ship_name.strip(), ship_phone.strip(),
-         ship_address.strip(), now.strftime("%Y-%m-%d %H:%M"), (now + timedelta(days=4)).strftime("%Y-%m-%d"),
-         discount, t["coupon"]))
+    try:
+        db.execute(
+            "INSERT INTO orders(id,customer_id,status,total,shipping_fee,payment_method,ship_name,ship_phone,"
+            "ship_address,placed_at,eta,tracking_code,discount,coupon_code,checkout_key) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL,?,?,?)",
+            (oid, user["id"], "pending", t["total"], fee, payment_method, ship_name.strip(), ship_phone.strip(),
+             ship_address.strip(), now.strftime("%Y-%m-%d %H:%M"), (now + timedelta(days=4)).strftime("%Y-%m-%d"),
+             discount, t["coupon"], checkout_key))
+    except sqlite3.IntegrityError:  # request song song với cùng checkout_key: huỷ phần trừ kho của lần này
+        db.rollback()
+        done = db.execute("SELECT id FROM orders WHERE checkout_key = ?", (checkout_key,)).fetchone()
+        return RedirectResponse(f"/orders/{done['id']}" if done else "/orders", status_code=303)
     db.executemany("INSERT INTO order_items(order_id,product_id,qty,unit_price) VALUES (?,?,?,?)",
                    [(oid, ln["product"]["id"], ln["qty"], ln["product"]["price"]) for ln in lines])
     if not user["address"]:
@@ -489,9 +539,12 @@ def cancel_order(request: Request, order_id: str, db: sqlite3.Connection = Depen
     if order["status"] not in ("pending", "confirmed"):
         flash(request, "Chỉ huỷ được đơn đang chờ xác nhận hoặc đã xác nhận.", "warn")
     else:
-        db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ?", (order_id,))
-        for it in order_items(db, order_id):  # hoàn tồn kho
-            db.execute("UPDATE products SET stock = stock + ? WHERE id = ?", (it["qty"], it["product_id"]))
+        # Có điều kiện: hai lần huỷ cùng lúc chỉ một lần đổi trạng thái, nên kho chỉ được hoàn một lần.
+        cancelled = db.execute("UPDATE orders SET status = 'cancelled' WHERE id = ? AND customer_id = ? "
+                               "AND status IN ('pending', 'confirmed')", (order_id, user["id"])).rowcount
+        if cancelled:
+            for it in order_items(db, order_id):  # hoàn tồn kho
+                db.execute("UPDATE products SET stock = stock + ? WHERE id = ?", (it["qty"], it["product_id"]))
         flash(request, f"Đã huỷ đơn {order_id}.")
     return RedirectResponse(f"/orders/{order_id}", status_code=303)
 

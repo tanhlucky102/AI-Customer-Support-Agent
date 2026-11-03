@@ -13,8 +13,11 @@ model; path variables are URL-encoded; only GET is used; redirects are not follo
 size-capped; customer_id always comes from the verified chat token.
 """
 
+import asyncio
 import copy
 import json
+import logging
+import re
 from typing import Protocol
 from urllib.parse import quote
 
@@ -71,6 +74,38 @@ class CommerceAdapter(Protocol):
     def orders_page(self) -> str | None: ...
 
 
+logger = logging.getLogger(__name__)
+VARIABLE = re.compile(r"\{(\w+)\}")
+# The variables each operation can fill in; any other name in a mapping is a mistake.
+OPERATION_VARIABLES = {"get_order": {"order_id", "customer_id"},
+                       "list_orders": {"customer_id", "limit", "status"},
+                       "get_customer": {"customer_id"},
+                       "search_products": {"query", "category", "max_price", "limit"}}
+
+
+def fill(template: str, values: dict) -> str | None:
+    """Put values into every {name} of a template ("customer:{customer_id}" too); None if one is missing."""
+    missing = False
+
+    def put(match: re.Match) -> str:
+        nonlocal missing
+        value = values.get(match.group(1))
+        if value is None or value == "":
+            missing = True
+            return ""
+        return str(value)
+
+    text = VARIABLE.sub(put, template)
+    return None if missing else text
+
+
+def same_id(a, b) -> bool:
+    """Order IDs as a shop may format them: "#SO10293" and "so10293" are the same order."""
+    def norm(value):
+        return re.sub(r"[^0-9a-z]", "", str(value).casefold())
+    return norm(a) == norm(b)
+
+
 def pick(data, path: str | None):
     """Read a dotted path ('amount.value', 'data.0.id'); a missing key yields None."""
     if not path:
@@ -116,6 +151,11 @@ def config_problems(config: dict) -> list[str]:
         path = str(spec.get("path", ""))
         if not path.startswith("/") or path.startswith("//"):
             problems.append(f"{name}: path must be relative to base_url and start with '/'")
+        used = {variable for template in [path, *(spec.get("params") or {}).values()]
+                for variable in VARIABLE.findall(str(template))}
+        unknown = used - OPERATION_VARIABLES.get(name, used)
+        if unknown:
+            problems.append(f"{name}: unknown variable(s) {', '.join(sorted(unknown))}")
     for name in CUSTOMER_SCOPED:
         if name in operations and not _scoped(operations, name):
             problems.append(f"{name}: not scoped to the customer; use {{customer_id}} in the path "
@@ -148,32 +188,35 @@ class RestCommerceAdapter:
             raise CommerceError(f"{operation}: not available for this shop")
         spec = self.config["operations"][operation]
         encoded = {name: quote(str(value), safe="") for name, value in variables.items()
-                   if value is not None}
-        try:
-            path = spec["path"].format(**encoded)
-        except KeyError as error:
-            raise CommerceError(f"mapping for {operation} uses unknown variable {error}") from None
+                   if value is not None and value != ""}
+        path = fill(str(spec["path"]), encoded)
+        if path is None:
+            raise CommerceError(f"{operation}: the path needs a value that was not given")
+        values = dict(variables)
+        if variables.get("status"):
+            values["status"] = self._status_out(variables["status"])
         params = {}
         for name, template in (spec.get("params") or {}).items():
-            key = template.strip("{}") if template.startswith("{") else None
-            value = variables.get(key) if key else template
-            if value is not None and value != "":
-                params[name] = self._status_out(value) if key == "status" else value
+            value = fill(str(template), values)  # A param whose value is missing is left out.
+            if value:
+                params[name] = value
+        timeout = float(self.config.get("timeout_seconds", 6))
         try:
-            async with httpx.AsyncClient(base_url=self.base_url, transport=self.transport,
-                                         timeout=float(self.config.get("timeout_seconds", 6)),
-                                         follow_redirects=False) as client:
-                async with client.stream("GET", path, params=params, headers=self._headers()) as response:
-                    if response.status_code == 404:
-                        return None
-                    if response.status_code != 200:
-                        raise CommerceError(f"{operation}: HTTP {response.status_code}")
-                    body = bytearray()
-                    async for chunk in response.aiter_bytes():  # Stop reading past the cap.
-                        body += chunk
-                        if len(body) > MAX_RESPONSE_BYTES:
-                            raise CommerceError(f"{operation}: response too large")
-        except httpx.HTTPError as error:
+            # httpx's timeout bounds each read; this bounds the whole call (a slowly dripping reply).
+            async with asyncio.timeout(timeout * 2):
+                async with httpx.AsyncClient(base_url=self.base_url, transport=self.transport,
+                                             timeout=timeout, follow_redirects=False) as client:
+                    async with client.stream("GET", path, params=params, headers=self._headers()) as response:
+                        if response.status_code == 404:
+                            return None
+                        if response.status_code != 200:
+                            raise CommerceError(f"{operation}: HTTP {response.status_code}")
+                        body = bytearray()
+                        async for chunk in response.aiter_bytes():  # Stop reading past the cap.
+                            body += chunk
+                            if len(body) > MAX_RESPONSE_BYTES:
+                                raise CommerceError(f"{operation}: response too large")
+        except (httpx.HTTPError, TimeoutError) as error:
             raise CommerceError(f"{operation}: {type(error).__name__}") from None
         try:
             data = json.loads(body)
@@ -246,25 +289,40 @@ class RestCommerceAdapter:
             return None
         if isinstance(record, dict) and not self._owned("get_order", record, customer_id):
             return None  # Another customer's order looks exactly like a missing one.
-        return self._order("get_order", record)
+        order = self._order("get_order", record)
+        # A shop that matches loosely (prefix, fuzzy) must not show another order under this ID.
+        return order if same_id(order["id"], order_id) else None
 
     async def list_orders(self, customer_id: str, limit: int = 5,
                           status: str | None = None) -> list[dict]:
-        params = self.config["operations"]["list_orders"].get("params") or {}
-        # The shop filters only when exactly one of its statuses maps to the requested one;
-        # otherwise fetch more and filter here, so older matching orders are not cut off.
-        remote = status is None or ("{status}" in params.values()
-                                    and len(self._status_values(status)) == 1)
-        records = await self._get("list_orders", {"customer_id": customer_id,
-                                                  "limit": limit if remote else 50,
-                                                  "status": status if remote else None})
+        spec = self.config["operations"]["list_orders"]
+        templates = [str(spec.get("path", "")), *map(str, (spec.get("params") or {}).values())]
+        shop_filters_customer = any("{customer_id}" in template for template in templates)
+        # The shop filters by status only when exactly one of its statuses maps to the requested one.
+        shop_filters_status = status is None or (any("{status}" in template for template in templates)
+                                                 and len(self._status_values(status)) == 1)
+        # When this adapter filters (owner_field, or several shop statuses for one of ours), read a
+        # bigger page, as big as the shop allows (`scan_limit`), so older matches are not cut off.
+        page = limit if shop_filters_customer and shop_filters_status else max(
+            limit, int(self.config.get("scan_limit", 20)))
+        records = await self._get("list_orders", {"customer_id": customer_id, "limit": page,
+                                                  "status": status if shop_filters_status else None})
         if records is None:
             return []
         if not isinstance(records, list):
             raise CommerceError("list_orders: expected a list")
-        orders = [self._order("list_orders", record) for record in records
-                  if isinstance(record, dict) and self._owned("list_orders", record, customer_id)]
-        return [order for order in orders if status is None or order["status"] == status][:limit]
+        orders = []
+        for record in records:
+            if not isinstance(record, dict) or not self._owned("list_orders", record, customer_id):
+                continue
+            try:
+                order = self._order("list_orders", record)
+            except CommerceError as error:  # One malformed record must not hide the others.
+                logger.warning("skipped an order record: %s", error)
+                continue
+            if status is None or order["status"] == status:
+                orders.append(order)
+        return orders[:limit]
 
     async def get_customer(self, customer_id: str) -> dict | None:
         record = await self._get("get_customer", {"customer_id": customer_id})

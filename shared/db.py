@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS shops (
 );
 -- Level-0 shops without customer accounts may let visitors chat without logging in (guest mode).
 ALTER TABLE shops ADD COLUMN IF NOT EXISTS guest_chat BOOLEAN NOT NULL DEFAULT false;
+-- What the shop promises after a handover ("Nhân viên phản hồi qua email trong 24 giờ"); empty = no time promised.
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS handover_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE shops ADD COLUMN IF NOT EXISTS handover_note_en TEXT NOT NULL DEFAULT '';
 
 -- Logging out cuts off the customer's chat tokens: a token with iat <= logout_at is rejected.
 CREATE TABLE IF NOT EXISTS token_cutoffs (
@@ -111,6 +114,15 @@ CREATE TABLE IF NOT EXISTS tickets (
     status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
     idempotency_key TEXT NOT NULL UNIQUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_tickets_shop_status ON tickets (shop_id, status, id);
+
+-- One rating per conversation (the latest), so repeated clicks cannot inflate the counts.
+CREATE TABLE IF NOT EXISTS feedback (
+    conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+    shop_id TEXT NOT NULL REFERENCES shops(shop_id) ON DELETE CASCADE,
+    rating TEXT NOT NULL CHECK (rating IN ('yes', 'no')),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS traces (

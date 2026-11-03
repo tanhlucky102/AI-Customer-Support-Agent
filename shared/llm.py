@@ -4,6 +4,7 @@ LLM_MODEL uses LiteLLM's naming; the default reaches AI Box's OpenAI-compatible 
     LLM_MODEL=openai/ds/deepseek-flash   AI_BOX_BASE_URL=https://api.ai-box.vn/v1   AI_BOX_API_KEY=sk-...
 """
 
+import asyncio
 import json
 import os
 import time
@@ -104,6 +105,7 @@ class LLMProvider:
         for attempt in range(2):
             result = LLMResult()
             calls: dict[int, dict] = {}
+            slot_of_index: dict[int, int] = {}  # provider index -> slot; a new id gets a new slot
             try:
                 response = await litellm.acompletion(**self._kwargs(messages, tools, tool_choice),
                                                      stream=True, stream_options={"include_usage": True})
@@ -120,10 +122,15 @@ class LLMProvider:
                         result.content += delta.content
                         yield {"type": "token", "text": delta.content}
                     for call in getattr(delta, "tool_calls", None) or []:
-                        # Chunks of one call share its index; without an index a new id starts a call.
-                        key = call.index if call.index is not None else (
-                            len(calls) if call.id and all(c["id"] != call.id for c in calls.values())
-                            else max(calls, default=0))
+                        # Chunks of one call share its index; a new id (even on a reused index, as
+                        # some gateways do for parallel calls) starts a new call.
+                        if call.index is not None:
+                            key = slot_of_index.get(call.index)
+                            if key is None or (call.id and calls[key]["id"] and calls[key]["id"] != call.id):
+                                key = slot_of_index[call.index] = len(calls)
+                        else:
+                            key = (len(calls) if call.id and all(c["id"] != call.id for c in calls.values())
+                                   else max(calls, default=0))
                         slot = calls.setdefault(key, {"id": None, "name": "", "arguments": ""})
                         if call.id:
                             slot["id"] = call.id
@@ -137,6 +144,8 @@ class LLMProvider:
             except Exception as error:  # litellm wraps timeouts, HTTP and connection errors.
                 if result.content or attempt == 1 or not transient(error):
                     raise LLMError(f"{type(error).__name__}: {str(error)[:200]}") from None
+                if rate_limited(error):  # Retrying at once would only be refused again.
+                    await asyncio.sleep(1.5)
         result.usage.calls = 1
         result.tool_calls = [
             {"id": slot["id"] or f"call_{index}", "name": slot["name"], "arguments": slot["arguments"]}
@@ -170,6 +179,10 @@ def transient(error: Exception) -> bool:
         return True
     status = getattr(error, "status_code", None)
     return isinstance(status, int) and (status in (408, 429) or status >= 500)
+
+
+def rate_limited(error: Exception) -> bool:
+    return "RateLimit" in type(error).__name__ or getattr(error, "status_code", None) == 429
 
 
 def parse_json(text: str) -> dict:

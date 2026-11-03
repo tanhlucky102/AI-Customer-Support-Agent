@@ -11,6 +11,7 @@ import json
 import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -18,7 +19,7 @@ import httpx
 from agent_server import agent, store
 from agent_server.commerce import adapter_for
 from agent_server.prompts import context_message, system_prompt
-from agent_server.tools import TurnContext, definitions, toolset_for
+from agent_server.tools import VIETNAM, TurnContext, definitions, toolset_for
 from rag import store as kb_store
 from rag.search import SearchConfig, search
 from shared.llm import LLMError, LLMProvider, parse_json
@@ -28,7 +29,8 @@ EVAL_DIR = Path(__file__).resolve().parent
 # Answers depend on the code as well as on the prompt: any change to the agent, tools, adapters or
 # retrieval code invalidates cached answers.
 CODE_VERSION = hashlib.sha256(b"".join(
-    path.read_bytes() for folder in ("agent_server", "rag", "shared")
+    path.read_bytes() for folder in ("agent_server", "rag", "shared", "eval", "shop_demo",
+                                     "examples/second_shop")
     for path in sorted((ROOT / folder).glob("*.py")))).hexdigest()[:12]
 CACHE_DIR = EVAL_DIR / "cache"
 POISON_FAQS = [
@@ -61,6 +63,14 @@ async def ensure_poison_shop() -> None:
     await index_faqs("poison_shop", "http://localhost:8009", POISON_FAQS)
 
 
+def remove_eval_conversations() -> int:
+    """Each fresh case stores a conversation (and, for handovers, a ticket) for a demo customer;
+    remove them after a run so the customers' chat history and the staff ticket list stay clean."""
+    from shared.db import connect
+    with connect() as db:
+        return db.execute("DELETE FROM conversations WHERE id LIKE 'eval-%'").rowcount
+
+
 class Runner:
     def __init__(self, llm: LLMProvider | None = None, search_config: SearchConfig | None = None,
                  tag: str = "default"):
@@ -81,10 +91,13 @@ class Runner:
     def cache_key(self, case: dict) -> str:
         shop = self.shop(case["shop_id"])
         adapter = adapter_for(shop)
-        tools = toolset_for(adapter)
-        parts = [json.dumps(case, sort_keys=True, ensure_ascii=False), system_prompt(shop, tools),
+        guest = case["customer_id"].startswith("guest:")
+        tools = toolset_for(adapter, guest=guest)
+        parts = [json.dumps(case, sort_keys=True, ensure_ascii=False), system_prompt(shop, tools, guest=guest),
                  json.dumps(definitions(tools), sort_keys=True), self.llm.model, str(self.llm.thinking),
-                 repr(self.search_config), kb_store.signature(case["shop_id"]), CODE_VERSION]
+                 repr(self.search_config), kb_store.signature(case["shop_id"]), CODE_VERSION,
+                 # Answers also depend on today's date and on the promotions the shop published.
+                 datetime.now(VIETNAM).strftime("%Y-%m-%d"), str(shop.get("offers_revision"))]
         return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()[:24]
 
     async def run_case(self, case: dict, use_cache: bool = True) -> dict:
@@ -239,8 +252,12 @@ class Judge:
         return verdict
 
 
-ESCALATION_NOTE = ("(after escalate_to_human the system itself appends a fixed message: staff contact the "
-                   "customer by e-mail within 24 hours)")
+def escalation_note(shop_id: str) -> str:
+    """The fixed text the system appends after a handover, with this shop's own follow-up promise."""
+    shop = store.shop_by_id(shop_id) or {}
+    promise = shop.get("handover_note") or "Nhân viên của shop sẽ liên hệ lại với bạn sớm nhất có thể."
+    return ("(after escalate_to_human the system itself appends a fixed message with the ticket code and "
+            f"the shop's configured follow-up promise: \"{promise}\")")
 
 
 def tool_data(result: dict) -> str:
@@ -257,5 +274,5 @@ def tool_data(result: dict) -> str:
             parts.append(f"{call['name']}({json.dumps(call['args'], ensure_ascii=False)}) -> "
                          f"{json.dumps(call.get('output', ''), ensure_ascii=False)[:8000]}")
             if call["name"] == "escalate_to_human":
-                parts.append(ESCALATION_NOTE)
+                parts.append(escalation_note(result["case"]["shop_id"]))
     return "\n".join(parts) or "(no tool was called)"

@@ -22,10 +22,19 @@ DEMO_FAQ_WRITE_KEY = env("DEMO_FAQ_WRITE_KEY") or secrets.token_urlsafe(32)
 
 
 def origin_of(url: str) -> str:
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.netloc or parts.username or parts.password:
+    """Scheme, host and port as a browser writes them: lower case, no default port."""
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
         return ""
-    return f"{parts.scheme}://{parts.netloc}"
+    scheme = (parts.scheme or "").lower()
+    if scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password:
+        return ""
+    host = parts.hostname.lower()
+    host = f"[{host}]" if ":" in host else host  # IPv6
+    default = 80 if scheme == "http" else 443
+    return f"{scheme}://{host}" + (f":{port}" if port and port != default else "")
 
 
 def key_digest(key: str) -> str:
@@ -63,20 +72,25 @@ def init_db() -> None:
     origins.append(origin_of(DEMO_SHOP_URL))
     origins = sorted({origin_of(item) for item in origins if origin_of(item)})
     with connect() as db:
+        # The demo website signs with the secret in .env, so the demo shop's keys always come from
+        # .env (rotate them there, not with rotate_chat_secret).
         db.execute("""INSERT INTO shops
             (shop_id, public_key, faq_key_digest, title, greeting, primary_color, shop_url,
-             allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key,
+             handover_note, handover_note_en)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (shop_id) DO UPDATE SET
                 faq_key_digest = EXCLUDED.faq_key_digest, shop_url = EXCLUDED.shop_url,
                 allowed_origins = EXCLUDED.allowed_origins, suggestions = EXCLUDED.suggestions,
                 chat_token_secret = EXCLUDED.chat_token_secret,
                 commerce_config = EXCLUDED.commerce_config,
-                commerce_api_key = EXCLUDED.commerce_api_key""", (
+                commerce_api_key = EXCLUDED.commerce_api_key,
+                handover_note = EXCLUDED.handover_note, handover_note_en = EXCLUDED.handover_note_en""", (
             DEMO_DATA["shop_id"], DEMO_DATA["public_key"], key_digest(DEMO_FAQ_WRITE_KEY),
             DEMO_DATA["title"], DEMO_DATA["greeting"], DEMO_DATA["primary_color"], DEMO_SHOP_URL,
             Jsonb(origins), Jsonb(DEMO_DATA["suggestions"]), DEMO_TOKEN_SECRET,
             DEMO_DATA.get("tone", ""), Jsonb(demo_commerce_config()), env("DEMO_SHOP_API_KEY"),
+            DEMO_DATA.get("handover_note", ""), DEMO_DATA.get("handover_note_en", ""),
         ))
 
 
@@ -101,17 +115,18 @@ def create_shop(*, shop_id: str, public_key: str, faq_write_key: str, title: str
                 allowed_origins: list[str], chat_token_secret: str,
                 suggestions: list[str] | None = None, tone: str = "",
                 commerce_config: dict | None = None, commerce_api_key: str | None = None,
-                guest_chat: bool = False) -> None:
+                guest_chat: bool = False, handover_note: str = "", handover_note_en: str = "") -> None:
     with connect() as db:
         db.execute("""INSERT INTO shops
             (shop_id, public_key, faq_key_digest, title, greeting, primary_color, shop_url,
              allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key,
-             guest_chat)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
+             guest_chat, handover_note, handover_note_en)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
             shop_id, public_key, key_digest(faq_write_key), title, greeting, primary_color,
-            shop_url.rstrip("/"), Jsonb(sorted(set(allowed_origins))), Jsonb(suggestions or []),
-            chat_token_secret, tone, Jsonb(commerce_config) if commerce_config else None,
-            commerce_api_key, guest_chat,
+            shop_url.rstrip("/"), Jsonb(sorted({origin_of(o) or o for o in allowed_origins})),
+            Jsonb(suggestions or []), chat_token_secret, tone,
+            Jsonb(commerce_config) if commerce_config else None, commerce_api_key, guest_chat,
+            handover_note, handover_note_en,
         ))
 
 
@@ -180,7 +195,8 @@ def replace_faqs(shop_id: str, faqs: list[dict]) -> tuple[int, int]:
     """Replace a shop's FAQ snapshot atomically and return (count, revision)."""
     with connect() as db:
         # Lock the shop row: two concurrent pushes then run one after the other.
-        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR UPDATE", (shop_id,))
+        # Lock only against another push; FOR UPDATE would also block new conversations meanwhile.
+        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR NO KEY UPDATE", (shop_id,))
         db.execute("DELETE FROM faqs WHERE shop_id = %s", (shop_id,))
         with db.cursor() as cursor:
             cursor.executemany("""INSERT INTO faqs
@@ -197,7 +213,7 @@ def replace_faqs(shop_id: str, faqs: list[dict]) -> tuple[int, int]:
 def replace_offers(shop_id: str, offers: list[dict]) -> tuple[int, int]:
     """Replace a shop's published promotions/events snapshot atomically."""
     with connect() as db:
-        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR UPDATE", (shop_id,))
+        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR NO KEY UPDATE", (shop_id,))
         db.execute("DELETE FROM offers WHERE shop_id = %s", (shop_id,))
         with db.cursor() as cursor:
             cursor.executemany("""INSERT INTO offers
@@ -244,8 +260,10 @@ def create_conversation(conversation_id: str, shop_id: str, customer_id: str,
 def delete_empty_conversation(conversation_id: str) -> None:
     """Remove a conversation whose first turn failed, so it does not appear empty in history."""
     with connect() as db:
+        # A conversation that already opened a ticket is kept, or the cascade would delete the ticket.
         db.execute("""DELETE FROM conversations c WHERE c.id = %s
-                      AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id)""",
+                      AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id)
+                      AND NOT EXISTS (SELECT 1 FROM tickets t WHERE t.conversation_id = c.id)""",
                    (conversation_id,))
 
 
@@ -269,8 +287,10 @@ def append_turn(conversation_id: str, shop_id: str, customer_id: str,
 
 def list_conversations(shop_id: str, customer_id: str) -> list[dict]:
     with connect() as db:
-        rows = db.execute("""SELECT id, title, status, created_at, updated_at FROM conversations
+        # Only conversations with a saved turn: a first turn cut off by a closed tab leaves none.
+        rows = db.execute("""SELECT id, title, status, created_at, updated_at FROM conversations c
                              WHERE shop_id = %s AND customer_id = %s
+                               AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id)
                              ORDER BY updated_at DESC LIMIT 40""", (shop_id, customer_id)).fetchall()
     return [{**row, "created_at": iso(row["created_at"]), "updated_at": iso(row["updated_at"])}
             for row in rows]
@@ -302,12 +322,44 @@ def create_ticket(*, conversation_id: str, shop_id: str, customer_id: str, reaso
     return f"TK{row['id']:06d}"
 
 
-def list_tickets(shop_id: str) -> list[dict]:
+def list_tickets(shop_id: str, status: str | None = None, before_id: int | None = None,
+                 limit: int = 100) -> list[dict]:
+    """Newest first; page with before_id (the smallest id of the previous page)."""
     with connect() as db:
         rows = db.execute("""SELECT id, conversation_id, customer_id, reason, summary, status,
-                             created_at FROM tickets WHERE shop_id = %s ORDER BY id DESC LIMIT 100""",
-                          (shop_id,)).fetchall()
+                             created_at FROM tickets
+                             WHERE shop_id = %s AND (%s::text IS NULL OR status = %s)
+                               AND (%s::bigint IS NULL OR id < %s)
+                             ORDER BY id DESC LIMIT %s""",
+                          (shop_id, status, status, before_id, before_id, limit)).fetchall()
     return [{**row, "code": f"TK{row['id']:06d}", "created_at": iso(row["created_at"])} for row in rows]
+
+
+def close_ticket(shop_id: str, ticket_id: int) -> bool:
+    with connect() as db:
+        return bool(db.execute("UPDATE tickets SET status = 'closed' WHERE shop_id = %s AND id = %s",
+                               (shop_id, ticket_id)).rowcount)
+
+
+def save_feedback(conversation_id: str, shop_id: str, rating: str) -> None:
+    with connect() as db:
+        db.execute("""INSERT INTO feedback (conversation_id, shop_id, rating) VALUES (%s, %s, %s)
+                      ON CONFLICT (conversation_id) DO UPDATE SET rating = EXCLUDED.rating,
+                      updated_at = now()""", (conversation_id, shop_id, rating))
+
+
+def feedback_counts(shop_id: str) -> dict:
+    with connect() as db:
+        rows = db.execute("SELECT rating, count(*) AS n FROM feedback WHERE shop_id = %s GROUP BY rating",
+                          (shop_id,)).fetchall()
+    return {"yes": 0, "no": 0, **{row["rating"]: row["n"] for row in rows}}
+
+
+def turns_since(shop_id: str, since: datetime) -> int:
+    """Chat turns already answered for this shop since `since` (the daily quota survives restarts)."""
+    with connect() as db:
+        return db.execute("SELECT count(*) AS n FROM traces WHERE shop_id = %s AND created_at >= %s",
+                          (shop_id, since)).fetchone()["n"]
 
 
 def save_trace(trace: dict) -> None:

@@ -34,6 +34,14 @@ def order_line(order: dict) -> str:
     return line + "."
 
 
+def raw_search(ctx, message: str) -> list[dict]:
+    """The customer's own words, not a rewritten query: accept a section both retrievers agree on."""
+    try:
+        return ctx.search(message, ctx.shop["shop_id"], None, relaxed=True)
+    except TypeError:  # a search function without the relaxed option (tests, other back ends)
+        return ctx.search(message, ctx.shop["shop_id"], None)
+
+
 async def answer(ctx, message: str) -> tuple[str, str, list[dict]]:
     """Return (status, reply, sources)."""
     text = fold(message)
@@ -41,9 +49,13 @@ async def answer(ctx, message: str) -> tuple[str, str, list[dict]]:
     match = ORDER_ID.search(message)
     try:
         if match and "get_order" in capabilities:
-            order = await ctx.adapter.get_order(match.group(1).upper() + match.group(2), ctx.customer_id)
+            typed, normalized = match.group(0), match.group(1).upper() + match.group(2)
+            order = await ctx.adapter.get_order(typed, ctx.customer_id)  # as typed first
+            if order is None and normalized != typed:
+                order = await ctx.adapter.get_order(normalized, ctx.customer_id)
             if order is None:
-                return "Đã kiểm tra đơn hàng", "Không tìm thấy đơn này trong tài khoản của bạn.", []
+                return ("Đã kiểm tra đơn hàng", f"Không tìm thấy đơn {typed} trong tài khoản của bạn. "
+                        f"Bạn kiểm tra lại mã đơn giúp mình nhé. {OFFLINE_NOTE}", [])
             links = [{"label": f"Xem đơn {order['id']}", "href": order["url"]}] if order.get("url") else []
             return "Đã kiểm tra đơn hàng", f"{order_line(order)} {OFFLINE_NOTE}", links
         if any(phrase in text for phrase in MY_ORDERS) and "list_orders" in capabilities:
@@ -55,7 +67,7 @@ async def answer(ctx, message: str) -> tuple[str, str, list[dict]]:
     except Exception:  # CommerceError or malformed shop data: the fallback itself must not fail.
         return "Lỗi kết nối shop", "Chưa kết nối được hệ thống đơn hàng của shop. Vui lòng thử lại sau.", []
     try:
-        hits = await asyncio.to_thread(ctx.search, message, ctx.shop["shop_id"], None)
+        hits = await asyncio.to_thread(raw_search, ctx, message)
     except Exception:  # The fallback must never fail; without search it gives the contact reply.
         hits = []
     if hits:

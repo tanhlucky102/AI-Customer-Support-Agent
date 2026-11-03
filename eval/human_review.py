@@ -40,6 +40,9 @@ def load_cases() -> dict[str, dict]:
 
 def expectation(row: dict, case: dict) -> str:
     if row["type"] == "tool":
+        if case.get("expected_any"):
+            return "Một trong: " + " | ".join(", ".join(option) or "không gọi tool"
+                                               for option in case["expected_any"])
         tools = ", ".join(case.get("expected_tools") or []) or "không gọi tool"
         args = case.get("expected_args")
         return tools + (f"\n{json.dumps(args, ensure_ascii=False)}" if args else "")

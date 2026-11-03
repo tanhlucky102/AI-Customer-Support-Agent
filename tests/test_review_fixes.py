@@ -85,7 +85,7 @@ class CommerceScopingTest(unittest.IsolatedAsyncioTestCase):
             "k", "http://shop", transport=httpx.MockTransport(api))
         orders = await shop.list_orders("U1", 5, "shipping")
         self.assertEqual([order["id"] for order in orders], ["1", "2"])
-        self.assertEqual(seen[0], {"limit": "50"})  # No single shop status to send: fetch, then filter.
+        self.assertEqual(seen[0], {"limit": "20"})  # No single shop status to send: a scan_limit page.
 
     async def test_order_list_link_is_the_list_page_or_names_the_order_it_opens(self):
         from agent_server.tools import ListOrdersArgs, TurnContext, list_customer_orders

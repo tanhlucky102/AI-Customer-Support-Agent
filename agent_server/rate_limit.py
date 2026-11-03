@@ -1,22 +1,31 @@
-"""In-memory chat limits for this single-process prototype; counters reset on restart."""
+"""Chat limits: one-minute windows per customer and per IP, and daily quotas per shop, customer and IP.
+
+The windows live in memory (one process). The shop's daily count is read back from the traces table
+after a restart, so restarting the server does not reset the quota.
+"""
 
 import math
 from collections import deque
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from time import monotonic
 
 
 class ChatLimiter:
-    """Sliding one-minute windows per customer and per IP, plus a daily quota per shop (0 disables)."""
+    """Limits of 0 are disabled. A guest's ID is chosen by the browser, so guests are counted by IP."""
 
-    def __init__(self, per_customer_per_minute: int, per_ip_per_minute: int,
-                 daily_per_shop: int) -> None:
+    def __init__(self, per_customer_per_minute: int, per_ip_per_minute: int, daily_per_shop: int,
+                 daily_per_customer: int = 0, daily_per_ip: int = 0,
+                 daily_used: Callable[[str], int] | None = None) -> None:
         self.limits = {"customer_rate_limited": per_customer_per_minute,
                        "ip_rate_limited": per_ip_per_minute}
-        self.daily_per_shop = daily_per_shop
+        self.daily_limits = {"daily_quota_exceeded": daily_per_shop,
+                             "customer_daily_limit": daily_per_customer,
+                             "ip_daily_limit": daily_per_ip}
+        self.daily_used = daily_used
         self.windows: dict[tuple[str, ...], deque[float]] = {}
         self.day = date.today()
-        self.daily: dict[str, int] = {}
+        self.daily: dict[tuple[str, ...], int] = {}
 
     def _window(self, key: tuple[str, ...], now: float) -> deque[float]:
         window = self.windows.setdefault(key, deque())
@@ -24,7 +33,16 @@ class ChatLimiter:
             window.popleft()
         return window
 
-    def check(self, shop_id: str, customer_id: str, ip: str) -> tuple[str, int] | None:
+    def _shop_used(self, shop_id: str) -> int:
+        key = ("shop", shop_id)
+        if key not in self.daily:
+            try:  # After a restart, continue from what was already answered today.
+                self.daily[key] = self.daily_used(shop_id) if self.daily_used else 0
+            except Exception:
+                self.daily[key] = 0
+        return self.daily[key]
+
+    def check(self, shop_id: str, customer_id: str, ip: str, guest: bool = False) -> tuple[str, int] | None:
         """Count one chat, or return (reason, Retry-After seconds) without counting it."""
         now = monotonic()
         today = date.today()
@@ -33,16 +51,25 @@ class ChatLimiter:
         if len(self.windows) > 10_000:  # Forget idle senders so memory stays bounded.
             self.windows = {key: window for key, window in self.windows.items()
                             if window and now - window[-1] < 60}
-        windows = {"customer_rate_limited": self._window(("customer", shop_id, customer_id), now),
+        sender = ("guest", shop_id, ip) if guest else ("customer", shop_id, customer_id)
+        windows = {"customer_rate_limited": self._window(sender, now),
                    "ip_rate_limited": self._window(("ip", ip), now)}
         for reason, window in windows.items():
             limit = self.limits[reason]
             if limit > 0 and len(window) >= limit:
                 return reason, max(1, math.ceil(60 - (now - window[0])))
-        if 0 < self.daily_per_shop <= self.daily.get(shop_id, 0):
-            tomorrow = datetime.combine(today + timedelta(days=1), datetime.min.time())
-            return "daily_quota_exceeded", max(1, math.ceil((tomorrow - datetime.now()).total_seconds()))
+        self._shop_used(shop_id)
+        counters = {"daily_quota_exceeded": ("shop", shop_id), "customer_daily_limit": sender,
+                    "ip_daily_limit": ("ip-day", ip)}
+        for reason, key in counters.items():
+            limit = self.daily_limits[reason]
+            if 0 < limit <= self.daily.get(key, 0):
+                tomorrow = datetime.combine(today + timedelta(days=1), datetime.min.time())
+                return reason, max(1, math.ceil((tomorrow - datetime.now()).total_seconds()))
         for window in windows.values():
             window.append(now)
-        self.daily[shop_id] = self.daily.get(shop_id, 0) + 1
+        for key in counters.values():
+            self.daily[key] = self.daily.get(key, 0) + 1
+        if len(self.daily) > 50_000:  # Bounded: keep the shops' counts, drop per-sender ones.
+            self.daily = {key: value for key, value in self.daily.items() if key[0] == "shop"}
         return None

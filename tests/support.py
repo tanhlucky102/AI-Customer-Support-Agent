@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -44,6 +45,9 @@ def use_test_database() -> None:
 
 def reset_database() -> None:
     use_test_database()
+    server = sys.modules.get("agent_server.app")
+    if server:  # shop rows are cached for a few seconds by the server
+        server.clear_shop_cache()
     db.init_schema()
     with db.connect() as connection:
         connection.execute("TRUNCATE shops, kb_context_cache RESTART IDENTITY CASCADE")
