@@ -1,59 +1,53 @@
 # AI Customer Support Agent
 
-Framework chatbot chăm sóc khách hàng **nhúng vào website thương mại điện tử bằng một thẻ `<script>`**. Lõi
-là một agent dùng **Agentic RAG**: mô hình tự quyết định tra tài liệu của shop, tra đơn hàng, hỏi lại khách
-hay chuyển cho nhân viên. Agent chạy trong vòng lặp Reason → Act → Observe, gọi tool qua function calling.
+Trợ lý chăm sóc khách hàng **nhúng vào website thương mại điện tử bằng một thẻ `<script>`**. Bên trong là một agent
+(Agentic RAG) tự quyết định tra tài liệu của shop, tra đơn hàng, hỏi lại khách hay chuyển cho nhân viên.
 
-- **LLM:** `ds/deepseek-flash` qua AI Box (chuẩn OpenAI), gọi bằng LiteLLM. Nếu AI Box lỗi, lượt chat chuyển
-  sang model dự phòng nếu có cấu hình (`LLM_FALLBACK_MODEL`, ví dụ model chạy trên máy qua Ollama), sau cùng mới
-  trả lời theo quy tắc.
-- **RAG:** tài liệu Markdown được chia chunk theo cấu trúc. Mỗi chunk được thêm câu ngữ cảnh do LLM sinh
-  (Contextual Retrieval) rồi embed bằng BGE-M3 lưu trong pgvector (HNSW). Tìm kiếm kết hợp vector và BM25,
-  gộp bằng RRF, rerank bằng `bge-reranker-v2-m3`, trả về đoạn cha kèm trích dẫn, và trả `no_results` khi
-  điểm thấp hơn ngưỡng τ.
-- **Tích hợp shop theo mức:**
-  - mức 0: shop chỉ có nội dung, không có API; nếu shop không có tài khoản khách thì bật chế độ khách:
-    khách hỏi ngay không cần đăng nhập, agent chỉ trả lời từ tài liệu/FAQ;
-  - mức 1: shop có API theo hợp đồng C2, hoặc API riêng được ánh xạ bằng một file JSON, không phải viết
-    code.
-
-  Agent chỉ thấy tool ứng với khả năng thật của shop. Xem [docs/INTEGRATION.md](docs/INTEGRATION.md).
-- **Bảo mật:**
-  - shop có dữ liệu khách bắt buộc đăng nhập (JWT do shop ký); chế độ khách chỉ dành cho shop mức 0;
-  - `customer_id` chỉ lấy từ token; khách đăng xuất thì token đã cấp mất hiệu lực ngay;
-  - widget chạy trong iframe với CSP `frame-ancestors`;
-  - kiểm tra Origin, giới hạn tần suất gọi;
-  - che PII trong log và trace;
-  - kết quả tool được coi là dữ liệu, không phải lệnh.
+- **LLM:** `ds/deepseek-flash` qua AI Box, gọi bằng LiteLLM; có thể cấu hình model dự phòng.
+- **RAG:** BGE-M3 + BM25, gộp bằng RRF, rerank bằng `bge-reranker-v2-m3`, trả lời kèm trích dẫn; PostgreSQL + pgvector.
+- **Tích hợp theo mức:** shop không có API vẫn dùng được (chỉ FAQ, khách không cần đăng nhập); shop có API riêng
+  nối bằng một file JSON, không viết code.
 
 ```
 Website shop ──<script loader.js>──> Widget (iframe) ──SSE──> Agent Server (FastAPI)
-                                                              ├─ Agent core: LLMProvider (LiteLLM → AI Box) + 7 tools
-                                                              ├─ RAG: BGE-M3 + BM25 → RRF → reranker   (PostgreSQL + pgvector)
+                                                              ├─ Agent: LLMProvider (LiteLLM → AI Box) + 7 tool
+                                                              ├─ RAG: BGE-M3 + BM25 → RRF → reranker (PostgreSQL + pgvector)
                                                               └─ CommerceAdapter ──REST──> API đơn hàng của từng shop
 ```
 
-## Chạy nhanh trên Windows (không cần Docker)
+## 1. Cài đặt
 
-Yêu cầu: Python 3.11. Nên có GPU NVIDIA; nếu chỉ dùng CPU thì chạy chậm hơn.
+Yêu cầu: **Python 3.11**. Nên có GPU NVIDIA (chỉ CPU thì chậm hơn). Node.js 21+ và Google Chrome chỉ cần cho test
+JavaScript, test trình duyệt và quay video. Không cần cài PostgreSQL hay Docker.
 
 ```powershell
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
-copy .env.example .env        # điền AI_BOX_API_KEY
-.venv\Scripts\python scripts\setup_demo.py     # sinh khóa, seed dữ liệu, cấp 3 shop, nạp kho tri thức
-.venv\Scripts\python scripts\run_all.py        # 4 server: 8000 agent, 8001, 8002, 8003
+copy .env.example .env          # mở .env, điền AI_BOX_API_KEY
 ```
 
-- Database: khi `DATABASE_URL` để trống, server tự chạy PostgreSQL nhúng kèm pgvector (gói `pgserver`).
-  Không cần cài Postgres hay Docker.
-- Model: lần chạy đầu tải BGE-M3 và reranker (khoảng 4.5 GB).
+- Khi `DATABASE_URL` trong `.env` để trống, server tự chạy PostgreSQL nhúng kèm pgvector.
+- Lần chạy đầu tải BGE-M3 và reranker (khoảng 4,5 GB).
+
+## 2. Chạy demo
+
+```powershell
+.venv\Scripts\python scripts\setup_demo.py     # sinh khóa vào .env, seed dữ liệu, cấp 3 shop, nạp kho tri thức
+.venv\Scripts\python scripts\run_all.py        # bật 4 server; Ctrl+C để dừng
+```
+
+`setup_demo.py` chạy lại bao nhiêu lần cũng được.
 
 | Trang | Tài khoản | Mức tích hợp |
 |-------|-----------|--------------|
-| http://localhost:8001 — Demo Mobile | `an@demo.vn` / `demo1234` (có đơn SO10293) | 1, API theo hợp đồng C2 |
-| http://localhost:8003 — Phụ Kiện Xanh | `chau@pkx.vn` / `demo1234` (có đơn PKX204518) | 1, API riêng + `commerce.json` |
-| http://localhost:8002 — Sample Store | không cần (trang tĩnh, chỉ có FAQ, chế độ khách) | 0 |
+| http://localhost:8001 (Demo Mobile) | `an@demo.vn` / `demo1234` (có đơn SO10293) | 1: API theo chuẩn của dự án |
+| http://localhost:8003 (Phụ Kiện Xanh) | `chau@pkx.vn` / `demo1234` (có đơn PKX204518) | 1: API riêng, nối bằng `commerce.json` |
+| http://localhost:8002 (Sample Store) | không cần, khách vãng lai | 0: chỉ có FAQ, không API |
+
+Agent Server chạy ở http://localhost:8000 (`/healthz` cho biết đang dùng model hay chế độ dự phòng).
+
+Câu hỏi thử: *"Phí giao hàng cho đơn 300 nghìn là bao nhiêu?"*, *"Đơn SO10293 của tôi tới đâu rồi?"*,
+*"Đơn đó trễ vậy thì shop có hỗ trợ gì không?"*, *"Is the iPhone 16 in stock?"*.
 
 Chat trong terminal, không cần widget:
 
@@ -61,66 +55,105 @@ Chat trong terminal, không cần widget:
 .venv\Scripts\python -m agent_server.cli --shop demo_shop --customer C0001
 ```
 
-## Docker Compose
+## 3. Kiểm thử
+
+```powershell
+.venv\Scripts\python -m unittest discover -s tests -t .     # 116 test, không gọi LLM, khoảng 1 phút
+```
+
+- Lệnh này chạy luôn test của `shop_demo/` và test JavaScript của widget (`node --test`, bỏ qua nếu máy không có Node).
+- Trong lúc chạy có in traceback `pool timeout` hoặc `db down`: đó là test cố tình giả lỗi; kết quả cuối phải là `OK`.
+
+Khi `run_all.py` đang chạy (cần `AI_BOX_API_KEY`):
+
+```powershell
+.venv\Scripts\python scripts\smoke_live.py      # đăng nhập, chính sách, tra đơn, chặn khách khác, shop thứ hai
+.venv\Scripts\python scripts\bad_cases.py       # 26 tình huống khó qua server thật -> eval\results\bad_cases.json
+node scripts\browser_smoke.mjs                  # mở widget bằng Chrome headless và hỏi thử
+node scripts\record_demo.mjs demo.mp4           # quay video demo có chú thích (cần Chrome và ffmpeg)
+```
+
+## 4. Đánh giá
+
+```powershell
+.venv\Scripts\python -m eval.run retrieval                  # Recall@k, MRR (không gọi LLM)
+.venv\Scripts\python -m eval.run agent --tag v13            # chọn tool, trả lời đúng, groundedness, từ chối, tấn công
+.venv\Scripts\python -m eval.run baseline                   # nhồi cả kho tri thức vào prompt so với RAG
+.venv\Scripts\python -m eval.run agent --dataset eval\heldout --tag heldout   # bộ giữ lại: chỉ chạy MỘT lần
+.venv\Scripts\python -m eval.human_review export eval\results\agent_v13.json review.xlsx   # bảng để chấm tay
+.venv\Scripts\python -m eval.human_review score review.xlsx                                # tỉ lệ người và judge đồng ý
+```
+
+Kết quả mỗi lần chạy nằm ở `eval/runs/<tag>/` (không commit); kết quả đã công bố nằm ở `eval/results/`.
+
+## 5. Thêm một shop mới
+
+```powershell
+# Mức 0: chỉ có nội dung, khách không cần đăng nhập
+.venv\Scripts\python -m agent_server.provision_shop --shop-id tiem_banh --shop-url https://tiembanh.vn --title "Trợ lý Tiệm Bánh" --guest-chat
+# Mức 1: có API đơn hàng riêng, nối bằng file ánh xạ (ví dụ: examples\second_shop\commerce.json)
+.venv\Scripts\python -m agent_server.provision_shop --shop-id my_shop --shop-url https://myshop.vn --title "Trợ lý My Shop" --commerce-config commerce.json --commerce-api-key <key>
+```
+
+Lệnh in ra `public_key`, `faq_write_key` và `chat_token_secret` **một lần**. Sau đó:
+
+1. **Nội dung:** đẩy FAQ bằng khóa ghi (`examples\push_faq.py`, `examples\push_offers.py`), hoặc đặt tài liệu
+   Markdown vào `data\kb\<shop_id>\` rồi chạy `python -m rag.ingest --shop <shop_id>`.
+2. **Nhúng widget** vào trang:
+
+   ```html
+   <script src="https://<agent-server>/widget/loader.js" data-shop-key="pk_..."
+           data-token-url="/api/chat-token" data-login-url="/dang-nhap"></script>
+   ```
+
+   Shop mức 0 dùng chế độ khách thì chỉ cần `data-shop-key`.
+3. **Shop có tài khoản khách:** backend shop cấp token chat cho khách đang đăng nhập và thu hồi khi khách đăng xuất,
+   bằng SDK `sdk\ati_sdk.py` (không cần thư viện ngoài):
+
+   ```python
+   from ati_sdk import sign_user_token, revoke_user_tokens
+   token = sign_user_token(user.id, shop_id=SHOP_ID, secret=CHAT_TOKEN_SECRET)              # GET /api/chat-token
+   revoke_user_tokens(user.id, shop_id=SHOP_ID, write_key=WRITE_KEY, server_url=AGENT_URL)  # khi đăng xuất
+   ```
+
+Agent chỉ được cấp những tool ứng với khả năng thật của shop: shop không có API đơn hàng thì không có tool tra đơn.
+
+## 6. Cấu hình chính (`.env`)
+
+| Biến | Ý nghĩa |
+|------|---------|
+| `AI_BOX_API_KEY`, `LLM_MODEL` | Khóa và model chính (mặc định `openai/ds/deepseek-flash`) |
+| `LLM_FALLBACK_MODEL`, `LLM_FALLBACK_BASE_URL`, `LLM_FALLBACK_API_KEY` | Model dự phòng khi AI Box lỗi, ví dụ `ollama_chat/qwen2.5:7b` và `http://localhost:11434`; để trống là không có |
+| `DATABASE_URL` | PostgreSQL có pgvector; để trống thì dùng PostgreSQL nhúng |
+| `RATE_LIMIT_*`, `DAILY_CHAT_QUOTA_PER_SHOP` | Giới hạn số tin mỗi phút, mỗi ngày |
+| `RATE_LIMIT_BACKEND` | `db` (mặc định, đúng khi chạy nhiều tiến trình) hoặc `memory` |
+| `RAG_RERANK`, `RAG_TAU` | Bật reranker; ngưỡng τ để từ chối khi tài liệu không đủ liên quan |
+
+Agent Server chạy được nhiều tiến trình (`uvicorn agent_server.app:app --workers 4`): khóa hội thoại, giới hạn tần
+suất và khóa đẩy FAQ đều nằm trong PostgreSQL.
+
+## 7. Docker (tuỳ chọn)
 
 ```bash
 cp .env.example .env                                         # điền AI_BOX_API_KEY
-docker compose run --rm agent python scripts/setup_demo.py    # sinh khóa vào .env, nạp dữ liệu và chỉ mục
+docker compose run --rm agent python scripts/setup_demo.py
 docker compose up --build
 ```
 
-`.env` được mount vào container agent nên khóa do `setup_demo.py` sinh ra nằm trên máy chủ, mọi
-service đọc cùng giá trị. Các service gọi nhau bằng tên (`AGENT_SERVER_INTERNAL_URL`), trình duyệt gọi
-qua `localhost`. Image không chứa `.env`, `.venv` hay dữ liệu (`.dockerignore`). Máy phát triển của
-nhóm không có Docker. CI (`.github/workflows/ci.yml`) dựng image, khởi động database, Agent Server và các shop rồi
-kiểm tra từng service trả lời; CI chạy khi repo được đẩy lên GitHub.
+CI (`.github/workflows/ci.yml`) chạy lint, toàn bộ test và dựng thử Docker mỗi lần push.
 
-Agent Server chạy được nhiều tiến trình (`uvicorn agent_server.app:app --workers 4`): khóa hội thoại, giới hạn tần
-suất và khóa đẩy FAQ nằm trong PostgreSQL ([docs/INTEGRATION.md](docs/INTEGRATION.md) mục 7).
-
-## Cấu trúc thư mục
+## 8. Cấu trúc thư mục
 
 | Thư mục | Nội dung |
 |---------|----------|
-| `agent_server/` | FastAPI: widget, API chat SSE, agent core (`agent.py`, `tools.py`, `prompts.py`), `commerce.py`, đăng ký shop, rule fallback |
-| `rag/` | Đọc tài liệu, chia chunk, Contextual Retrieval, embedding, BM25, tìm kiếm lai, nạp kho (`python -m rag.ingest`) |
-| `shared/` | Kết nối PostgreSQL + pgvector, `LLMProvider`, xử lý tiếng Việt, che PII |
-| `widget/` | `loader.js` và giao diện chat trong iframe (Markdown đã lọc, trích dẫn); `frame-core.js` là phần logic có test Node (`tests/js/`) |
-| `shop_demo/` | Website Demo Mobile: đăng nhập, đơn hàng, REST API C2, trang trợ giúp từ kho tri thức; ưu đãi sự kiện công bố cho trợ lý cũng là luật checkout áp dụng (`events.json`) |
-| `examples/second_shop/` | Website thứ hai có API riêng, kèm file ánh xạ `commerce.json` |
-| `data/kb/` | Kho tri thức: 44 tài liệu của Demo Mobile, 8 tài liệu của Phụ Kiện Xanh |
-| `sdk/` | `sign_user_token` cho backend shop |
-| `eval/` | Bộ đánh giá: 90 câu truy hồi, 50 ca chọn tool, 20 câu ngoài phạm vi, 15 kịch bản tấn công; harness và kết quả |
-| `tests/` | Unit test và test hợp đồng (chạy với embedder giả, không gọi LLM) |
-| `docs/` | Hướng dẫn tích hợp, các hợp đồng C1–C6, [hướng dẫn đọc code](docs/CODE_WALKTHROUGH.md) cho từng thành viên |
-| `.github/workflows/` | CI: lint, toàn bộ test, dựng và khởi động thử Docker Compose |
-
-## Kiểm thử và đánh giá
-
-```powershell
-.venv\Scripts\python -m unittest discover -s tests -t .            # 116 test: hợp đồng, bảo mật, RAG, shop demo, JS widget
-.venv\Scripts\python -m eval.run retrieval                          # Recall@k, MRR theo từng cấu hình
-.venv\Scripts\python -m eval.run agent                              # chọn tool, groundedness, từ chối, tấn công
-.venv\Scripts\python -m eval.run agent --dataset eval\heldout      # bộ giữ lại, chỉ chạy một lần
-.venv\Scripts\python -m eval.run baseline                           # nhồi cả kho vào prompt vs RAG
-.venv\Scripts\python scripts\smoke_live.py                          # khi run_all.py đang chạy
-.venv\Scripts\python scripts\bad_cases.py                           # 26 tình huống khó qua server thật
-node scripts\record_demo.mjs demo.mp4                               # quay video demo có chú thích
-.venv\Scripts\python -m eval.human_review export eval\results\agent_v9.json review.xlsx   # bảng để nhóm chấm tay
-```
-
-Bad case chạy thật (quyền riêng tư, prompt injection, tài liệu không có, dữ liệu không tồn tại, tiếng Anh,
-không dấu, yêu cầu huỷ đơn, khách vãng lai, AI Box sập): [eval/results/bad_cases.md](eval/results/bad_cases.md),
-26 ca, 26 xử lý đúng (04/11).
-
-Kết quả đã chạy nằm trong `eval/results/` (xem `eval/results/README.md`). Cấu hình cuối cùng:
-
-| Chỉ số | Mục tiêu | Kết quả |
-|--------|----------|---------|
-| Recall@5 / MRR@10 (90 câu) | ≥ 0.85 / ≥ 0.75 | 0.978 / 0.889 (held-out 30 câu: 0.933 / 0.890) |
-| Chọn đúng tool (50 ca) | ≥ 0.90 | 1.00 (held-out 12/12) |
-| Trả lời đúng (40 câu, LLM judge) | — | 0.975: câu sai duy nhất là lượt AI Box treo (held-out 27/30) |
-| Groundedness (89 câu trả lời) | ≥ 0.95 | 0.966 theo judge; 0.989 sau khi rà 3 câu bị gắn cờ (AI rà, `flagged_review_v13.json`, nhóm chưa xác nhận); held-out 0.875 / 0.975 |
-| Có trích dẫn / từ chối đúng | ≥ 0.95 / ≥ 0.90 | 1.00 / 1.00 (held-out từ chối 8/8) |
-| Tấn công bị chặn (15 injection + 5 xác thực) | 20/20 | 20/20 (held-out 6/6) |
-| p95 câu trả lời có 1 tool | ≤ 6 s | 3.5 s ở v12; 29.1 s ở v13 lúc AI Box treo (`aibox_probe_v13.json`) |
+| `agent_server/` | FastAPI: widget, API chat (SSE), agent (`agent.py`, `tools.py`, `prompts.py`), `commerce.py`, xác thực, giới hạn tần suất, cấp shop |
+| `rag/` | Đọc tài liệu, chia chunk, embedding, BM25, tìm kiếm lai, nạp kho (`python -m rag.ingest`) |
+| `shared/` | PostgreSQL + pgvector, `LLMProvider` (có failover), xử lý tiếng Việt, che dữ liệu cá nhân |
+| `widget/` | `loader.js` chạy trên trang shop; giao diện chat trong iframe (`frame.*`, `frame-core.js`) |
+| `shop_demo/` | Website Demo Mobile (FastAPI + SQLite): trang, giỏ hàng, đơn hàng, API cho agent |
+| `examples/` | Shop thứ hai có API riêng + `commerce.json`; trang tĩnh Sample Store; script đẩy FAQ/ưu đãi |
+| `sdk/` | `sign_user_token`, `revoke_user_tokens` cho backend shop |
+| `data/kb/` | Kho tri thức Markdown của 2 shop (dữ liệu, không phải tài liệu dự án) |
+| `eval/` | Bộ đánh giá (`retrieval.jsonl`, `cases_agent.jsonl`, `heldout/`), harness, kết quả |
+| `tests/` | Unit test và test hợp đồng (Python), `tests/js/` (widget) |
+| `scripts/` | `setup_demo`, `run_all`, `smoke_live`, `bad_cases`, `browser_smoke.mjs`, `record_demo.mjs`, `trace_stats` |
