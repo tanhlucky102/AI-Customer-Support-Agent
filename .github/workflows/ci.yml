@@ -53,7 +53,8 @@ jobs:
           for url in http://localhost:8000/healthz http://localhost:8000/widget/loader.js \
                      http://localhost:8001/healthz http://localhost:8003/ http://localhost:8002/; do
             for attempt in $(seq 1 90); do curl -fsS -o /dev/null "$url" && break; sleep 2; done
-            curl -fsS -o /dev/null "$url" && echo "ok  $url"
+            curl -fsS -o /dev/null "$url" || { echo "no answer: $url"; exit 1; }  # any silent service fails the step
+            echo "ok  $url"
           done
       - name: Logs
         if: failure()
