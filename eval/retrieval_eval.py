@@ -95,11 +95,12 @@ def tau_analysis(questions: list[dict], unknown: list[dict]) -> dict:
             "unanswerable_scores": sorted(round(s, 3) for s in unanswerable), "table": table}
 
 
-def run(config_names: list[str] | None = None, with_tau: bool = True) -> dict:
-    questions = load(EVAL_DIR / "retrieval.jsonl")
-    unknown = [case for case in load(EVAL_DIR / "cases_agent.jsonl")
+def run(config_names: list[str] | None = None, with_tau: bool = True, dataset_dir: Path = EVAL_DIR) -> dict:
+    questions = load(dataset_dir / "retrieval.jsonl")
+    unknown = [case for case in load(dataset_dir / "cases_agent.jsonl")
                if case["type"] == "out_of_scope" and case.get("kind") == "unknown"]
-    report = {"contextual_share": contextual_share(), "configs": {}}
+    report = {"dataset": dataset_dir.relative_to(EVAL_DIR.parent).as_posix(),
+              "contextual_share": contextual_share(), "configs": {}}
     for name in config_names or list(CONFIGS):
         report["configs"][name] = evaluate(CONFIGS[name], questions)
     if with_tau:

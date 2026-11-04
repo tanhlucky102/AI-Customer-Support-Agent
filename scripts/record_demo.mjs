@@ -13,9 +13,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { findChrome } from "./chrome_path.mjs";
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUTPUT = path.resolve(process.argv[2] || "demo.mp4");
-const CHROME = process.env.CHROME || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+const CHROME = findChrome();
 const QUICK = process.env.DEMO_QUICK === "1";
 const PORT = 9224;
 const WIDTH = 1440;
@@ -229,7 +231,7 @@ async function demo() {
   await ask("Đơn SO10293 của tôi tới đâu rồi?");
 
   await caption("5 · Câu nối tiếp: nhớ ngữ cảnh, dùng nhiều tool",
-    "Agent hiểu \"đơn đó\" là SO10293, so ngày giao dự kiến với hôm nay, tra chính sách giao trễ rồi ghép hai nguồn.");
+    "Agent hiểu \"đơn đó\" là SO10293; số ngày trễ do code tính sẵn trong dữ liệu đơn; agent tra chính sách giao trễ rồi ghép hai nguồn.");
   await ask("Đơn đó trễ vậy thì shop có hỗ trợ gì cho mình không?", 7000);
 
   await caption("6 · Khách viết tiếng Anh",
@@ -265,13 +267,13 @@ async function demo() {
   await openWidget("Đang hỗ trợ");
   await ask("Đơn PKX204518 của tôi đến đâu rồi?");
 
-  await card("Kết quả đánh giá (v12, 04/11/2026)", [
-    "Chọn đúng tool 50/50 · Trả lời đúng 40/40 · Trích dẫn đúng 100%",
-    "Groundedness 0.889 theo LLM judge, 0.989 sau khi rà lại 10 câu bị gắn cờ",
-    "Từ chối câu ngoài phạm vi 20/20 · Chặn tấn công prompt 15/15 · Recall@5 0.978",
-    "p95 câu trả lời có 1 tool: 3.5 s (phụ thuộc tải của AI Box)",
-    "26 bad case chạy thật: 26 đạt (eval/results/bad_cases.md) · github.com/tanhlucky102/AI-Customer-Support-Agent",
-  ], 8000);
+  await card("Kết quả đánh giá (v13, 04/11/2026)", [
+    "Chọn đúng tool 50/50 · Trả lời đúng 39/40 (câu còn lại: AI Box treo) · Trích dẫn đúng 100%",
+    "Groundedness 0.966 theo LLM judge, 0.989 sau khi AI rà 3 câu bị gắn cờ · Recall@5 0.978",
+    "Từ chối câu ngoài phạm vi 20/20 · Chặn tấn công prompt 15/15",
+    "Bộ held-out viết sau khi đóng băng prompt, chạy 1 lần: tool 12/12 · trả lời 27/30 · tấn công 6/6",
+    "26 bad case chạy thật đều qua kiểm tra (eval/results/bad_cases.md) · github.com/tanhlucky102/AI-Customer-Support-Agent",
+  ], 9000);
 }
 
 function ffmpegPath() {

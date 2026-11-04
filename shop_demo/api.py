@@ -30,8 +30,8 @@ def _items(db: sqlite3.Connection, order_id: str) -> list[dict]:
 
 def order_json(db: sqlite3.Connection, row: sqlite3.Row, with_items: bool = True) -> dict:
     d = {k: row[k] for k in ("id", "customer_id", "status", "total", "shipping_fee", "payment_method",
-                              "placed_at", "eta", "tracking_code", "ship_name", "ship_address", "discount",
-                              "coupon_code")}
+                              "placed_at", "eta", "delivered_at", "tracking_code", "ship_name",
+                              "ship_address", "discount", "coupon_code")}
     if with_items:
         d["items"] = _items(db, row["id"])
     return d

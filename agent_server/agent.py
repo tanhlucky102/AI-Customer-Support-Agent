@@ -18,7 +18,7 @@ from collections.abc import AsyncIterator
 
 from agent_server import fallback
 from agent_server.prompts import context_message, system_prompt
-from agent_server.tools import TurnContext, definitions, execute, toolset_for
+from agent_server.tools import BY_NAME, TurnContext, definitions, execute, toolset_for
 from shared.llm import LLMError, LLMProvider, Usage
 from shared.text import looks_english
 
@@ -64,6 +64,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
                 {"role": "system", "content": context_message(message=message)},
                 {"role": "user", "content": message}]
     usage, calls, reply = Usage(), [], ""
+    model = llm.model
     seen: dict[tuple[str, str], tuple[dict, object]] = {}  # (tool, arguments) already run this turn
     first_token_ms, started = None, time.perf_counter()
     yield {"type": "status", "message": "Đang xử lý câu hỏi..."}
@@ -86,6 +87,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
                 else:
                     result = event["result"]
             usage.add(result.usage)
+            model = result.model or model
             if not result.tool_calls or last:
                 break
             if result.content:  # A preamble ("I'll check…") despite the rule: take it back.
@@ -98,8 +100,8 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
                 for call in result.tool_calls]})
             final_text = None
             for call in result.tool_calls:
-                tool = next((item for item in tools if item.name == call["name"]), None)
-                if tool:
+                tool = BY_NAME.get(call["name"])
+                if tool in tools:
                     yield {"type": "status", "message": tool.status}
 
             async def run_call(call: dict):
@@ -137,7 +139,7 @@ async def run(ctx: TurnContext, history: list[dict], message: str,
         yield {"type": "citations", "sources": sources}
     yield {"type": "done", "reply": reply, "mode": "agent", "tools": calls, "sources": sources,
            "usage": usage.__dict__, "llm_calls": usage.calls, "first_token_ms": first_token_ms,
-           "model": llm.model}
+           "model": model}
 
 
 def no_answer_text(ctx: TurnContext) -> str:

@@ -53,8 +53,10 @@ def _order(code, uid, state, days_ago, lines, ghtk=None, pay="COD"):
     subtotal = sum(line["price"] * line["quantity"] for line in lines)
     fee = 0 if subtotal >= 300_000 else 25_000
     created = TODAY - timedelta(days=days_ago)
+    delivered = (created + timedelta(days=3)).isoformat() if state in ("DELIVERED", "RETURNED_TO_SENDER") else None
     return {"code": code, "uid": uid, "state": state, "createdAt": created.isoformat(),
-            "expectedBy": (created + timedelta(days=4)).isoformat(), "ghtkCode": ghtk, "pay": pay,
+            "expectedBy": (created + timedelta(days=4)).isoformat(), "deliveredAt": delivered,
+            "ghtkCode": ghtk, "pay": pay,
             "shipFee": fee, "amount": {"value": subtotal + fee, "currency": "VND"}, "lines": lines}
 
 

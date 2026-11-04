@@ -39,5 +39,25 @@ class PublishedEventsTest(unittest.TestCase):
                 self.assertEqual(result["upcoming_events"], [])
 
 
+
+class EventDiscountTest(unittest.TestCase):
+    def line(self, name, brand, category, amount):
+        return {"product": {"name": name, "brand": brand, "category": category}, "qty": 1, "amount": amount}
+
+    def test_the_published_rules_are_what_checkout_charges(self):
+        cart = [self.line("Galaxy S25 256GB", "Samsung", "Điện thoại", 30_000_000),
+                self.line("Ốp lưng iPhone", "Apple", "Ốp lưng", 200_000)]
+        samsung_week = datetime(2026, 10, 30, tzinfo=timezone.utc)
+        by_card = offers.event_discount(cart, "cod", samsung_week)
+        self.assertEqual((by_card["amount"], by_card["hints"]), (0, ["Tuần lễ Samsung Galaxy"]))
+        by_bank = offers.event_discount(cart, "bank", samsung_week)
+        self.assertEqual(by_bank["amount"], 1_000_000)  # 5% of 30M is 1.5M, capped at 1M
+        self.assertTrue(by_bank["gifts"])
+        sale = offers.event_discount(cart, "cod", datetime(2026, 11, 11, 5, tzinfo=timezone.utc))
+        self.assertEqual(sale["amount"], 40_000)  # 20% of the accessory only
+        self.assertTrue(sale["free_shipping"])
+        self.assertEqual(offers.event_discount(cart, "bank", datetime(2026, 11, 4, tzinfo=timezone.utc))["amount"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

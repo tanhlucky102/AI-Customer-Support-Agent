@@ -2,6 +2,12 @@
 
 LLM_MODEL uses LiteLLM's naming; the default reaches AI Box's OpenAI-compatible endpoint:
     LLM_MODEL=openai/ds/deepseek-flash   AI_BOX_BASE_URL=https://api.ai-box.vn/v1   AI_BOX_API_KEY=sk-...
+
+Failover: when the primary model fails before any text was streamed (after its own retry), the turn
+goes to a second model, if one is configured (any LiteLLM model, e.g. a local one through Ollama):
+    LLM_FALLBACK_MODEL=ollama_chat/qwen2.5:7b   LLM_FALLBACK_BASE_URL=http://localhost:11434
+    LLM_FALLBACK_MODEL=openai/gpt-4o-mini       LLM_FALLBACK_API_KEY=sk-...
+Only when both fail does the agent use its rule-based answers.
 """
 
 import asyncio
@@ -44,6 +50,7 @@ class LLMResult:
     finish_reason: str | None = None
     usage: Usage = field(default_factory=Usage)
     first_token_ms: int | None = None
+    model: str | None = None  # the model that answered (the fallback's, after a failover)
 
 
 def _usage(raw) -> Usage:
@@ -64,26 +71,36 @@ def _usage(raw) -> Usage:
 class LLMProvider:
     def __init__(self, model: str | None = None, api_base: str | None = None,
                  api_key: str | None = None, timeout: float | None = None, temperature: float = 0.2,
-                 thinking: bool | None = None):
+                 thinking: bool | None = None, fallback: "LLMProvider | None | bool" = True):
         self.model = model or env("LLM_MODEL", DEFAULT_MODEL)
-        if self.model.startswith("gemini/"):  # The old Week-1 setting; AI Box is the team's choice.
-            self.model = DEFAULT_MODEL
         self.api_base = api_base or env("AI_BOX_BASE_URL", "https://api.ai-box.vn/v1")
         self.api_key = api_key if api_key is not None else env("AI_BOX_API_KEY")
         self.timeout = timeout or env_float("LLM_TIMEOUT_SECONDS", 30.0)
         self.temperature = temperature
         # deepseek-flash reasons before answering unless told not to; off keeps latency low.
         self.thinking = env_flag("LLM_THINKING", False) if thinking is None else thinking
+        # fallback=True reads LLM_FALLBACK_* from the environment; False/None means no failover.
+        self.fallback = self.from_fallback_env() if fallback is True else (fallback or None)
+
+    @classmethod
+    def from_fallback_env(cls) -> "LLMProvider | None":
+        model = env("LLM_FALLBACK_MODEL")
+        if not model:
+            return None
+        return cls(model=model, api_base=env("LLM_FALLBACK_BASE_URL") or None,
+                   api_key=env("LLM_FALLBACK_API_KEY", "none"),
+                   timeout=env_float("LLM_FALLBACK_TIMEOUT_SECONDS", 60.0), fallback=False)
 
     @property
     def enabled(self) -> bool:
-        return bool(self.api_key)
+        return bool(self.api_key) or bool(self.fallback and self.fallback.enabled)
 
     def _kwargs(self, messages, tools, tool_choice) -> dict:
-        kwargs = {"model": self.model, "messages": messages, "api_base": self.api_base,
-                  "api_key": self.api_key, "timeout": self.timeout, "temperature": self.temperature,
-                  "num_retries": 0}
-        if not self.thinking:
+        kwargs = {"model": self.model, "messages": messages, "api_key": self.api_key,
+                  "timeout": self.timeout, "temperature": self.temperature, "num_retries": 0}
+        if self.api_base:
+            kwargs["api_base"] = self.api_base
+        if not self.thinking and "deepseek" in self.model:  # other providers reject this parameter
             kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         if tools:
             kwargs["tools"] = tools
@@ -101,9 +118,13 @@ class LLMProvider:
 
         if not self.enabled:
             raise LLMError("no API key configured")
+        if not self.api_key:  # only the fallback is configured
+            async for event in self.fallback.stream(messages, tools, tool_choice):
+                yield event
+            return
         started = time.perf_counter()
         for attempt in range(2):
-            result = LLMResult()
+            result = LLMResult(model=self.model)
             calls: dict[int, dict] = {}
             slot_of_index: dict[int, int] = {}  # provider index -> slot; a new id gets a new slot
             try:
@@ -142,6 +163,11 @@ class LLMProvider:
                         result.finish_reason = choice.finish_reason
                 break
             except Exception as error:  # litellm wraps timeouts, HTTP and connection errors.
+                if not result.content and self.fallback and (attempt == 1 or not transient(error)):
+                    # Nothing reached the customer yet: let the second model answer the whole call.
+                    async for event in self.fallback.stream(messages, tools, tool_choice):
+                        yield event
+                    return
                 if result.content or attempt == 1 or not transient(error):
                     raise LLMError(f"{type(error).__name__}: {str(error)[:200]}") from None
                 if rate_limited(error):  # Retrying at once would only be refused again.
@@ -159,6 +185,8 @@ class LLMProvider:
 
         if not self.enabled:
             raise LLMError("no API key configured")
+        if not self.api_key:
+            return await self.fallback.complete(messages, max_tokens, json_mode)
         kwargs = self._kwargs(messages, None, None)
         if max_tokens:
             kwargs["max_tokens"] = max_tokens
@@ -167,6 +195,8 @@ class LLMProvider:
         try:
             response = await litellm.acompletion(**kwargs)
         except Exception as error:
+            if self.fallback:
+                return await self.fallback.complete(messages, max_tokens, json_mode)
             raise LLMError(f"{type(error).__name__}: {str(error)[:200]}") from None
         return (response.choices[0].message.content or "").strip(), _usage(response.usage)
 

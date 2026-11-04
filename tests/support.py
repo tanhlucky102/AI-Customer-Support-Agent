@@ -16,7 +16,7 @@ from pathlib import Path
 
 # The bag-of-words test embedder gives lower cosine scores than BGE-M3, hence the lower τ.
 os.environ.update({"DEMO_SHOP": "1", "RAG_EMBEDDER": "hash", "RAG_RERANK": "0", "RAG_WARMUP": "0",
-                   "RAG_TAU_NO_RERANK": "0.15", "AI_BOX_API_KEY": "",
+                   "RAG_TAU_NO_RERANK": "0.15", "AI_BOX_API_KEY": "", "LLM_FALLBACK_MODEL": "",
                    "DAILY_CHAT_QUOTA_PER_SHOP": "500"})
 
 import psycopg  # noqa: E402
@@ -50,7 +50,7 @@ def reset_database() -> None:
         server.clear_shop_cache()
     db.init_schema()
     with db.connect() as connection:
-        connection.execute("TRUNCATE shops, kb_context_cache RESTART IDENTITY CASCADE")
+        connection.execute("TRUNCATE shops, kb_context_cache, rate_events RESTART IDENTITY CASCADE")
     from rag import bm25
     bm25._cache.clear()
     from agent_server.store import init_db

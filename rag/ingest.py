@@ -29,52 +29,73 @@ def settings_key(contextual: bool, max_tokens: int, overlap: int) -> list[str]:
             f"emb={embedder_name()}"]
 
 
+def _plan(shop_id: str, shop_url: str, document: Document, origin: str, settings: list[str],
+          known: dict, force: bool, max_tokens: int, overlap: int) -> dict | None:
+    """What to index for one document, or None when its fingerprint is unchanged."""
+    # A pushed FAQ entry without its own page links to the shop's site, not to a /help page
+    # that a level-0 shop does not have.
+    source_url = document.source_url or (shop_url.rstrip("/") if origin == "faq"
+                                         else f"{shop_url.rstrip('/')}/help/{document.slug}")
+    fingerprint = document.fingerprint(*settings, source_url, str(document.updated_at), origin)
+    if not force and known.get(document.slug) == fingerprint:
+        return None
+    sections = chunk_document(shop_id, document, max_tokens, overlap)
+    children = {child.id: (section, child) for section, _, kids in sections for child in kids}
+    return {"document": document, "source_url": source_url, "fingerprint": fingerprint,
+            "sections": sections, "children": children}
+
+
+def _write(shop_id: str, plan: dict, contexts: dict[str, str]) -> int:
+    """Embed one planned document and replace it in the index; returns the number of chunks."""
+    document, children = plan["document"], plan["children"]
+    index_texts = {cid: "\n".join(part for part in (header(document, section), document.intro,
+                                                    contexts.get(cid, ""), child.content) if part)
+                   for cid, (section, child) in children.items()}
+    ids = list(index_texts)
+    vectors = dict(zip(ids, embedder().encode([index_texts[cid] for cid in ids])))
+    store.replace_document(shop_id, document, plan["sections"], contexts, vectors,
+                           fingerprint=plan["fingerprint"], source_url=plan["source_url"],
+                           embedding_model=embedder_name(), index_texts=index_texts)
+    return len(ids)
+
+
+def _prune(shop_id: str, known: dict, documents: list[Document], origin: str, allow_mass_prune: bool) -> int:
+    stale = sorted(set(known) - {document.slug for document in documents})
+    # A wrong folder must not empty a shop: removing most of its pages needs explicit consent.
+    # (A pushed FAQ is a full snapshot by contract, so it may shrink freely.)
+    if origin == "file" and len(stale) > max(3, len(known) // 2) and not allow_mass_prune:
+        raise ValueError(f"would remove {len(stale)} of {len(known)} indexed documents of {shop_id}; "
+                         "check the folder, or pass --prune-all if that is intended")
+    store.delete_documents(shop_id, stale, origin)
+    return len(stale)
+
+
 async def ingest_documents(shop_id: str, shop_url: str, documents: list[Document], *,
                            origin: str = "file", contextual: bool = False, max_tokens: int = 500,
                            overlap: int = 80, force: bool = False, prune: bool = True,
                            allow_mass_prune: bool = False) -> dict:
+    """Index documents; async only because Contextual Retrieval calls the LLM."""
     started = time.perf_counter()
     known = store.fingerprints(shop_id, origin)
     settings = settings_key(contextual, max_tokens, overlap)
     stats = {"documents": len(documents), "indexed": 0, "skipped": 0, "removed": 0, "chunks": 0,
              "llm_calls": 0}
     for document in documents:
-        # A pushed FAQ entry without its own page links to the shop's site, not to a /help page
-        # that a level-0 shop does not have.
-        source_url = document.source_url or (shop_url.rstrip("/") if origin == "faq"
-                                             else f"{shop_url.rstrip('/')}/help/{document.slug}")
-        fingerprint = document.fingerprint(*settings, source_url, str(document.updated_at), origin)
-        if not force and known.get(document.slug) == fingerprint:
+        plan = _plan(shop_id, shop_url, document, origin, settings, known, force, max_tokens, overlap)
+        if plan is None:
             stats["skipped"] += 1
             continue
-        sections = chunk_document(shop_id, document, max_tokens, overlap)
-        children = {child.id: (section, child) for section, _, kids in sections for child in kids}
         contexts = {}
         if contextual:
             contexts, calls = await contexts_for(document.text, {cid: child.content for cid, (_, child)
-                                                                 in children.items()})
+                                                                 in plan["children"].items()})
             stats["llm_calls"] += calls
-        index_texts = {cid: "\n".join(part for part in (header(document, section), document.intro,
-                                                        contexts.get(cid, ""), child.content) if part)
-                       for cid, (section, child) in children.items()}
-        ids = list(index_texts)
-        vectors = dict(zip(ids, embedder().encode([index_texts[cid] for cid in ids])))
-        if contextual and len(contexts) < len(children):
-            fingerprint += "-incomplete"  # Some context calls failed: retry them next run.
-        store.replace_document(shop_id, document, sections, contexts, vectors,
-                               fingerprint=fingerprint, source_url=source_url,
-                               embedding_model=embedder_name(), index_texts=index_texts)
+            if len(contexts) < len(plan["children"]):
+                plan["fingerprint"] += "-incomplete"  # Some context calls failed: retry them next run.
+        stats["chunks"] += _write(shop_id, plan, contexts)
         stats["indexed"] += 1
-        stats["chunks"] += len(ids)
     if prune:
-        stale = sorted(set(known) - {document.slug for document in documents})
-        # A wrong folder must not empty a shop: removing most of its pages needs explicit consent.
-        # (A pushed FAQ is a full snapshot by contract, so it may shrink freely.)
-        if origin == "file" and len(stale) > max(3, len(known) // 2) and not allow_mass_prune:
-            raise ValueError(f"would remove {len(stale)} of {len(known)} indexed documents of {shop_id}; "
-                             "check the folder, or pass --prune-all if that is intended")
-        store.delete_documents(shop_id, stale, origin)
-        stats["removed"] = len(stale)
+        stats["removed"] = _prune(shop_id, known, documents, origin, allow_mass_prune)
     stats["seconds"] = round(time.perf_counter() - started, 1)
     return stats
 
@@ -88,10 +109,30 @@ async def ingest_dir(shop_id: str, shop_url: str, directory: Path, **options) ->
     return await ingest_documents(shop_id, shop_url, documents, **options)
 
 
+def index_faqs_sync(shop_id: str, shop_url: str, faqs: list[dict]) -> dict:
+    """Pushed FAQ entries are searchable like pages (no LLM context: each entry is self-contained).
+    Synchronous, so the server runs it in a worker thread without a second event loop."""
+    started = time.perf_counter()
+    documents = [faq_document(faq) for faq in faqs]
+    known = store.fingerprints(shop_id, "faq")
+    settings = settings_key(False, 500, 80)
+    stats = {"documents": len(documents), "indexed": 0, "skipped": 0, "removed": 0, "chunks": 0,
+             "llm_calls": 0}
+    for document in documents:
+        plan = _plan(shop_id, shop_url, document, "faq", settings, known, False, 500, 80)
+        if plan is None:
+            stats["skipped"] += 1
+            continue
+        stats["chunks"] += _write(shop_id, plan, {})
+        stats["indexed"] += 1
+    stats["removed"] = _prune(shop_id, known, documents, "faq", True)
+    stats["seconds"] = round(time.perf_counter() - started, 1)
+    return stats
+
+
 async def index_faqs(shop_id: str, shop_url: str, faqs: list[dict]) -> dict:
-    """Pushed FAQ entries are searchable like pages (no LLM context: each entry is self-contained)."""
-    return await ingest_documents(shop_id, shop_url, [faq_document(faq) for faq in faqs],
-                                  origin="faq", contextual=False)
+    """For scripts: the same as index_faqs_sync."""
+    return index_faqs_sync(shop_id, shop_url, faqs)
 
 
 def main() -> None:

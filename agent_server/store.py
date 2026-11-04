@@ -4,13 +4,15 @@ import hashlib
 import hmac
 import json
 import secrets
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import psycopg
 from psycopg.types.json import Jsonb
 
-from shared.db import connect, init_schema
+from shared.db import connect, init_schema, pool
 from shared.settings import env, env_flag
 
 DEMO_DATA = json.loads((Path(__file__).parent / "demo_data.json").read_text(encoding="utf-8"))
@@ -62,6 +64,44 @@ def demo_shop_enabled() -> bool:
     return env_flag("DEMO_SHOP", bool(env("DEMO_SHOP_TOKEN_SECRET")))
 
 
+_UNSET = object()
+
+
+def _shop_row(*, faq_write_key: str | None = None, shop_url: str | None = None,
+              allowed_origins: list[str] | None = None, suggestions: list[str] | None = None,
+              commerce_config=_UNSET, **plain) -> dict:
+    """Column values of the shops table, with the conversions every writer needs."""
+    row = dict(plain)
+    if faq_write_key is not None:
+        row["faq_key_digest"] = key_digest(faq_write_key)
+    if shop_url is not None:
+        row["shop_url"] = shop_url.rstrip("/")
+    if allowed_origins is not None:
+        row["allowed_origins"] = Jsonb(sorted({origin_of(o) or o for o in allowed_origins}))
+    if suggestions is not None:
+        row["suggestions"] = Jsonb(suggestions)
+    if commerce_config is not _UNSET:  # None is a value here: the shop has no commerce API
+        row["commerce_config"] = Jsonb(commerce_config) if commerce_config else None
+    return row
+
+
+def write_shop(row: dict, update_on_conflict: tuple[str, ...] = ()) -> None:
+    """INSERT a shop; with update_on_conflict, an existing shop gets those columns updated instead."""
+    columns = list(row)
+    sql = (f"INSERT INTO shops ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})")
+    if update_on_conflict:
+        sql += " ON CONFLICT (shop_id) DO UPDATE SET " + ", ".join(
+            f"{column} = EXCLUDED.{column}" for column in update_on_conflict)
+    with connect() as db:
+        db.execute(sql, [row[column] for column in columns])
+
+
+def update_shop(shop_id: str, row: dict) -> bool:
+    with connect() as db:
+        return bool(db.execute(f"UPDATE shops SET {', '.join(f'{column} = %s' for column in row)} "
+                               "WHERE shop_id = %s", [*row.values(), shop_id]).rowcount)
+
+
 def init_db() -> None:
     init_schema()
     if not demo_shop_enabled():
@@ -71,27 +111,18 @@ def init_db() -> None:
     origins.extend(item.strip() for item in env("WIDGET_ALLOWED_ORIGINS").split(",") if item.strip())
     origins.append(origin_of(DEMO_SHOP_URL))
     origins = sorted({origin_of(item) for item in origins if origin_of(item)})
-    with connect() as db:
-        # The demo website signs with the secret in .env, so the demo shop's keys always come from
-        # .env (rotate them there, not with rotate_chat_secret).
-        db.execute("""INSERT INTO shops
-            (shop_id, public_key, faq_key_digest, title, greeting, primary_color, shop_url,
-             allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key,
-             handover_note, handover_note_en)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (shop_id) DO UPDATE SET
-                faq_key_digest = EXCLUDED.faq_key_digest, shop_url = EXCLUDED.shop_url,
-                allowed_origins = EXCLUDED.allowed_origins, suggestions = EXCLUDED.suggestions,
-                chat_token_secret = EXCLUDED.chat_token_secret,
-                commerce_config = EXCLUDED.commerce_config,
-                commerce_api_key = EXCLUDED.commerce_api_key,
-                handover_note = EXCLUDED.handover_note, handover_note_en = EXCLUDED.handover_note_en""", (
-            DEMO_DATA["shop_id"], DEMO_DATA["public_key"], key_digest(DEMO_FAQ_WRITE_KEY),
-            DEMO_DATA["title"], DEMO_DATA["greeting"], DEMO_DATA["primary_color"], DEMO_SHOP_URL,
-            Jsonb(origins), Jsonb(DEMO_DATA["suggestions"]), DEMO_TOKEN_SECRET,
-            DEMO_DATA.get("tone", ""), Jsonb(demo_commerce_config()), env("DEMO_SHOP_API_KEY"),
-            DEMO_DATA.get("handover_note", ""), DEMO_DATA.get("handover_note_en", ""),
-        ))
+    # The demo website signs with the secret in .env, so the demo shop's keys always come from
+    # .env (rotate them there, not with rotate_chat_secret).
+    write_shop(_shop_row(
+        shop_id=DEMO_DATA["shop_id"], public_key=DEMO_DATA["public_key"], faq_write_key=DEMO_FAQ_WRITE_KEY,
+        title=DEMO_DATA["title"], greeting=DEMO_DATA["greeting"], primary_color=DEMO_DATA["primary_color"],
+        shop_url=DEMO_SHOP_URL, allowed_origins=origins, suggestions=DEMO_DATA["suggestions"],
+        chat_token_secret=DEMO_TOKEN_SECRET, tone=DEMO_DATA.get("tone", ""),
+        commerce_config=demo_commerce_config(), commerce_api_key=env("DEMO_SHOP_API_KEY"),
+        handover_note=DEMO_DATA.get("handover_note", ""), handover_note_en=DEMO_DATA.get("handover_note_en", "")),
+        update_on_conflict=("faq_key_digest", "shop_url", "allowed_origins", "suggestions",
+                            "chat_token_secret", "commerce_config", "commerce_api_key",
+                            "handover_note", "handover_note_en"))
 
 
 def shop_by_public_key(public_key: str) -> dict | None:
@@ -104,10 +135,15 @@ def shop_by_id(shop_id: str) -> dict | None:
         return db.execute("SELECT * FROM shops WHERE shop_id = %s", (shop_id,)).fetchone()
 
 
-def verify_faq_key(shop_id: str, key: str) -> bool:
+def shop_for_write_key(shop_id: str, key: str) -> dict | None:
+    """The shop row when `key` is its write key (compared in constant time), else None."""
     shop = shop_by_id(shop_id)
     expected = shop["faq_key_digest"] if shop else "0" * 64
-    return bool(shop) and hmac.compare_digest(key_digest(key), expected)
+    return shop if hmac.compare_digest(key_digest(key), expected) and shop else None
+
+
+def verify_faq_key(shop_id: str, key: str) -> bool:
+    return shop_for_write_key(shop_id, key) is not None
 
 
 def create_shop(*, shop_id: str, public_key: str, faq_write_key: str, title: str,
@@ -116,37 +152,26 @@ def create_shop(*, shop_id: str, public_key: str, faq_write_key: str, title: str
                 suggestions: list[str] | None = None, tone: str = "",
                 commerce_config: dict | None = None, commerce_api_key: str | None = None,
                 guest_chat: bool = False, handover_note: str = "", handover_note_en: str = "") -> None:
-    with connect() as db:
-        db.execute("""INSERT INTO shops
-            (shop_id, public_key, faq_key_digest, title, greeting, primary_color, shop_url,
-             allowed_origins, suggestions, chat_token_secret, tone, commerce_config, commerce_api_key,
-             guest_chat, handover_note, handover_note_en)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (
-            shop_id, public_key, key_digest(faq_write_key), title, greeting, primary_color,
-            shop_url.rstrip("/"), Jsonb(sorted({origin_of(o) or o for o in allowed_origins})),
-            Jsonb(suggestions or []), chat_token_secret, tone,
-            Jsonb(commerce_config) if commerce_config else None, commerce_api_key, guest_chat,
-            handover_note, handover_note_en,
-        ))
+    write_shop(_shop_row(
+        shop_id=shop_id, public_key=public_key, faq_write_key=faq_write_key, title=title,
+        greeting=greeting, primary_color=primary_color, shop_url=shop_url, allowed_origins=allowed_origins,
+        suggestions=suggestions or [], chat_token_secret=chat_token_secret, tone=tone,
+        commerce_config=commerce_config, commerce_api_key=commerce_api_key, guest_chat=guest_chat,
+        handover_note=handover_note, handover_note_en=handover_note_en))
 
 
 def set_chat_token_secret(shop_id: str, secret: str) -> bool:
-    with connect() as db:
-        return bool(db.execute("UPDATE shops SET chat_token_secret = %s WHERE shop_id = %s",
-                               (secret, shop_id)).rowcount)
+    return update_shop(shop_id, {"chat_token_secret": secret})
 
 
 def refresh_shop(shop_id: str, *, faq_write_key: str, chat_token_secret: str, shop_url: str,
                  allowed_origins: list[str], commerce_config: dict | None = None,
                  commerce_api_key: str | None = None, guest_chat: bool = False) -> None:
     """Bring an existing shop's keys, URL and commerce settings in line with the given values."""
-    with connect() as db:
-        db.execute("""UPDATE shops SET faq_key_digest = %s, chat_token_secret = %s, shop_url = %s,
-                      allowed_origins = %s, commerce_config = %s, commerce_api_key = %s,
-                      guest_chat = %s WHERE shop_id = %s""", (
-            key_digest(faq_write_key), chat_token_secret, shop_url.rstrip("/"),
-            Jsonb(sorted(set(allowed_origins))), Jsonb(commerce_config) if commerce_config else None,
-            commerce_api_key, guest_chat, shop_id))
+    update_shop(shop_id, _shop_row(faq_write_key=faq_write_key, chat_token_secret=chat_token_secret,
+                                   shop_url=shop_url, allowed_origins=allowed_origins,
+                                   commerce_config=commerce_config, commerce_api_key=commerce_api_key,
+                                   guest_chat=guest_chat))
 
 
 def revoke_customer_tokens(shop_id: str, customer_id: str, logout_at: int) -> None:
@@ -167,6 +192,53 @@ def token_revoked(shop_id: str, customer_id: str, issued_at: int) -> bool:
         row = db.execute("SELECT logout_at FROM token_cutoffs WHERE shop_id = %s AND customer_id = %s",
                          (shop_id, customer_id)).fetchone()
     return bool(row) and issued_at <= row["logout_at"]
+
+
+def claim_conversation(conversation_id: str, seconds: float) -> bool:
+    """Mark a conversation busy for one turn; False while another turn (in any process) holds it."""
+    with connect() as db:
+        return bool(db.execute("""UPDATE conversations SET busy_until = now() + make_interval(secs => %s)
+                                  WHERE id = %s AND (busy_until IS NULL OR busy_until < now())""",
+                               (seconds, conversation_id)).rowcount)
+
+
+def release_conversation(conversation_id: str) -> None:
+    with connect() as db:
+        db.execute("UPDATE conversations SET busy_until = NULL WHERE id = %s", (conversation_id,))
+
+
+@contextmanager
+def advisory_lock(name: str):
+    """A PostgreSQL lock held for the block, shared by every server process (e.g. one FAQ push per
+    shop). It uses its own connection, so a push waiting here does not take a pooled one from chat;
+    if the process dies, PostgreSQL releases the lock with the connection."""
+    with psycopg.connect(pool().conninfo, autocommit=True) as db:
+        db.execute("SELECT pg_advisory_lock(hashtext(%s))", (name,))
+        try:
+            yield
+        finally:
+            db.execute("SELECT pg_advisory_unlock(hashtext(%s))", (name,))
+
+
+def rate_counts(keys: list[str], since: datetime) -> dict[str, dict]:
+    """Per key: requests in the last minute, age in seconds of the oldest of them, and since `since`."""
+    with connect() as db:
+        rows = db.execute("""SELECT key,
+                count(*) FILTER (WHERE at > now() - interval '60 seconds') AS minute,
+                extract(epoch FROM now() - min(at) FILTER (WHERE at > now() - interval '60 seconds')) AS age,
+                count(*) FILTER (WHERE at >= %s) AS day
+            FROM rate_events WHERE key = ANY(%s) AND at >= least(%s, now() - interval '60 seconds')
+            GROUP BY key""", (since, keys, since)).fetchall()
+    return {row["key"]: {"minute": row["minute"], "age": float(row["age"] or 0), "day": row["day"]}
+            for row in rows}
+
+
+def rate_record(keys: list[str]) -> None:
+    with connect() as db:
+        with db.cursor() as cursor:
+            cursor.executemany("INSERT INTO rate_events (key) VALUES (%s)", [(key,) for key in keys])
+        if secrets.randbelow(200) == 0:  # now and then, forget what no limit looks at any more
+            db.execute("DELETE FROM rate_events WHERE at < now() - interval '2 days'")
 
 
 def guest_allowed(shop: dict) -> bool:

@@ -27,6 +27,48 @@ def coupon_discount(code: str, subtotal: int, fee: int) -> tuple[int, str | None
     return 0, "Mã giảm giá không hợp lệ."
 
 
+def _events() -> list[dict]:
+    try:
+        entries = json.loads(EVENTS_PATH.read_text(encoding="utf-8"))["events"]
+        return entries if isinstance(entries, list) else []
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+
+
+def event_discount(lines: list[dict], payment_method: str | None, now: datetime | None = None) -> dict:
+    """What the events running now take off this cart, from each event's "rule": a percentage on the
+    matching products (by brand and/or category, optionally capped and only for one payment method),
+    free shipping, and gifts. A rule that needs another payment method is returned as a hint."""
+    now = now or datetime.now(timezone.utc)
+    result = {"amount": 0, "free_shipping": False, "titles": [], "hints": [], "gifts": []}
+    for event in _events():
+        rule = event.get("rule") or {}
+        try:
+            if not datetime.fromisoformat(event["starts_at"]) <= now <= datetime.fromisoformat(event["ends_at"]):
+                continue
+        except (KeyError, TypeError, ValueError):
+            continue
+        matching = [line for line in lines
+                    if (not rule.get("brand") or line["product"]["brand"] == rule["brand"])
+                    and (not rule.get("categories") or line["product"]["category"] in rule["categories"])]
+        if rule.get("payment") and payment_method != rule["payment"]:
+            if matching:
+                result["hints"].append(event["title"])
+            continue
+        amount = sum(line["amount"] for line in matching) * int(rule.get("percent", 0)) // 100
+        if rule.get("max_discount"):
+            amount = min(amount, int(rule["max_discount"]))
+        gift = rule.get("gift") or {}
+        gifts = [gift["text"] + " (" + line["product"]["name"] + ")" for line in matching
+                 if any(line["product"]["name"].startswith(prefix) for prefix in gift.get("name_prefixes", []))]
+        if amount or gifts or (rule.get("free_shipping") and lines):
+            result["titles"].append(event["title"])
+        result["amount"] += amount
+        result["gifts"] += gifts
+        result["free_shipping"] = result["free_shipping"] or bool(rule.get("free_shipping") and lines)
+    return result
+
+
 def published_events() -> dict:
     """Empty/unavailable source means unknown schedule, never an asserted empty calendar."""
     try:

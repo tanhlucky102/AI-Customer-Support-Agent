@@ -24,6 +24,9 @@
     <div class="line"><span>Tạm tính</span><span>{{ subtotal|vnd }}</span></div>
     <div class="line"><span>Vận chuyển</span><span>{{ fee|vnd if fee else 'Miễn phí' }}</span></div>
     {% if discount %}<div class="line"><span>Giảm giá ({{ coupon }})</span><span class="green">-{{ discount|vnd }}</span></div>{% endif %}
+    {% if event_discount %}<div class="line"><span>Ưu đãi sự kiện ({{ events|join(", ") }})</span><span class="green">-{{ event_discount|vnd }}</span></div>{% endif %}
+    {% for g in gifts %}<div class="line"><span>{{ g }}</span><span class="green">Quà tặng</span></div>{% endfor %}
+    {% for h in event_hints %}<div class="line muted"><span>{{ h }}: giảm thêm khi thanh toán chuyển khoản</span><span></span></div>{% endfor %}
     <div class="line total"><span>Tổng</span><span>{{ total|vnd }}</span></div>
     <hr>
     {% if coupon %}

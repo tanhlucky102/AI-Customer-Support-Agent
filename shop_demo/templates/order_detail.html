@@ -31,6 +31,7 @@
     <h3>Thông tin</h3>
     <div>Ngày đặt: {{ order.placed_at }}</div>
     <div>Dự kiến giao: {{ order.eta or '—' }}</div>
+    {% if order.delivered_at %}<div>Đã giao ngày: {{ order.delivered_at }}</div>{% endif %}
     <div>Mã vận đơn: {{ order.tracking_code or 'Chưa có' }}</div>
     <div>Thanh toán: {{ order.payment_method|payment_label }}</div>
     <hr>

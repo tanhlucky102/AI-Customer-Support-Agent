@@ -93,6 +93,16 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 CREATE INDEX IF NOT EXISTS idx_conversations_owner
     ON conversations (shop_id, customer_id, updated_at DESC);
+-- A turn in progress claims its conversation until busy_until, so a second message waits even
+-- when it reaches another server process.
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS busy_until TIMESTAMPTZ;
+
+-- One row per counted chat request and key (sender, IP, shop); rows older than two days are deleted.
+CREATE TABLE IF NOT EXISTS rate_events (
+    key TEXT NOT NULL,
+    at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_rate_events ON rate_events (key, at);
 
 CREATE TABLE IF NOT EXISTS messages (
     id BIGSERIAL PRIMARY KEY,

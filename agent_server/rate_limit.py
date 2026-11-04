@@ -1,7 +1,8 @@
 """Chat limits: one-minute windows per customer and per IP, and daily quotas per shop, customer and IP.
 
-The windows live in memory (one process). The shop's daily count is read back from the traces table
-after a restart, so restarting the server does not reset the quota.
+DbChatLimiter (the server's default) counts in PostgreSQL, so several server processes share the
+limits and a restart resets nothing. ChatLimiter keeps the same counters in memory (one process,
+tests). A guest's ID is chosen by the browser, so guests are counted by IP in both.
 """
 
 import math
@@ -72,4 +73,34 @@ class ChatLimiter:
             self.daily[key] = self.daily.get(key, 0) + 1
         if len(self.daily) > 50_000:  # Bounded: keep the shops' counts, drop per-sender ones.
             self.daily = {key: value for key, value in self.daily.items() if key[0] == "shop"}
+        return None
+
+
+class DbChatLimiter:
+    """The limits of ChatLimiter, counted in the rate_events table."""
+
+    def __init__(self, per_customer_per_minute: int, per_ip_per_minute: int, daily_per_shop: int,
+                 daily_per_customer: int = 0, daily_per_ip: int = 0) -> None:
+        self.minute = {"customer_rate_limited": per_customer_per_minute, "ip_rate_limited": per_ip_per_minute}
+        self.daily = {"daily_quota_exceeded": daily_per_shop, "customer_daily_limit": daily_per_customer,
+                      "ip_daily_limit": daily_per_ip}
+
+    def check(self, shop_id: str, customer_id: str, ip: str, guest: bool = False) -> tuple[str, int] | None:
+        from agent_server import store
+        sender = f"guest:{shop_id}:{ip}" if guest else f"customer:{shop_id}:{customer_id}"
+        keys = {"customer_rate_limited": sender, "ip_rate_limited": f"ip:{ip}",
+                "daily_quota_exceeded": f"shop:{shop_id}", "customer_daily_limit": sender,
+                "ip_daily_limit": f"ip:{ip}"}
+        midnight = datetime.combine(date.today(), datetime.min.time()).astimezone()
+        counts = store.rate_counts(sorted(set(keys.values())), midnight)
+        empty = {"minute": 0, "age": 0.0, "day": 0}
+        for reason, limit in self.minute.items():
+            seen = counts.get(keys[reason], empty)
+            if limit > 0 and seen["minute"] >= limit:
+                return reason, max(1, math.ceil(60 - seen["age"]))
+        for reason, limit in self.daily.items():
+            if 0 < limit <= counts.get(keys[reason], empty)["day"]:
+                tomorrow = midnight + timedelta(days=1)
+                return reason, max(1, math.ceil((tomorrow - datetime.now().astimezone()).total_seconds()))
+        store.rate_record(sorted(set(keys.values())))
         return None

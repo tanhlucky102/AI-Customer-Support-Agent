@@ -185,7 +185,7 @@ def seed_orders(conn, customers: list[str], products: list[tuple[int, int]]) -> 
                          [(oid, pid, q, p) for pid, q, p in items])
 
 
-def main() -> None:
+def main() -> None:  # ngày giao thật được điền ở db.backfill_delivered
     if "--reset" in sys.argv and DB_PATH.exists():
         DB_PATH.unlink()
     init_db()

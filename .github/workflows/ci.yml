@@ -1,0 +1,63 @@
+# Unit and contract tests (Python, the demo shop, the widget's JavaScript) and the Docker setup.
+# No secrets are needed: tests use a bag-of-words embedder and no LLM; containers start without keys.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ati
+          POSTGRES_PASSWORD: ati
+          POSTGRES_DB: ati
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ati" --health-interval 3s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ati:ati@localhost:5432/ati   # tests create and use ati_test
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install
+        run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt pyflakes
+      - name: Lint
+        run: python -m pyflakes agent_server rag eval shared scripts tests sdk shop_demo examples
+      - name: Tests (also runs shop_demo's tests and node --test tests/js)
+        run: python -m unittest discover -s tests -t .
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cp .env.example .env
+          docker compose build
+      - name: Start the database, the Agent Server and both shops
+        run: docker compose up -d db agent shop second-shop sample-store
+      - name: Every service answers
+        run: |
+          for url in http://localhost:8000/healthz http://localhost:8000/widget/loader.js \
+                     http://localhost:8001/healthz http://localhost:8003/ http://localhost:8002/; do
+            for attempt in $(seq 1 90); do curl -fsS -o /dev/null "$url" && break; sleep 2; done
+            curl -fsS -o /dev/null "$url" && echo "ok  $url"
+          done
+      - name: Logs
+        if: failure()
+        run: docker compose logs --tail 200
+      - name: Stop
+        if: always()
+        run: docker compose down -v

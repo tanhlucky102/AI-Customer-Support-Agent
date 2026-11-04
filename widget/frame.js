@@ -1,5 +1,6 @@
 (function () {
   "use strict";
+  var core = window.ATICore;  // frame-core.js: parsing and other logic without DOM (tested in Node)
   var params = new URLSearchParams(window.location.search);
   var shopKey = params.get("shop_key") || "";
   var parentOrigin = params.get("parent_origin") || "";
@@ -40,53 +41,43 @@
     messages.scrollTop = messages.scrollHeight;
   }
 
-  // Minimal Markdown for model output: paragraphs, "- "/"1. " lists, **bold** and [n] citation
-  // markers. Built with DOM nodes and textContent only, so model text can never become HTML.
+  // Model output as DOM nodes with textContent only (core.parseMarkdown gives plain data), so
+  // model text can never become HTML.
   function appendInline(parent, text) {
-    var pattern = /\*\*([^*]+)\*\*|\[(\d{1,2})\]/g;
-    var last = 0;
-    var match;
-    while ((match = pattern.exec(text)) !== null) {
-      if (match.index > last) parent.appendChild(document.createTextNode(text.slice(last, match.index)));
-      if (match[1] !== undefined) {
+    core.parseInline(text).forEach(function (part) {
+      if (part.type === "text") {
+        parent.appendChild(document.createTextNode(part.text));
+      } else if (part.type === "bold") {
         var strong = document.createElement("strong");
-        strong.textContent = match[1];
+        strong.textContent = part.text;
         parent.appendChild(strong);
       } else {
         var cite = document.createElement("sup");
         cite.className = "cite";
-        cite.dataset.ref = match[2];  // clicking it shows the matching source below the answer
-        cite.textContent = "[" + match[2] + "]";
+        cite.dataset.ref = part.ref;  // clicking it shows the matching source below the answer
+        cite.textContent = "[" + part.ref + "]";
         parent.appendChild(cite);
       }
-      last = pattern.lastIndex;
-    }
-    if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+    });
   }
 
   function renderMarkdown(container, text) {
     container.replaceChildren();
-    var list = null;
-    text.split("\n").forEach(function (line) {
-      var item = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(line);
-      if (item) {
-        var number = /^\s*(\d+)/.exec(line);
-        var ordered = Boolean(number);
-        if (!list || list.ordered !== ordered) {
-          list = { node: document.createElement(ordered ? "ol" : "ul"), ordered: ordered };
-          if (ordered) list.node.start = Number(number[1]);  // "3." after a break stays 3.
-          container.appendChild(list.node);
-        }
-        var li = document.createElement("li");
-        appendInline(li, item[1]);
-        list.node.appendChild(li);
+    core.parseMarkdown(text).forEach(function (block) {
+      if (block.type === "p") {
+        var paragraph = document.createElement("p");
+        appendInline(paragraph, block.text);
+        container.appendChild(paragraph);
         return;
       }
-      list = null;
-      if (!line.trim()) return;
-      var paragraph = document.createElement("p");
-      appendInline(paragraph, line);
-      container.appendChild(paragraph);
+      var list = document.createElement(block.ordered ? "ol" : "ul");
+      if (block.ordered) list.start = block.start;
+      block.items.forEach(function (text) {
+        var li = document.createElement("li");
+        appendInline(li, text);
+        list.appendChild(li);
+      });
+      container.appendChild(list);
     });
   }
 
@@ -129,12 +120,7 @@
     status.hidden = true;
   }
 
-  function tokenSubject(value) {
-    try {
-      var body = value.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-      return JSON.parse(atob(body)).sub || null;
-    } catch (_) { return null; }
-  }
+  var tokenSubject = core.tokenSubject;
 
   function canChat() { return Boolean(token || guestId); }
 
@@ -151,7 +137,7 @@
     var key = "ati-guest:" + shopKey;
     try {
       var saved = window.localStorage.getItem(key);
-      if (/^[0-9a-f]{32}$/.test(saved || "")) return saved;
+      if (core.isGuestId(saved)) return saved;
     } catch (_) {}
     var bytes = new Uint8Array(16);
     window.crypto.getRandomValues(bytes);
@@ -326,18 +312,6 @@
     scrollToBottom();
   }
 
-  function parseEvent(block) {
-    var eventName = "message";
-    var data = "";
-    block.split("\n").forEach(function (line) {
-      if (line.startsWith("event:")) eventName = line.slice(6).trim();
-      if (line.startsWith("data:")) data += line.slice(5).trimStart();
-    });
-    if (!data) return null;
-    try { return { name: eventName, payload: JSON.parse(data) }; }
-    catch (_) { return null; }
-  }
-
   async function consumeStream(response, pending) {
     if (!response.body) throw new Error("Trình duyệt không hỗ trợ đọc luồng phản hồi.");
     var reader = response.body.getReader();
@@ -346,13 +320,11 @@
     var doneEvent = false;
     while (true) {
       var result = await reader.read();
-      buffer = (buffer + decoder.decode(result.value || new Uint8Array(),
-                                       { stream: !result.done })).replace(/\r\n/g, "\n");
-      var separator;
-      while ((separator = buffer.indexOf("\n\n")) !== -1) {
-        var event = parseEvent(buffer.slice(0, separator));
-        buffer = buffer.slice(separator + 2);
-        if (!event) continue;
+      var taken = core.takeEvents(buffer + decoder.decode(result.value || new Uint8Array(),
+                                                          { stream: !result.done }));
+      buffer = taken.rest;
+      for (var i = 0; i < taken.events.length; i++) {
+        var event = taken.events[i];
         if (event.name === "status") {
           status.textContent = event.payload.message || "Đang xử lý...";
         } else if (event.name === "token") {
@@ -375,12 +347,6 @@
     if (!doneEvent) throw new Error("Luồng trả lời đã ngắt trước khi hoàn thành.");
   }
 
-  var DAILY_LIMITS = {
-    daily_quota_exceeded: "Trợ lý đã hết lượt trả lời trong hôm nay. Vui lòng liên hệ trực tiếp với shop.",
-    customer_daily_limit: "Bạn đã hỏi nhiều câu trong hôm nay. Vui lòng quay lại vào ngày mai hoặc liên hệ shop.",
-    ip_daily_limit: "Mạng của bạn đã gửi quá nhiều câu hỏi trong hôm nay. Vui lòng thử lại vào ngày mai."
-  };
-
   async function callChat(question, pending) {
     abortController = new AbortController();
     var response = await apiFetch("/v1/chat", {
@@ -390,9 +356,7 @@
     });
     if (response.status === 429) {
       var limit = await response.json().catch(function () { return {}; });
-      var wait = Number(response.headers.get("Retry-After")) || 60;
-      throw new Error(DAILY_LIMITS[limit.detail] ||
-                      "Bạn gửi câu hỏi hơi nhanh. Vui lòng thử lại sau khoảng " + wait + " giây.");
+      throw new Error(core.limitMessage(limit.detail, response.headers.get("Retry-After")));
     }
     if (response.status === 401) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trên website.");
     if (!response.ok) throw new Error("Chatbot server trả lỗi HTTP " + response.status + ".");
@@ -508,15 +472,6 @@
     }
   });
 
-  // White text on a light shop colour is unreadable: pick dark text for light colours.
-  function textColourFor(hex) {
-    var value = parseInt(hex.slice(1), 16);
-    var channel = function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
-    var luminance = 0.2126 * channel(value >> 16 & 255) + 0.7152 * channel(value >> 8 & 255) +
-                    0.0722 * channel(value & 255);
-    return luminance > 0.45 ? "#0f172a" : "#ffffff";
-  }
-
   async function initialize() {
     try {
       var response = await fetch("/v1/widget-config?shop_key=" + encodeURIComponent(shopKey));
@@ -526,7 +481,7 @@
       mode.textContent = config.mode === "agent" ? "AI HỖ TRỢ" : "CHẾ ĐỘ DỰ PHÒNG · KHÔNG DÙNG AI";
       if (/^#[0-9a-fA-F]{6}$/.test(config.primary_color)) {
         document.documentElement.style.setProperty("--accent", config.primary_color);
-        document.documentElement.style.setProperty("--accent-text", textColourFor(config.primary_color));
+        document.documentElement.style.setProperty("--accent-text", core.textColourFor(config.primary_color));
       }
       addMessage(config.greeting, "bot");
       (config.suggestions || []).forEach(function (question) {

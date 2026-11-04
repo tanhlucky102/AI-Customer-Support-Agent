@@ -10,7 +10,7 @@ import json
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -141,10 +141,31 @@ async def search_knowledge_base(ctx: TurnContext, args: SearchArgs) -> Outcome:
     return Outcome({"results": results})
 
 
+def _day(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def date_facts(order: dict, today: date | None = None) -> dict:
+    """Day counts computed here, not by the model: it states them, and they are exact and checkable."""
+    today = today or datetime.now(VIETNAM).date()
+    eta, delivered = _day(order.get("eta") or ""), _day(order.get("delivered_at") or "")
+    facts = {}
+    if order.get("status") in ("pending", "confirmed", "shipping") and eta and eta < today:
+        facts["days_past_eta"] = (today - eta).days
+    if delivered:
+        facts["days_since_delivery"] = (today - delivered).days
+    elif order.get("status") in ("delivered", "returned") and eta:
+        facts["days_since_eta"] = (today - eta).days  # no delivery date: approximate
+    return facts
+
+
 def _order_for_model(order: dict) -> dict:
-    keep = ("id", "status", "status_label", "placed_at", "eta", "tracking_code", "total",
+    keep = ("id", "status", "status_label", "placed_at", "eta", "delivered_at", "tracking_code", "total",
             "shipping_fee", "discount", "payment_method", "items")
-    return {key: order[key] for key in keep if order.get(key) not in (None, [], "")}
+    return {**{key: order[key] for key in keep if order.get(key) not in (None, [], "")}, **date_facts(order)}
 
 
 def _link(ctx: TurnContext, label: str, href: str | None) -> None:
@@ -196,7 +217,7 @@ async def search_products(ctx: TurnContext, args: ProductArgs) -> Outcome:
 
 
 async def get_promotions(ctx: TurnContext, args: PromotionArgs) -> Outcome:
-    snapshot = store.list_offers(ctx.shop["shop_id"])
+    snapshot = await asyncio.to_thread(store.list_offers, ctx.shop["shop_id"])
     if not snapshot["revision"]:
         return Outcome({"published": False,
                         "note": "This shop has not published promotions to the assistant."})
@@ -301,8 +322,8 @@ def definitions(tools: list[Tool]) -> list[dict]:
 
 async def execute(ctx: TurnContext, tools: list[Tool], name: str, raw_arguments: str) -> tuple[dict, Outcome]:
     """Validate and run one tool call; failures become data the model can explain, never crashes."""
-    tool = next((item for item in tools if item.name == name), None)
-    if tool is None:
+    tool = BY_NAME.get(name)
+    if tool is None or tool not in tools:  # a tool this shop or customer is not offered
         return {}, Outcome({"error": "unknown_tool", "tool": name}, ok=False)
     try:
         raw = json.loads(raw_arguments or "{}")

@@ -132,7 +132,8 @@ class Runner:
             "sources": done["sources"] if done else [], "usage": done["usage"] if done else {},
             "llm_calls": done["llm_calls"] if done else 0, "first_token_ms": first_token,
             "total_ms": total, "search_results": tool_outputs,
-            "tool_messages": self._tool_messages(ctx, done),
+            "tool_messages": [{"name": call["name"], "args": call["args"], "ok": call["ok"]}
+                              for call in (done or {}).get("tools", [])],
             "error": next((event["message"] for event in events if event["type"] == "error"), None),
             "fallback_reason": (done or {}).get("fallback_reason"),
             # What the bot was told besides tool results; the judge must see it too.
@@ -159,10 +160,6 @@ class Runner:
                                    "content": h["content"]} for h in hits]})
             return hits
         return recorded
-
-    @staticmethod
-    def _tool_messages(ctx: TurnContext, done: dict | None) -> list:
-        return [{"name": call["name"], "args": call["args"], "ok": call["ok"]} for call in (done or {}).get("tools", [])]
 
     async def run_all(self, cases: list[dict], concurrency: int = 3, use_cache: bool = True) -> list[dict]:
         gate = asyncio.Semaphore(concurrency)

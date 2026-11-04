@@ -20,8 +20,6 @@ AGENT_SERVER_INTERNAL_URL = (os.getenv("AGENT_SERVER_INTERNAL_URL") or AGENT_SER
 WRITE_KEY = os.getenv("DEMO_FAQ_WRITE_KEY", "")
 SHOP_URL = os.getenv("DEMO_SHOP_URL", "http://localhost:8001").rstrip("/")
 SHOW_WIDGET = os.getenv("SHOW_WIDGET", "1") != "0"
-# external = widget của Agent Server (agent AI); demo = chatbot quy tắc cục bộ cũ, dùng khi không chạy Agent Server.
-WIDGET_MODE = os.getenv("WIDGET_MODE", "external").strip().lower()
 CHAT_TOKEN_TTL = int(os.getenv("CHAT_TOKEN_TTL_SECONDS", "900"))
 
 # Khoá bí mật: nếu .env chưa điền thì sinh khoá ngẫu nhiên cho riêng tiến trình này (không ai biết),

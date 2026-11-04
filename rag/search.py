@@ -56,6 +56,9 @@ def search(query: str, shop_id: str, category: str | None = None, k: int = 5,
     """Return up to k passages: {chunk_id, section_id, content, doc_title, section, url, category,
     score}. An empty list means nothing relevant enough was found.
 
+    `category` is part of contract C1 and used by the retrieval evaluation; the agent's tool passes
+    None since v3, because a guessed category excluded the right document.
+
     τ was calibrated on the agent's rewritten queries. A customer's raw words ("don 450k co mat phi
     ship ko") score far lower against the same right section, so `relaxed` (the fallback, which has
     no model to rewrite the question) also accepts the top section when the vector search and the

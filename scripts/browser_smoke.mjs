@@ -1,11 +1,13 @@
-// UI smoke test with installed Chrome and its local DevTools protocol.
+// UI smoke test with installed Chrome (or $CHROME) and its local DevTools protocol.
 // Run while scripts/run_all.py is serving the shop demo (8001) and the Agent Server (8000).
 import { spawn } from "node:child_process";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+import { findChrome } from "./chrome_path.mjs";
+
+const chromePath = findChrome();  // CHROME=... to choose another browser
 const port = 9223;
 const testUrl = process.env.ATI_TEST_URL || "http://127.0.0.1:8001/";
 // ATI_TEST_LOCKED=1: a signed-out visitor of a shop with accounts sees the login prompt and cannot send.

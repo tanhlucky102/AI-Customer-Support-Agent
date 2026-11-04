@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS orders (
     eta TEXT,
     tracking_code TEXT,
     discount INTEGER NOT NULL DEFAULT 0,
-    coupon_code TEXT
+    coupon_code TEXT,
+    checkout_key TEXT,
+    delivered_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id, placed_at DESC);
 CREATE TABLE IF NOT EXISTS order_items (
@@ -82,7 +84,18 @@ def init_db() -> None:
             conn.execute('ALTER TABLE orders ADD COLUMN coupon_code TEXT')
         if 'checkout_key' not in cols:  # một lần đặt hàng = một đơn, kể cả khi bấm nút hai lần
             conn.execute('ALTER TABLE orders ADD COLUMN checkout_key TEXT')
+        if 'delivered_at' not in cols:  # ngày giao thật (hợp đồng C2), khác ngày giao dự kiến
+            conn.execute('ALTER TABLE orders ADD COLUMN delivered_at TEXT')
+        backfill_delivered(conn)
         conn.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_checkout_key ON orders(checkout_key)')
+
+
+def backfill_delivered(conn: sqlite3.Connection) -> None:
+    """Đơn mẫu đã giao nhưng chưa có ngày giao: lấy ngày dự kiến cộng 0–2 ngày, cố định theo mã đơn,
+    để dữ liệu demo có cả đơn giao đúng hẹn lẫn giao muộn."""
+    conn.execute("""UPDATE orders SET delivered_at =
+                        date(eta, '+' || (CAST(SUBSTR(id, 3) AS INTEGER) % 3) || ' days')
+                    WHERE status IN ('delivered', 'returned') AND delivered_at IS NULL AND eta IS NOT NULL""")
 
 
 def get_db() -> Iterator[sqlite3.Connection]:

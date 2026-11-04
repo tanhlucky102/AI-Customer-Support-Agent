@@ -58,6 +58,11 @@ PUT /v1/shops/{shop_id}/offers   (khuyến mãi và sự kiện có ngày bắt 
 
 Mọi request có header `Authorization: Bearer <API key>`. Các trường JSON xem trong
 `shop_demo/api.py` và `agent_server/commerce.py` (`ORDER_FIELDS`, `CUSTOMER_FIELDS`, `PRODUCT_FIELDS`).
+
+Ngày tháng của đơn: `eta` là ngày giao **dự kiến**, `delivered_at` là ngày giao **thật** (`YYYY-MM-DD`). Số ngày
+(trễ bao nhiêu ngày, đã nhận hàng bao nhiêu ngày) do code tính (`agent_server/tools.py: date_facts`), không để model
+tự trừ ngày. Shop không gửi `delivered_at` thì số ngày được tính từ `eta` và agent nói rõ đó là ước tính, ví dụ khi
+khách hỏi còn trong hạn đổi trả không.
 Thao tác nào không làm thì bỏ khỏi cấu hình, tool tương ứng sẽ không được bật.
 
 ## 3. Mức 1b: dùng API sẵn có của shop bằng file ánh xạ
@@ -78,7 +83,7 @@ Ví dụ thật: `examples/second_shop/commerce.json`. API của Phụ Kiện Xa
       "path": "/v2/orders/{order_id}", "params": {"customer": "{customer_id}"},
       "result": "data.order",
       "fields": {"id": "code", "status": "state", "total": "amount.value", "eta": "expectedBy",
-                 "tracking_code": "ghtkCode"},
+                 "delivered_at": "deliveredAt", "tracking_code": "ghtkCode"},
       "items": {"path": "lines", "fields": {"name": "title", "qty": "quantity", "unit_price": "price"}}
     },
     "list_orders": {"path": "/v2/users/{customer_id}/orders",
@@ -195,3 +200,23 @@ Nội dung một mục (đoạn văn, danh sách, bảng). Mỗi mục nên tự
 
 Mỗi mục `##` là một đoạn cha mà agent đọc và trích dẫn. Link trích dẫn trỏ tới
 `<shop_url>/help/<slug>#muc-<n>`.
+
+## 7. Vận hành: nhiều tiến trình và model dự phòng
+
+- **Nhiều tiến trình.** Mọi trạng thái dùng chung giữa các lượt chat nằm trong PostgreSQL: một hội thoại chỉ chạy
+  một lượt tại một thời điểm (cột `conversations.busy_until`, tự hết hạn nếu tiến trình chết), giới hạn tần suất và
+  hạn mức ngày (bảng `rate_events`), mỗi shop một lần đẩy FAQ (`pg_advisory_lock`). Vì vậy có thể chạy
+  `uvicorn agent_server.app:app --workers 4` hoặc nhiều container sau load balancer. Trong RAM của từng tiến trình chỉ
+  còn cache dòng shop 10 giây. `RATE_LIMIT_BACKEND=memory` đếm trong RAM, chỉ dùng khi chạy một tiến trình.
+  Test: `tests/test_scale_out.py`.
+- **Model dự phòng.** AI Box lỗi hoặc treo trước khi khách nhận được chữ nào (sau một lần thử lại) thì lượt đó chuyển
+  sang model thứ hai, nếu được cấu hình; chỉ khi cả hai lỗi agent mới trả lời theo quy tắc. Model thứ hai là bất kỳ
+  model nào LiteLLM hỗ trợ, ví dụ model chạy trên máy qua Ollama:
+
+  ```
+  LLM_FALLBACK_MODEL=ollama_chat/qwen2.5:7b
+  LLM_FALLBACK_BASE_URL=http://localhost:11434
+  LLM_FALLBACK_API_KEY=            # để trống với Ollama
+  ```
+
+  Sự kiện `done` và bảng `traces` ghi model nào đã trả lời lượt đó.

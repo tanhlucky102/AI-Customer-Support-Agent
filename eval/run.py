@@ -20,10 +20,12 @@ from pathlib import Path
 
 
 EVAL_DIR = Path(__file__).resolve().parent
+# The folder with retrieval.jsonl and cases_agent.jsonl: eval/ (the development set) or, once, eval/heldout/.
+DATASET_DIR = EVAL_DIR
 
 
 def load(name: str) -> list[dict]:
-    return [json.loads(line) for line in (EVAL_DIR / name).read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in (DATASET_DIR / name).read_text(encoding="utf-8").splitlines()
             if line.strip()]
 
 
@@ -93,6 +95,7 @@ def qa_cases(limit_demo: int) -> list[dict]:
 
 
 async def agent_report(args) -> dict:
+    from eval.agent_eval import tool_data
     from eval.agent_eval import Judge, Runner, ensure_poison_shop
     from shared.llm import LLMProvider
 
@@ -118,6 +121,7 @@ async def agent_report(args) -> dict:
         by_type.setdefault(result["case"]["type"], []).append(result)
 
     report: dict = {"model": llm.model, "thinking": llm.thinking, "cases": len(results),
+                    "dataset": DATASET_DIR.relative_to(EVAL_DIR.parent).as_posix(),
                     "wall_seconds": round(time.perf_counter() - started, 1)}
     rows = []
 
@@ -133,11 +137,21 @@ async def agent_report(args) -> dict:
                          "tools": [c["name"] for c in result["tools"]], "reply": result["reply"][:300]})
         report["tool_selection_accuracy"] = round(correct / len(by_type["tool"]), 3)
 
+    def unanswered(result: dict) -> bool:
+        """A turn that ended with an error has no answer: it is wrong, never sent to the judge (which
+        once marked an empty answer correct from the reference alone)."""
+        return result["mode"] == "error" or not result["reply"].strip()
+
+    no_answer = {"correct": False, "reason": "no answer: the turn ended with an error"}
+
+    async def judged(results: list[dict], prompt) -> list[dict]:
+        marks = iter(await verdicts([prompt(r) for r in results if not unanswered(r)]))
+        return [dict(no_answer) if unanswered(r) else next(marks) for r in results]
+
     if by_type.get("qa"):
         from eval.agent_eval import CORRECT
-        prompts = [CORRECT.format(reference=reference_text(r["case"]), question=r["case"]["question"],
-                                  answer=r["reply"]) for r in by_type["qa"]]
-        marks = await verdicts(prompts)
+        marks = await judged(by_type["qa"], lambda r: CORRECT.format(
+            reference=reference_text(r["case"]), question=r["case"]["question"], answer=r["reply"]))
         ok = [bool(mark.get("correct")) for mark in marks]
         report["qa_accuracy"] = round(sum(ok) / len(ok), 3)
         report["qa_n"] = len(ok)
@@ -149,7 +163,7 @@ async def agent_report(args) -> dict:
     answered = [r for kind in ("tool", "qa") for r in by_type.get(kind, []) if r["mode"] == "agent" and r["reply"]]
     if answered:
         from eval.agent_eval import GROUNDED
-        prompts = [GROUNDED.format(question=r["case"]["question"], data=tool_data_full(r), answer=r["reply"])
+        prompts = [GROUNDED.format(question=r["case"]["question"], data=tool_data(r), answer=r["reply"])
                    for r in answered]
         marks = await verdicts(prompts)
         grounded = [bool(mark.get("grounded")) for mark in marks]
@@ -164,8 +178,8 @@ async def agent_report(args) -> dict:
     if by_type.get("out_of_scope"):
         from eval.agent_eval import REFUSAL
         oos = by_type["out_of_scope"]
-        marks = await verdicts([REFUSAL.format(kind=r["case"]["kind"], question=r["case"]["question"],
-                                               data=tool_data_full(r), answer=r["reply"]) for r in oos])
+        marks = await judged(oos, lambda r: REFUSAL.format(kind=r["case"]["kind"], question=r["case"]["question"],
+                                                           data=tool_data(r), answer=r["reply"]))
         ok = [bool(m.get("correct")) for m in marks]
         report["correct_refusal_rate"] = round(sum(ok) / len(ok), 3)
         report["unrelated_without_tools"] = round(
@@ -181,7 +195,7 @@ async def agent_report(args) -> dict:
         attacks = by_type["attack"]
         marks = await verdicts([ATTACK.format(goal=r["case"]["goal"], customer=r["case"]["customer_id"],
                                               question=r["case"]["question"],
-                                              data=tool_data_full(r), answer=r["reply"]) for r in attacks])
+                                              data=tool_data(r), answer=r["reply"]) for r in attacks])
         blocked = 0
         for r, m in zip(attacks, marks):
             leaked = [text for text in r["case"].get("forbidden", []) if text.lower() in r["reply"].lower()]
@@ -213,11 +227,6 @@ async def agent_report(args) -> dict:
     report["fallback_or_error"] = [r["id"] for r in results if r["mode"] != "agent"]
     report["rows"] = rows
     return report
-
-
-def tool_data_full(result: dict) -> str:
-    from eval.agent_eval import tool_data
-    return tool_data(result)
 
 
 async def baseline_report(args) -> dict:
@@ -278,8 +287,12 @@ def main() -> None:
     parser.add_argument("--thinking", action="store_true", help="Let deepseek-flash reason first")
     parser.add_argument("--configs", help="Comma-separated retrieval configurations")
     parser.add_argument("--results", help="Judge the answers in this results.json instead of running")
+    parser.add_argument("--dataset", type=Path, default=EVAL_DIR,
+                        help="Folder with retrieval.jsonl and cases_agent.jsonl (eval/heldout: run it once)")
     args = parser.parse_args()
     args.types = args.types.split(",")
+    global DATASET_DIR
+    DATASET_DIR = args.dataset.resolve()
 
     from agent_server.store import init_db
     init_db()
@@ -287,7 +300,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     if args.what in ("retrieval", "all"):
         from eval.retrieval_eval import run
-        report = run(args.configs.split(",") if args.configs else None)
+        report = run(args.configs.split(",") if args.configs else None, dataset_dir=DATASET_DIR)
         (out / "retrieval.json").write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
         print(json.dumps({name: {k: v for k, v in metrics.items() if k != "misses"}
                           for name, metrics in report["configs"].items()}, indent=1))

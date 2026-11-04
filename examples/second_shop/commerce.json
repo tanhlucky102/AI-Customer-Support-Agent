@@ -9,7 +9,8 @@
       "result": "data.order",
       "fields": {
         "id": "code", "status": "state", "total": "amount.value", "shipping_fee": "shipFee",
-        "placed_at": "createdAt", "eta": "expectedBy", "tracking_code": "ghtkCode",
+        "placed_at": "createdAt", "eta": "expectedBy", "delivered_at": "deliveredAt",
+        "tracking_code": "ghtkCode",
         "payment_method": "pay"
       },
       "items": {"path": "lines", "fields": {"name": "title", "qty": "quantity", "unit_price": "price"}}

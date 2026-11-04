@@ -1,0 +1,23 @@
+{
+ "when": "2026-11-04, right after the v13 run",
+ "what": "10 sequential LLMProvider.complete calls, prompt \"Trả lời đúng một chữ: OK\", max_tokens=5, no failover",
+ "latency_ms": [
+  10499,
+  1646,
+  2259,
+  3688,
+  1981,
+  1704,
+  28773,
+  5013,
+  3340,
+  30321
+ ],
+ "failed": [
+  9
+ ],
+ "failure": "LLMError after the 30 s timeout",
+ "p50_ms": 3688,
+ "over_25s": 2,
+ "why": "v13 p95 (30.5 s) reflects AI Box at the time: a one-word answer took p50 3.7 s and 2 of 10 calls stalled about 30 s"
+}

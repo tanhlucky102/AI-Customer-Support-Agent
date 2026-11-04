@@ -1,0 +1,37 @@
+{
+ "run": "agent_v13, final configuration (04/11/2026)",
+ "reviewer": "Claude Code (AI assistant), not yet confirmed by the team",
+ "method": "Each flagged claim compared with the data the bot received (eval/runs/v13/results.json) and with the system prompt, which the judge does not see. Only flagged answers were reviewed; unflagged answers were not re-checked.",
+ "items": [
+  {
+   "id": "t-36",
+   "claim": "Máy iPhone của bạn vẫn trong thời hạn bảo hành 12 tháng",
+   "verdict": "supported",
+   "reason": "The customer says the phone was bought 2 months ago; search_knowledge_base returned 'Thời hạn bảo hành điện thoại là 12 tháng ... kể từ ngày nhận hàng'. 2 months is within 12 (also flagged in v12)."
+  },
+  {
+   "id": "t-48",
+   "claim": "bạn chưa đăng nhập",
+   "verdict": "supported",
+   "reason": "Sample Store visitor in guest mode. The system prompt for guests states 'the visitor is not logged in' (agent_server/prompts.py); the judge sees tool results and system context only, not the system prompt."
+  },
+  {
+   "id": "q-r-gd-012",
+   "claim": "A 20W adapter plus the Lightning cable would cover it; the Ugreen Mini 20W is the cheapest and best rated of the chargers",
+   "verdict": "unsupported",
+   "reason": "The prices and ratings are in the search_products results (444,000₫ is the lowest; 5.0 is the highest rating, shared with the Ugreen Pro). The pairing advice 'a 20W adapter plus the Lightning cable would cover it' is a recommendation no tool states (the same sentence was flagged in v10 and v12)."
+  }
+ ],
+ "not_judged": {
+  "id": "q-r-gd-044",
+  "why": "AI Box stalled in the middle of the answer; the turn ended with the error event, so there is no answer to judge (89 of 90 answers judged)."
+ },
+ "summary": {
+  "flagged": 3,
+  "supported": 2,
+  "unsupported": 1,
+  "judged_answers": 89,
+  "groundedness_judged": 0.966,
+  "groundedness_after_review": 0.989
+ }
+}

@@ -52,7 +52,7 @@ STANDARD_PROFILE = {
 }
 
 ORDER_FIELDS = ("id", "status", "total", "shipping_fee", "discount", "payment_method", "placed_at",
-                "eta", "tracking_code")
+                "eta", "delivered_at", "tracking_code")
 ITEM_FIELDS = ("name", "qty", "unit_price")
 CUSTOMER_FIELDS = ("id", "full_name", "email", "phone", "address", "tier", "created_at")
 PRODUCT_FIELDS = ("id", "name", "brand", "category", "price", "old_price", "stock", "os", "ram_gb",
@@ -81,6 +81,27 @@ OPERATION_VARIABLES = {"get_order": {"order_id", "customer_id"},
                        "list_orders": {"customer_id", "limit", "status"},
                        "get_customer": {"customer_id"},
                        "search_products": {"query", "category", "max_price", "limit"}}
+
+
+_clients: dict[tuple[str, float], tuple[object, httpx.AsyncClient]] = {}
+
+
+def shared_client(base_url: str, timeout: float) -> httpx.AsyncClient:
+    """One connection pool per shop API, reused by every turn (in the current event loop)."""
+    loop = asyncio.get_running_loop()
+    entry = _clients.get((base_url, timeout))
+    if not entry or entry[0] is not loop or entry[1].is_closed:
+        entry = _clients[(base_url, timeout)] = (loop, httpx.AsyncClient(
+            base_url=base_url, timeout=timeout, follow_redirects=False))
+    return entry[1]
+
+
+async def close_clients() -> None:
+    loop = asyncio.get_running_loop()
+    for owner, client in list(_clients.values()):
+        if owner is loop:
+            await client.aclose()
+    _clients.clear()
 
 
 def fill(template: str, values: dict) -> str | None:
@@ -201,23 +222,33 @@ class RestCommerceAdapter:
             if value:
                 params[name] = value
         timeout = float(self.config.get("timeout_seconds", 6))
+
+        async def fetch(client: httpx.AsyncClient) -> bytes | None:
+            async with client.stream("GET", path, params=params, headers=self._headers()) as response:
+                if response.status_code == 404:
+                    return None
+                if response.status_code != 200:
+                    raise CommerceError(f"{operation}: HTTP {response.status_code}")
+                body = bytearray()
+                async for chunk in response.aiter_bytes():  # Stop reading past the cap.
+                    body += chunk
+                    if len(body) > MAX_RESPONSE_BYTES:
+                        raise CommerceError(f"{operation}: response too large")
+                return bytes(body)
+
         try:
             # httpx's timeout bounds each read; this bounds the whole call (a slowly dripping reply).
             async with asyncio.timeout(timeout * 2):
-                async with httpx.AsyncClient(base_url=self.base_url, transport=self.transport,
-                                             timeout=timeout, follow_redirects=False) as client:
-                    async with client.stream("GET", path, params=params, headers=self._headers()) as response:
-                        if response.status_code == 404:
-                            return None
-                        if response.status_code != 200:
-                            raise CommerceError(f"{operation}: HTTP {response.status_code}")
-                        body = bytearray()
-                        async for chunk in response.aiter_bytes():  # Stop reading past the cap.
-                            body += chunk
-                            if len(body) > MAX_RESPONSE_BYTES:
-                                raise CommerceError(f"{operation}: response too large")
+                if self.transport:  # tests and the evaluation serve the shop in-process
+                    async with httpx.AsyncClient(base_url=self.base_url, transport=self.transport,
+                                                 timeout=timeout, follow_redirects=False) as client:
+                        body = await fetch(client)
+                else:
+                    body = await fetch(shared_client(self.base_url, timeout))
         except (httpx.HTTPError, TimeoutError) as error:
             raise CommerceError(f"{operation}: {type(error).__name__}") from None
+        if body is None:
+            return None
         try:
             data = json.loads(body)
         except ValueError:

@@ -1,0 +1,60 @@
+{
+ "run": "held-out set (eval/heldout), run once on the v13 system (04/11/2026)",
+ "reviewer": "Claude Code (AI assistant), not yet confirmed by the team",
+ "method": "Each flagged claim compared with the data the bot received (eval/runs/heldout/results.json) and with the system prompt. Only flagged and wrong answers were reviewed. Nothing in the system was changed after seeing these results.",
+ "items": [
+  {
+   "id": "h-t-05",
+   "claim": "Có 4 mẫu pin dự phòng 20.000mAh dưới 1 triệu đang còn hàng",
+   "verdict": "supported",
+   "reason": "search_products returned 5 power banks under 1,000,000₫, all in stock; 4 of them are 20.000mAh (the fifth is 10.000mAh). The count is read off the tool result."
+  },
+  {
+   "id": "h-t-07",
+   "claim": "Hot Sale Cuối Tuần: đang diễn ra",
+   "verdict": "supported",
+   "reason": "get_promotions lists it under \"current\"; the answer also says it applies on Saturdays and Sundays, as the description states."
+  },
+  {
+   "id": "h-t-11",
+   "claim": "Đơn PKX205102 đang ở trạng thái Chờ xác nhận (Đã đặt hàng)",
+   "verdict": "supported",
+   "reason": "get_order_status returned status pending / \"Chờ xác nhận\"; the shop's documents call its first status \"Đã đặt hàng\" (the mapped API status PLACED), which is what the cancellation rule refers to. A correct inference the judge does not accept."
+  },
+  {
+   "id": "q-h-pol-005",
+   "claim": "Khi đi bảo hành, bạn chỉ cần mang máy kèm mã đơn hàng online là được",
+   "verdict": "supported",
+   "reason": "quy-trinh-bao-hanh: bring the device \"kèm hoá đơn mua hàng hoặc mã đơn hàng online\"; the customer lost the paper invoice, so the order code is enough."
+  },
+  {
+   "id": "q-h-pkx-010",
+   "claim": "Vậy bạn có thể nhận hàng trong khoảng thứ Ba đến thứ Sáu tuần sau",
+   "verdict": "unsupported",
+   "reason": "The documents give 2–4 working days from confirmation and say orders after 16:00 are processed the next working day (Monday). The bot turned this into a date range itself; counting from a Monday confirmation gives Wednesday–Friday, so \"Tuesday\" is one day early. A computed date the documents do not state."
+  }
+ ],
+ "wrong_answers": [
+  {
+   "id": "q-h-pol-016",
+   "question": "tại mình hẹn shipper giao lùi lại mấy hôm nên đơn tới trễ, vậy có được tính giao trễ để nhận đền bù ko",
+   "what_happened": "The agent's search query ('đơn giao trễ được đền bù gì, điều kiện đền bù giao trễ') dropped the customer's key detail (a delivery the customer postponed), so the section 'Trường hợp không áp dụng chính sách giao hàng trễ' was not retrieved. The bot said the documents it saw do not cover this case and offered a handover: incomplete, not invented."
+  },
+  {
+   "id": "q-h-pol-012",
+   "what_happened": "AI Box stalled in the middle of the answer; the turn ended with the error event (no answer)."
+  },
+  {
+   "id": "q-h-pkx-005",
+   "what_happened": "AI Box stalled in the middle of the answer; the turn ended with the error event (no answer)."
+  }
+ ],
+ "summary": {
+  "flagged": 5,
+  "supported": 4,
+  "unsupported": 1,
+  "judged_answers": 40,
+  "groundedness_judged": 0.875,
+  "groundedness_after_review": 0.975
+ }
+}
