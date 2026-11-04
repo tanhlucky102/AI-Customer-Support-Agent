@@ -21,6 +21,7 @@ out/
 .vercel/
 
 # Data & models
+data/pgdata/
 data/raw/
 data/processed/
 models/
@@ -30,6 +31,9 @@ models/
 # Eval artifacts
 eval/runs/
 eval/cache/
+# scripts/bad_cases.py also writes a readable bad_cases.md next to bad_cases.json (not committed).
+eval/results/*.md
+# Final reports are copied to eval/results/ and committed.
 
 # IDE & OS
 .vscode/

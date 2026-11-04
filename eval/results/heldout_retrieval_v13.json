@@ -1,0 +1,434 @@
+{
+ "dataset": "eval/heldout",
+ "contextual_share": 0.0,
+ "configs": {
+  "vector": {
+   "n": 30,
+   "recall@1": 0.633,
+   "recall@5": 0.867,
+   "recall@5_gated": 0.833,
+   "mrr@10": 0.744,
+   "latency_ms_p50": 43,
+   "latency_ms_p95": 52,
+   "misses": [
+    {
+     "id": "h-pol-002",
+     "question": "tra hang hon 1 tuan roi ma van chua thay tien ve, gio phai lien he ai",
+     "expected": [
+      "hoan-tien#Chưa nhận được tiền hoàn"
+     ],
+     "got": [
+      "tra-gop#Kỳ hạn, lãi suất và số tiền góp hằng tháng",
+      "cap-nhat-phan-mem#Không root, jailbreak hoặc cài ROM không chính thức",
+      "bao-hanh-mo-rong#Trường hợp gói bảo hành mở rộng không áp dụng"
+     ]
+    },
+    {
+     "id": "h-pol-003",
+     "question": "đt mới mua bị lỗi nsx, muốn đổi 1 đổi 1 thì gửi yêu cầu kiểu gì, phí gửi máy về shop ai trả",
+     "expected": [
+      "doi-tra#Cách gửi yêu cầu đổi trả điện thoại"
+     ],
+     "got": [
+      "doi-tra#Bảng tóm tắt các trường hợp đổi trả điện thoại",
+      "doi-tra-phu-kien#Cách gửi yêu cầu đổi phụ kiện",
+      "doi-tra#Trả điện thoại do không còn nhu cầu"
+     ]
+    },
+    {
+     "id": "h-pol-007",
+     "question": "o tinh xa khong co showroom thi gui may di bao hanh bang cach nao",
+     "expected": [
+      "quy-trinh-bao-hanh#Gửi bảo hành từ xa khi không đến được showroom"
+     ],
+     "got": [
+      "showroom#Mua hàng trực tiếp tại showroom",
+      "showroom#Địa chỉ và giờ mở cửa showroom",
+      "showroom#Dịch vụ tại showroom Demo Mobile"
+     ]
+    },
+    {
+     "id": "h-pkx-003",
+     "question": "cu sac nhieu cong cam 2 may cung luc thi moi may co sac cham hon ko",
+     "expected": [
+      "chon-cu-sac#Củ sạc nhiều cổng và công nghệ GaN"
+     ],
+     "got": [
+      "chon-cu-sac#Chọn cáp sạc đi kèm",
+      "thanh-toan#Phụ Kiện Xanh không hỗ trợ trả góp",
+      "van-chuyen#Kiểm tra hàng khi nhận"
+     ]
+    }
+   ]
+  },
+  "bm25": {
+   "n": 30,
+   "recall@1": 0.767,
+   "recall@5": 0.833,
+   "recall@5_gated": 0.0,
+   "mrr@10": 0.803,
+   "latency_ms_p50": 4,
+   "latency_ms_p95": 22,
+   "misses": [
+    {
+     "id": "h-pol-005",
+     "question": "làm sao biết máy mình còn bảo hành hay hết rồi, hoá đơn giấy mất tiêu rồi",
+     "expected": [
+      "bao-hanh#Tra cứu thời hạn bảo hành"
+     ],
+     "got": [
+      "showroom#Giấy tờ cần mang khi đến showroom",
+      "may-nong-va-cach-xu-ly#Gửi bảo hành điện thoại nóng máy tại Demo Mobile",
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ]
+    },
+    {
+     "id": "h-pol-006",
+     "question": "máy mua được 2 tháng rồi giờ mới mua thêm gói bh mở rộng còn kịp ko",
+     "expected": [
+      "bao-hanh-mo-rong#Thời hạn và cách đăng ký gói bảo hành mở rộng",
+      "bao-hanh-mo-rong#Trường hợp gói bảo hành mở rộng không áp dụng"
+     ],
+     "got": [
+      "chon-dien-thoai-theo-ngan-sach#Gói bảo hành mở rộng khi mua điện thoại",
+      "bao-hanh-mo-rong#Bảo hành mở rộng miễn phí 6 tháng cho thành viên hạng Vàng",
+      "bao-hanh-mo-rong#Quyền lợi của gói Bảo hành mở rộng +12 tháng"
+     ]
+    },
+    {
+     "id": "h-pol-013",
+     "question": "How do I get my account and all my personal data deleted?",
+     "expected": [
+      "bao-mat-du-lieu#Yêu cầu xoá dữ liệu cá nhân"
+     ],
+     "got": []
+    },
+    {
+     "id": "h-pol-015",
+     "question": "Do you have same-day express delivery? And can you ship to Singapore?",
+     "expected": [
+      "van-chuyen#Khu vực giao hàng và hình thức nhận hàng"
+     ],
+     "got": [
+      "van-chuyen#Đơn vị vận chuyển",
+      "sac-nhanh-va-cu-sac-gan#Các chuẩn sạc nhanh phổ biến",
+      "magsafe-va-sac-khong-day#So sánh sạc không dây và sạc có dây"
+     ]
+    },
+    {
+     "id": "h-pkx-001",
+     "question": "tai nghe mua bên shop bị hư, gửi bảo hành kiểu gì, có phải tự trả tiền ship ko",
+     "expected": [
+      "bao-hanh#Cách gửi sản phẩm bảo hành"
+     ],
+     "got": [
+      "bao-hanh#Trường hợp không được bảo hành",
+      "doi-tra#Đổi sản phẩm lỗi trong 30 ngày",
+      "lien-he#Phụ Kiện Xanh chỉ bán hàng trực tuyến"
+     ]
+    }
+   ]
+  },
+  "tsrank": {
+   "n": 30,
+   "recall@1": 0.333,
+   "recall@5": 0.767,
+   "recall@5_gated": 0.0,
+   "mrr@10": 0.504,
+   "latency_ms_p50": 79,
+   "latency_ms_p95": 146,
+   "misses": [
+    {
+     "id": "h-pol-002",
+     "question": "tra hang hon 1 tuan roi ma van chua thay tien ve, gio phai lien he ai",
+     "expected": [
+      "hoan-tien#Chưa nhận được tiền hoàn"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "van-chuyen#Theo dõi đơn hàng bằng mã vận đơn"
+     ]
+    },
+    {
+     "id": "h-pol-005",
+     "question": "làm sao biết máy mình còn bảo hành hay hết rồi, hoá đơn giấy mất tiêu rồi",
+     "expected": [
+      "bao-hanh#Tra cứu thời hạn bảo hành"
+     ],
+     "got": [
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
+      "bao-hanh-mo-rong#Quyền lợi của gói Bảo hành mở rộng +12 tháng",
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google"
+     ]
+    },
+    {
+     "id": "h-pol-007",
+     "question": "o tinh xa khong co showroom thi gui may di bao hanh bang cach nao",
+     "expected": [
+      "quy-trinh-bao-hanh#Gửi bảo hành từ xa khi không đến được showroom"
+     ],
+     "got": [
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
+      "bao-hanh-mo-rong#Quyền lợi của gói Bảo hành mở rộng +12 tháng",
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại"
+     ]
+    },
+    {
+     "id": "h-pol-009",
+     "question": "có người nhắn zalo xưng là nhân viên Demo Mobile, kêu ck tiền cọc vô tài khoản cá nhân, có phải bên shop ko",
+     "expected": [
+      "chuyen-khoan#An toàn khi thanh toán chuyển khoản"
+     ],
+     "got": [
+      "tat-tim-iphone-va-frp#Gỡ tài khoản hãng trên điện thoại Samsung, Xiaomi và các hãng khác",
+      "tat-tim-iphone-va-frp#Đăng xuất tài khoản Google để gỡ khoá FRP",
+      "tai-khoan-dang-ky#Đăng ký tài khoản Demo Mobile"
+     ]
+    },
+    {
+     "id": "h-pol-013",
+     "question": "How do I get my account and all my personal data deleted?",
+     "expected": [
+      "bao-mat-du-lieu#Yêu cầu xoá dữ liệu cá nhân"
+     ],
+     "got": []
+    },
+    {
+     "id": "h-pol-015",
+     "question": "Do you have same-day express delivery? And can you ship to Singapore?",
+     "expected": [
+      "van-chuyen#Khu vực giao hàng và hình thức nhận hàng"
+     ],
+     "got": [
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao",
+      "magsafe-va-sac-khong-day#So sánh sạc không dây và sạc có dây",
+      "magsafe-va-sac-khong-day#Ốp lưng dùng được với sạc không dây và MagSafe"
+     ]
+    },
+    {
+     "id": "h-pkx-010",
+     "question": "đặt hàng tối thứ 7 thì chừng nào nhận đc, shop có giao hỏa tốc ko",
+     "expected": [
+      "van-chuyen#Thời gian giao hàng"
+     ],
+     "got": [
+      "thanh-toan#Thanh toán khi nhận hàng (COD)",
+      "van-chuyen#Phí giao hàng",
+      "theo-doi-don-hang#Các trạng thái đơn hàng"
+     ]
+    }
+   ]
+  },
+  "hybrid": {
+   "n": 30,
+   "recall@1": 0.767,
+   "recall@5": 0.933,
+   "recall@5_gated": 0.833,
+   "mrr@10": 0.838,
+   "latency_ms_p50": 44,
+   "latency_ms_p95": 57,
+   "misses": [
+    {
+     "id": "h-pol-005",
+     "question": "làm sao biết máy mình còn bảo hành hay hết rồi, hoá đơn giấy mất tiêu rồi",
+     "expected": [
+      "bao-hanh#Tra cứu thời hạn bảo hành"
+     ],
+     "got": [
+      "showroom#Giấy tờ cần mang khi đến showroom",
+      "quy-trinh-bao-hanh#Gửi bảo hành trực tiếp tại showroom",
+      "may-nong-va-cach-xu-ly#Gửi bảo hành điện thoại nóng máy tại Demo Mobile"
+     ]
+    },
+    {
+     "id": "h-pkx-001",
+     "question": "tai nghe mua bên shop bị hư, gửi bảo hành kiểu gì, có phải tự trả tiền ship ko",
+     "expected": [
+      "bao-hanh#Cách gửi sản phẩm bảo hành"
+     ],
+     "got": [
+      "bao-hanh#Trường hợp không được bảo hành",
+      "doi-tra#Đổi sản phẩm lỗi trong 30 ngày",
+      "bao-hanh#Thời hạn bảo hành theo loại phụ kiện"
+     ]
+    }
+   ]
+  },
+  "hybrid_tsrank": {
+   "n": 30,
+   "recall@1": 0.633,
+   "recall@5": 0.933,
+   "recall@5_gated": 0.867,
+   "mrr@10": 0.775,
+   "latency_ms_p50": 123,
+   "latency_ms_p95": 199,
+   "misses": [
+    {
+     "id": "h-pol-002",
+     "question": "tra hang hon 1 tuan roi ma van chua thay tien ve, gio phai lien he ai",
+     "expected": [
+      "hoan-tien#Chưa nhận được tiền hoàn"
+     ],
+     "got": [
+      "doi-tra#Đổi 1 đổi 1 khi điện thoại lỗi do nhà sản xuất",
+      "tra-gop#Kỳ hạn, lãi suất và số tiền góp hằng tháng",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
+     ]
+    },
+    {
+     "id": "h-pol-005",
+     "question": "làm sao biết máy mình còn bảo hành hay hết rồi, hoá đơn giấy mất tiêu rồi",
+     "expected": [
+      "bao-hanh#Tra cứu thời hạn bảo hành"
+     ],
+     "got": [
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "quy-trinh-bao-hanh#Sao lưu dữ liệu và gỡ khoá tài khoản trước khi bảo hành",
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm"
+     ]
+    }
+   ]
+  },
+  "hybrid_rerank": {
+   "n": 30,
+   "recall@1": 0.867,
+   "recall@5": 0.933,
+   "recall@5_gated": 0.8,
+   "mrr@10": 0.89,
+   "latency_ms_p50": 159,
+   "latency_ms_p95": 172,
+   "misses": [
+    {
+     "id": "h-pol-002",
+     "question": "tra hang hon 1 tuan roi ma van chua thay tien ve, gio phai lien he ai",
+     "expected": [
+      "hoan-tien#Chưa nhận được tiền hoàn"
+     ],
+     "got": [
+      "doi-tra#Bảng tóm tắt các trường hợp đổi trả điện thoại",
+      "kiem-tra-hang-khi-nhan#Báo lỗi sau khi đã nhận hàng",
+      "trang-thai-don-hang#Đơn hàng không cập nhật trạng thái"
+     ]
+    },
+    {
+     "id": "h-pol-005",
+     "question": "làm sao biết máy mình còn bảo hành hay hết rồi, hoá đơn giấy mất tiêu rồi",
+     "expected": [
+      "bao-hanh#Tra cứu thời hạn bảo hành"
+     ],
+     "got": [
+      "quy-trinh-bao-hanh#Gửi bảo hành trực tiếp tại showroom",
+      "showroom#Giấy tờ cần mang khi đến showroom",
+      "bao-hanh#Trường hợp không được bảo hành"
+     ]
+    }
+   ]
+  },
+  "hybrid_rerank_top20": {
+   "n": 30,
+   "recall@1": 0.867,
+   "recall@5": 0.967,
+   "recall@5_gated": 0.833,
+   "mrr@10": 0.896,
+   "latency_ms_p50": 269,
+   "latency_ms_p95": 294,
+   "misses": [
+    {
+     "id": "h-pol-002",
+     "question": "tra hang hon 1 tuan roi ma van chua thay tien ve, gio phai lien he ai",
+     "expected": [
+      "hoan-tien#Chưa nhận được tiền hoàn"
+     ],
+     "got": [
+      "lien-he-ho-tro#Tổng đài hotline 1900 6868",
+      "doi-tra#Bảng tóm tắt các trường hợp đổi trả điện thoại",
+      "kiem-tra-hang-khi-nhan#Báo lỗi sau khi đã nhận hàng"
+     ]
+    }
+   ]
+  }
+ },
+ "tau": {
+  "answerable_scores": [
+   0.0,
+   0.0,
+   0.001,
+   0.003,
+   0.032,
+   0.101,
+   0.109,
+   0.112,
+   0.249,
+   0.31,
+   0.314,
+   0.339,
+   0.353,
+   0.417,
+   0.422,
+   0.424,
+   0.427,
+   0.484,
+   0.519,
+   0.674,
+   0.809,
+   0.823,
+   0.848,
+   0.894,
+   0.948,
+   0.958,
+   0.972,
+   0.974,
+   0.975,
+   0.982
+  ],
+  "unanswerable_scores": [
+   0.001,
+   0.001,
+   0.047,
+   0.071
+  ],
+  "table": [
+   {
+    "tau": 0.05,
+    "answerable_kept": 0.833,
+    "unanswerable_rejected": 0.75
+   },
+   {
+    "tau": 0.1,
+    "answerable_kept": 0.833,
+    "unanswerable_rejected": 1.0
+   },
+   {
+    "tau": 0.15,
+    "answerable_kept": 0.733,
+    "unanswerable_rejected": 1.0
+   },
+   {
+    "tau": 0.2,
+    "answerable_kept": 0.733,
+    "unanswerable_rejected": 1.0
+   },
+   {
+    "tau": 0.25,
+    "answerable_kept": 0.7,
+    "unanswerable_rejected": 1.0
+   },
+   {
+    "tau": 0.3,
+    "answerable_kept": 0.7,
+    "unanswerable_rejected": 1.0
+   },
+   {
+    "tau": 0.4,
+    "answerable_kept": 0.567,
+    "unanswerable_rejected": 1.0
+   },
+   {
+    "tau": 0.5,
+    "answerable_kept": 0.4,
+    "unanswerable_rejected": 1.0
+   }
+  ]
+ }
+}

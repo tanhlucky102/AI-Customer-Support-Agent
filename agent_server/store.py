@@ -1,0 +1,449 @@
+"""Agent Server data in PostgreSQL: shop registry, pushed FAQ/offers, chat history, tickets, traces."""
+
+import hashlib
+import hmac
+import json
+import secrets
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urlsplit
+
+import psycopg
+from psycopg.types.json import Jsonb
+
+from shared.db import connect, init_schema, pool
+from shared.settings import env, env_flag
+
+DEMO_DATA = json.loads((Path(__file__).parent / "demo_data.json").read_text(encoding="utf-8"))
+DEMO_SHOP_URL = env("DEMO_SHOP_URL", "http://localhost:8001").rstrip("/")
+# With no configured key, use an undisclosed process-local value: demo chat tokens are rejected
+# and demo FAQ writes are disabled instead of accepting a key published in the repository.
+DEMO_TOKEN_SECRET = env("DEMO_SHOP_TOKEN_SECRET") or secrets.token_urlsafe(32)
+DEMO_FAQ_WRITE_KEY = env("DEMO_FAQ_WRITE_KEY") or secrets.token_urlsafe(32)
+
+
+def origin_of(url: str) -> str:
+    """Scheme, host and port as a browser writes them: lower case, no default port."""
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return ""
+    scheme = (parts.scheme or "").lower()
+    if scheme not in ("http", "https") or not parts.hostname or parts.username or parts.password:
+        return ""
+    host = parts.hostname.lower()
+    host = f"[{host}]" if ":" in host else host  # IPv6
+    default = 80 if scheme == "http" else 443
+    return f"{scheme}://{host}" + (f":{port}" if port and port != default else "")
+
+
+def key_digest(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def iso(value: datetime | None) -> str | None:
+    return value.isoformat() if value else None
+
+
+def demo_commerce_config() -> dict:
+    """The demo shop implements contract C2, so it needs only the standard profile."""
+    return {"profile": "standard",
+            "base_url": env("DEMO_SHOP_API_URL", DEMO_SHOP_URL).rstrip("/")}
+
+
+def demo_shop_enabled() -> bool:
+    """Create the Demo Mobile shop at start-up only on a machine set up for the demo (its keys are in
+    .env, as scripts/setup_demo.py writes them) or when DEMO_SHOP=1. A real deployment has neither, so
+    it serves only the shops created with provision_shop."""
+    return env_flag("DEMO_SHOP", bool(env("DEMO_SHOP_TOKEN_SECRET")))
+
+
+_UNSET = object()
+
+
+def _shop_row(*, faq_write_key: str | None = None, shop_url: str | None = None,
+              allowed_origins: list[str] | None = None, suggestions: list[str] | None = None,
+              commerce_config=_UNSET, **plain) -> dict:
+    """Column values of the shops table, with the conversions every writer needs."""
+    row = dict(plain)
+    if faq_write_key is not None:
+        row["faq_key_digest"] = key_digest(faq_write_key)
+    if shop_url is not None:
+        row["shop_url"] = shop_url.rstrip("/")
+    if allowed_origins is not None:
+        row["allowed_origins"] = Jsonb(sorted({origin_of(o) or o for o in allowed_origins}))
+    if suggestions is not None:
+        row["suggestions"] = Jsonb(suggestions)
+    if commerce_config is not _UNSET:  # None is a value here: the shop has no commerce API
+        row["commerce_config"] = Jsonb(commerce_config) if commerce_config else None
+    return row
+
+
+def write_shop(row: dict, update_on_conflict: tuple[str, ...] = ()) -> None:
+    """INSERT a shop; with update_on_conflict, an existing shop gets those columns updated instead."""
+    columns = list(row)
+    sql = (f"INSERT INTO shops ({', '.join(columns)}) VALUES ({', '.join(['%s'] * len(columns))})")
+    if update_on_conflict:
+        sql += " ON CONFLICT (shop_id) DO UPDATE SET " + ", ".join(
+            f"{column} = EXCLUDED.{column}" for column in update_on_conflict)
+    with connect() as db:
+        db.execute(sql, [row[column] for column in columns])
+
+
+def update_shop(shop_id: str, row: dict) -> bool:
+    with connect() as db:
+        return bool(db.execute(f"UPDATE shops SET {', '.join(f'{column} = %s' for column in row)} "
+                               "WHERE shop_id = %s", [*row.values(), shop_id]).rowcount)
+
+
+def init_db() -> None:
+    init_schema()
+    if not demo_shop_enabled():
+        return
+    origins = ["http://localhost:8001", "http://127.0.0.1:8001",
+               "http://localhost:8002", "http://127.0.0.1:8002"]
+    origins.extend(item.strip() for item in env("WIDGET_ALLOWED_ORIGINS").split(",") if item.strip())
+    origins.append(origin_of(DEMO_SHOP_URL))
+    origins = sorted({origin_of(item) for item in origins if origin_of(item)})
+    # The demo website signs with the secret in .env, so the demo shop's keys always come from
+    # .env (rotate them there, not with rotate_chat_secret).
+    write_shop(_shop_row(
+        shop_id=DEMO_DATA["shop_id"], public_key=DEMO_DATA["public_key"], faq_write_key=DEMO_FAQ_WRITE_KEY,
+        title=DEMO_DATA["title"], greeting=DEMO_DATA["greeting"], primary_color=DEMO_DATA["primary_color"],
+        shop_url=DEMO_SHOP_URL, allowed_origins=origins, suggestions=DEMO_DATA["suggestions"],
+        chat_token_secret=DEMO_TOKEN_SECRET, tone=DEMO_DATA.get("tone", ""),
+        commerce_config=demo_commerce_config(), commerce_api_key=env("DEMO_SHOP_API_KEY"),
+        handover_note=DEMO_DATA.get("handover_note", ""), handover_note_en=DEMO_DATA.get("handover_note_en", "")),
+        update_on_conflict=("faq_key_digest", "shop_url", "allowed_origins", "suggestions",
+                            "chat_token_secret", "commerce_config", "commerce_api_key",
+                            "handover_note", "handover_note_en"))
+
+
+def shop_by_public_key(public_key: str) -> dict | None:
+    with connect() as db:
+        return db.execute("SELECT * FROM shops WHERE public_key = %s", (public_key,)).fetchone()
+
+
+def shop_by_id(shop_id: str) -> dict | None:
+    with connect() as db:
+        return db.execute("SELECT * FROM shops WHERE shop_id = %s", (shop_id,)).fetchone()
+
+
+def shop_for_write_key(shop_id: str, key: str) -> dict | None:
+    """The shop row when `key` is its write key (compared in constant time), else None."""
+    shop = shop_by_id(shop_id)
+    expected = shop["faq_key_digest"] if shop else "0" * 64
+    return shop if hmac.compare_digest(key_digest(key), expected) and shop else None
+
+
+def verify_faq_key(shop_id: str, key: str) -> bool:
+    return shop_for_write_key(shop_id, key) is not None
+
+
+def create_shop(*, shop_id: str, public_key: str, faq_write_key: str, title: str,
+                greeting: str, primary_color: str, shop_url: str,
+                allowed_origins: list[str], chat_token_secret: str,
+                suggestions: list[str] | None = None, tone: str = "",
+                commerce_config: dict | None = None, commerce_api_key: str | None = None,
+                guest_chat: bool = False, handover_note: str = "", handover_note_en: str = "") -> None:
+    write_shop(_shop_row(
+        shop_id=shop_id, public_key=public_key, faq_write_key=faq_write_key, title=title,
+        greeting=greeting, primary_color=primary_color, shop_url=shop_url, allowed_origins=allowed_origins,
+        suggestions=suggestions or [], chat_token_secret=chat_token_secret, tone=tone,
+        commerce_config=commerce_config, commerce_api_key=commerce_api_key, guest_chat=guest_chat,
+        handover_note=handover_note, handover_note_en=handover_note_en))
+
+
+def set_chat_token_secret(shop_id: str, secret: str) -> bool:
+    return update_shop(shop_id, {"chat_token_secret": secret})
+
+
+def refresh_shop(shop_id: str, *, faq_write_key: str, chat_token_secret: str, shop_url: str,
+                 allowed_origins: list[str], commerce_config: dict | None = None,
+                 commerce_api_key: str | None = None, guest_chat: bool = False) -> None:
+    """Bring an existing shop's keys, URL and commerce settings in line with the given values."""
+    update_shop(shop_id, _shop_row(faq_write_key=faq_write_key, chat_token_secret=chat_token_secret,
+                                   shop_url=shop_url, allowed_origins=allowed_origins,
+                                   commerce_config=commerce_config, commerce_api_key=commerce_api_key,
+                                   guest_chat=guest_chat))
+
+
+def revoke_customer_tokens(shop_id: str, customer_id: str, logout_at: int) -> None:
+    """Every chat token of this customer issued at or before `logout_at` (epoch seconds) stops working."""
+    from agent_server.auth import MAX_TOKEN_LIFETIME
+    with connect() as db:
+        db.execute("""INSERT INTO token_cutoffs (shop_id, customer_id, logout_at) VALUES (%s, %s, %s)
+                      ON CONFLICT (shop_id, customer_id) DO UPDATE
+                      SET logout_at = GREATEST(token_cutoffs.logout_at, EXCLUDED.logout_at)""",
+                   (shop_id, customer_id, logout_at))
+        # A cut-off older than the longest token lifetime protects nothing any more.
+        db.execute("DELETE FROM token_cutoffs WHERE logout_at < %s",
+                   (int(now().timestamp()) - MAX_TOKEN_LIFETIME - 120,))
+
+
+def token_revoked(shop_id: str, customer_id: str, issued_at: int) -> bool:
+    with connect() as db:
+        row = db.execute("SELECT logout_at FROM token_cutoffs WHERE shop_id = %s AND customer_id = %s",
+                         (shop_id, customer_id)).fetchone()
+    return bool(row) and issued_at <= row["logout_at"]
+
+
+def claim_conversation(conversation_id: str, seconds: float) -> bool:
+    """Mark a conversation busy for one turn; False while another turn (in any process) holds it."""
+    with connect() as db:
+        return bool(db.execute("""UPDATE conversations SET busy_until = now() + make_interval(secs => %s)
+                                  WHERE id = %s AND (busy_until IS NULL OR busy_until < now())""",
+                               (seconds, conversation_id)).rowcount)
+
+
+def release_conversation(conversation_id: str) -> None:
+    with connect() as db:
+        db.execute("UPDATE conversations SET busy_until = NULL WHERE id = %s", (conversation_id,))
+
+
+@contextmanager
+def advisory_lock(name: str):
+    """A PostgreSQL lock held for the block, shared by every server process (e.g. one FAQ push per
+    shop). It uses its own connection, so a push waiting here does not take a pooled one from chat;
+    if the process dies, PostgreSQL releases the lock with the connection."""
+    with psycopg.connect(pool().conninfo, autocommit=True) as db:
+        db.execute("SELECT pg_advisory_lock(hashtext(%s))", (name,))
+        try:
+            yield
+        finally:
+            db.execute("SELECT pg_advisory_unlock(hashtext(%s))", (name,))
+
+
+def rate_counts(keys: list[str], since: datetime) -> dict[str, dict]:
+    """Per key: requests in the last minute, age in seconds of the oldest of them, and since `since`."""
+    with connect() as db:
+        rows = db.execute("""SELECT key,
+                count(*) FILTER (WHERE at > now() - interval '60 seconds') AS minute,
+                extract(epoch FROM now() - min(at) FILTER (WHERE at > now() - interval '60 seconds')) AS age,
+                count(*) FILTER (WHERE at >= %s) AS day
+            FROM rate_events WHERE key = ANY(%s) AND at >= least(%s, now() - interval '60 seconds')
+            GROUP BY key""", (since, keys, since)).fetchall()
+    return {row["key"]: {"minute": row["minute"], "age": float(row["age"] or 0), "day": row["day"]}
+            for row in rows}
+
+
+def rate_record(keys: list[str]) -> None:
+    with connect() as db:
+        with db.cursor() as cursor:
+            cursor.executemany("INSERT INTO rate_events (key) VALUES (%s)", [(key,) for key in keys])
+        if secrets.randbelow(200) == 0:  # now and then, forget what no limit looks at any more
+            db.execute("DELETE FROM rate_events WHERE at < now() - interval '2 days'")
+
+
+def guest_allowed(shop: dict) -> bool:
+    """Guests (no login) may chat only with a shop that opted in and has no commerce API, so a
+    guest can never reach order or account tools."""
+    return bool(shop.get("guest_chat")) and not shop.get("commerce_config")
+
+
+def set_commerce(shop_id: str, config: dict | None, api_key: str | None) -> bool:
+    """Connect (or disconnect, with None) a shop's commerce API. Operator-only."""
+    with connect() as db:
+        return bool(db.execute(
+            "UPDATE shops SET commerce_config = %s, commerce_api_key = %s WHERE shop_id = %s",
+            (Jsonb(config) if config else None, api_key, shop_id)).rowcount)
+
+
+def list_faqs(shop_id: str) -> list[dict]:
+    with connect() as db:
+        rows = db.execute("""SELECT faq_id, question, answer, keywords, source_url
+                             FROM faqs WHERE shop_id = %s ORDER BY faq_id""", (shop_id,)).fetchall()
+    return [{"id": row["faq_id"], "question": row["question"], "answer": row["answer"],
+             "keywords": row["keywords"], "source_url": row["source_url"]} for row in rows]
+
+
+def replace_faqs(shop_id: str, faqs: list[dict]) -> tuple[int, int]:
+    """Replace a shop's FAQ snapshot atomically and return (count, revision)."""
+    with connect() as db:
+        # Lock the shop row: two concurrent pushes then run one after the other.
+        # Lock only against another push; FOR UPDATE would also block new conversations meanwhile.
+        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR NO KEY UPDATE", (shop_id,))
+        db.execute("DELETE FROM faqs WHERE shop_id = %s", (shop_id,))
+        with db.cursor() as cursor:
+            cursor.executemany("""INSERT INTO faqs
+                (shop_id, faq_id, question, answer, keywords, source_url)
+                VALUES (%s, %s, %s, %s, %s, %s)""", [
+                (shop_id, faq["id"], faq["question"], faq["answer"], Jsonb(faq["keywords"]),
+                 faq.get("source_url")) for faq in faqs])
+        revision = db.execute("""UPDATE shops SET faq_revision = faq_revision + 1, faq_updated_at = %s
+                                 WHERE shop_id = %s RETURNING faq_revision""",
+                              (now(), shop_id)).fetchone()["faq_revision"]
+    return len(faqs), revision
+
+
+def replace_offers(shop_id: str, offers: list[dict]) -> tuple[int, int]:
+    """Replace a shop's published promotions/events snapshot atomically."""
+    with connect() as db:
+        db.execute("SELECT 1 FROM shops WHERE shop_id = %s FOR NO KEY UPDATE", (shop_id,))
+        db.execute("DELETE FROM offers WHERE shop_id = %s", (shop_id,))
+        with db.cursor() as cursor:
+            cursor.executemany("""INSERT INTO offers
+                (shop_id, offer_id, kind, title, description, starts_at, ends_at, source_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""", [
+                (shop_id, row["id"], row["kind"], row["title"], row["description"],
+                 row.get("starts_at"), row.get("ends_at"), row.get("source_url")) for row in offers])
+        revision = db.execute("""UPDATE shops SET offers_revision = offers_revision + 1,
+                                 offers_updated_at = %s WHERE shop_id = %s RETURNING offers_revision""",
+                              (now(), shop_id)).fetchone()["offers_revision"]
+    return len(offers), revision
+
+
+def list_offers(shop_id: str) -> dict:
+    with connect() as db:
+        shop = db.execute("SELECT offers_revision, offers_updated_at FROM shops WHERE shop_id = %s",
+                          (shop_id,)).fetchone()
+        rows = db.execute("""SELECT offer_id, kind, title, description, starts_at, ends_at, source_url
+                             FROM offers WHERE shop_id = %s ORDER BY offer_id""", (shop_id,)).fetchall()
+    return {"revision": shop["offers_revision"] if shop else 0,
+            "updated_at": iso(shop["offers_updated_at"]) if shop else None,
+            "offers": [{"id": row["offer_id"], "kind": row["kind"], "title": row["title"],
+                        "description": row["description"], "starts_at": iso(row["starts_at"]),
+                        "ends_at": iso(row["ends_at"]), "source_url": row["source_url"]}
+                       for row in rows]}
+
+
+def conversation_owned(conversation_id: str, shop_id: str, customer_id: str) -> bool:
+    with connect() as db:
+        row = db.execute("SELECT 1 FROM conversations WHERE id = %s AND shop_id = %s "
+                         "AND customer_id = %s", (conversation_id, shop_id, customer_id)).fetchone()
+    return row is not None
+
+
+def create_conversation(conversation_id: str, shop_id: str, customer_id: str,
+                        first_message: str) -> None:
+    title = first_message.strip().replace("\n", " ")[:80]
+    with connect() as db:
+        db.execute("""INSERT INTO conversations (id, shop_id, customer_id, title, created_at, updated_at)
+                      VALUES (%s, %s, %s, %s, %s, %s)""",
+                   (conversation_id, shop_id, customer_id, title, now(), now()))
+
+
+def delete_empty_conversation(conversation_id: str) -> None:
+    """Remove a conversation whose first turn failed, so it does not appear empty in history."""
+    with connect() as db:
+        # A conversation that already opened a ticket is kept, or the cascade would delete the ticket.
+        db.execute("""DELETE FROM conversations c WHERE c.id = %s
+                      AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id)
+                      AND NOT EXISTS (SELECT 1 FROM tickets t WHERE t.conversation_id = c.id)""",
+                   (conversation_id,))
+
+
+def append_turn(conversation_id: str, shop_id: str, customer_id: str,
+                question: str, reply: str, sources: list[dict]) -> int:
+    """Store one question/answer pair and return the assistant message id."""
+    with connect() as db:
+        owned = db.execute("SELECT 1 FROM conversations WHERE id = %s AND shop_id = %s "
+                           "AND customer_id = %s", (conversation_id, shop_id, customer_id)).fetchone()
+        if not owned:
+            raise ValueError("unknown_conversation")
+        at = now()
+        db.execute("""INSERT INTO messages (conversation_id, role, content, sources, created_at)
+                      VALUES (%s, 'user', %s, '[]', %s)""", (conversation_id, question, at))
+        message_id = db.execute("""INSERT INTO messages (conversation_id, role, content, sources,
+                                   created_at) VALUES (%s, 'assistant', %s, %s, %s) RETURNING id""",
+                                (conversation_id, reply, Jsonb(sources), at)).fetchone()["id"]
+        db.execute("UPDATE conversations SET updated_at = %s WHERE id = %s", (at, conversation_id))
+    return message_id
+
+
+def list_conversations(shop_id: str, customer_id: str) -> list[dict]:
+    with connect() as db:
+        # Only conversations with a saved turn: a first turn cut off by a closed tab leaves none.
+        rows = db.execute("""SELECT id, title, status, created_at, updated_at FROM conversations c
+                             WHERE shop_id = %s AND customer_id = %s
+                               AND EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = c.id)
+                             ORDER BY updated_at DESC LIMIT 40""", (shop_id, customer_id)).fetchall()
+    return [{**row, "created_at": iso(row["created_at"]), "updated_at": iso(row["updated_at"])}
+            for row in rows]
+
+
+def list_messages(conversation_id: str, shop_id: str, customer_id: str,
+                  limit: int = 100) -> list[dict] | None:
+    if not conversation_owned(conversation_id, shop_id, customer_id):
+        return None
+    with connect() as db:
+        rows = db.execute("""SELECT role, content, sources, created_at FROM messages
+                             WHERE conversation_id = %s ORDER BY id DESC LIMIT %s""",
+                          (conversation_id, limit)).fetchall()
+    return [{"role": row["role"], "content": row["content"], "sources": row["sources"],
+             "created_at": iso(row["created_at"])} for row in reversed(rows)]
+
+
+def create_ticket(*, conversation_id: str, shop_id: str, customer_id: str, reason: str,
+                  summary: str, idempotency_key: str) -> str:
+    """Open a support ticket once per idempotency key and return its public code."""
+    with connect() as db:
+        row = db.execute("""INSERT INTO tickets
+            (conversation_id, shop_id, customer_id, reason, summary, idempotency_key)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
+            RETURNING id""", (conversation_id, shop_id, customer_id, reason, summary,
+                              idempotency_key)).fetchone()
+        db.execute("UPDATE conversations SET status = 'escalated' WHERE id = %s", (conversation_id,))
+    return f"TK{row['id']:06d}"
+
+
+def list_tickets(shop_id: str, status: str | None = None, before_id: int | None = None,
+                 limit: int = 100) -> list[dict]:
+    """Newest first; page with before_id (the smallest id of the previous page)."""
+    with connect() as db:
+        rows = db.execute("""SELECT id, conversation_id, customer_id, reason, summary, status,
+                             created_at FROM tickets
+                             WHERE shop_id = %s AND (%s::text IS NULL OR status = %s)
+                               AND (%s::bigint IS NULL OR id < %s)
+                             ORDER BY id DESC LIMIT %s""",
+                          (shop_id, status, status, before_id, before_id, limit)).fetchall()
+    return [{**row, "code": f"TK{row['id']:06d}", "created_at": iso(row["created_at"])} for row in rows]
+
+
+def close_ticket(shop_id: str, ticket_id: int) -> bool:
+    with connect() as db:
+        return bool(db.execute("UPDATE tickets SET status = 'closed' WHERE shop_id = %s AND id = %s",
+                               (shop_id, ticket_id)).rowcount)
+
+
+def save_feedback(conversation_id: str, shop_id: str, rating: str) -> None:
+    with connect() as db:
+        db.execute("""INSERT INTO feedback (conversation_id, shop_id, rating) VALUES (%s, %s, %s)
+                      ON CONFLICT (conversation_id) DO UPDATE SET rating = EXCLUDED.rating,
+                      updated_at = now()""", (conversation_id, shop_id, rating))
+
+
+def feedback_counts(shop_id: str) -> dict:
+    with connect() as db:
+        rows = db.execute("SELECT rating, count(*) AS n FROM feedback WHERE shop_id = %s GROUP BY rating",
+                          (shop_id,)).fetchall()
+    return {"yes": 0, "no": 0, **{row["rating"]: row["n"] for row in rows}}
+
+
+def turns_since(shop_id: str, since: datetime) -> int:
+    """Chat turns already answered for this shop since `since` (the daily quota survives restarts)."""
+    with connect() as db:
+        return db.execute("SELECT count(*) AS n FROM traces WHERE shop_id = %s AND created_at >= %s",
+                          (shop_id, since)).fetchone()["n"]
+
+
+def save_trace(trace: dict) -> None:
+    """One row per assistant turn: tokens, cache hits, tools and latency (no message text)."""
+    columns = ("message_id", "conversation_id", "shop_id", "model", "mode", "llm_calls",
+               "input_tokens", "output_tokens", "cached_tokens", "tools_called",
+               "latency_first_ms", "latency_first_token_ms", "latency_total_ms", "error")
+    values = [Jsonb(trace.get(name) or []) if name == "tools_called" else trace.get(name)
+              for name in columns]
+    values[columns.index("llm_calls")] = trace.get("llm_calls") or 0
+    for name in ("input_tokens", "output_tokens", "cached_tokens"):
+        values[columns.index(name)] = trace.get(name) or 0
+    with connect() as db:
+        db.execute(f"INSERT INTO traces ({', '.join(columns)}) VALUES "
+                   f"({', '.join(['%s'] * len(columns))})", values)

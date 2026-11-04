@@ -1,0 +1,62 @@
+# First run:
+#   cp .env.example .env                                       # then set AI_BOX_API_KEY
+#   docker compose run --rm agent python scripts/setup_demo.py  # writes the keys into .env, indexes
+#   docker compose up --build
+# .env is mounted into the agent container (read by the app itself, not through env_file, whose
+# empty "KEY=" lines would hide the keys setup_demo.py writes), so the generated keys land on the host;
+# the shops read the filled .env through env_file when they start. The browser reaches every service on localhost; services reach
+# each other by name (AGENT_SERVER_INTERNAL_URL).
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ati
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: support_agent
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ati -d support_agent"]
+      interval: 3s
+      retries: 20
+
+  agent:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://ati:${POSTGRES_PASSWORD:-change_me}@db:5432/support_agent
+      DEMO_SHOP_API_URL: http://shop:8001
+      SECOND_SHOP_API_URL: http://second-shop:8003
+      AGENT_SERVER_URL: http://localhost:8000
+    ports: ["8000:8000"]
+    volumes: [models:/models, ./.env:/app/.env]
+    depends_on:
+      db: {condition: service_healthy}
+
+  shop:
+    build: .
+    working_dir: /app/shop_demo
+    command: sh -c "python seed.py && uvicorn app:app --host 0.0.0.0 --port 8001"
+    env_file: .env
+    environment:
+      AGENT_SERVER_URL: http://localhost:8000        # in the page's <script src>, for the browser
+      AGENT_SERVER_INTERNAL_URL: http://agent:8000   # server-to-server calls (logout, offers)
+    ports: ["8001:8001"]
+
+  second-shop:
+    build: .
+    command: uvicorn examples.second_shop.app:app --host 0.0.0.0 --port 8003
+    env_file: .env
+    environment:
+      AGENT_SERVER_URL: http://localhost:8000
+      AGENT_SERVER_INTERNAL_URL: http://agent:8000
+    ports: ["8003:8003"]
+
+  sample-store:  # level 0: a static page with the widget, guest chat
+    image: python:3.11-slim
+    working_dir: /site
+    command: python -m http.server 8002
+    volumes: [./examples/third_party_site:/site:ro]
+    ports: ["8002:8002"]
+
+volumes:
+  pgdata:
+  models:

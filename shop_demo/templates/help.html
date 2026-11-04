@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<p class="crumb"><a href="/">Trang chủ</a> › <a href="/help">Trung tâm trợ giúp</a>{% if doc %} › {{ doc.title }}{% endif %}</p>
+<div class="layout">
+  <aside class="filters">
+    {% for group, docs in groups.items() %}
+    <div class="fgroup"><h4>{{ group }}</h4>
+      {% for item in docs %}<a class="opt {{ 'on' if doc and item.slug == doc.slug }}" href="/help/{{ item.slug }}">{{ item.title }}</a>{% endfor %}
+    </div>
+    {% endfor %}
+  </aside>
+  <article class="doc">
+    {% if doc %}
+    <h1>{{ doc.title }}</h1>
+    {% if doc.updated_at %}<p class="muted">Cập nhật: {{ doc.updated_at }}</p>{% endif %}
+    {{ doc.html | safe }}
+    {% else %}
+    <h1>Trung tâm trợ giúp</h1>
+    <p>Chính sách, hướng dẫn và câu hỏi thường gặp của Demo Mobile. Trợ lý chat ở góc màn hình trả lời dựa trên đúng các tài liệu này.</p>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

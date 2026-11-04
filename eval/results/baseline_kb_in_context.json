@@ -1,0 +1,17 @@
+{
+ "n": 20,
+ "kb_sections": 227,
+ "stuffing": {
+  "accuracy": 1.0,
+  "input_tokens_mean": 73048,
+  "cached_share": 0.997,
+  "latency_ms_p50": 1691,
+  "latency_ms_p95": 2597
+ },
+ "rag_agent": {
+  "accuracy": 1.0,
+  "input_tokens_mean": 7049,
+  "latency_ms_p50": 2705,
+  "latency_ms_p95": 3663
+ }
+}

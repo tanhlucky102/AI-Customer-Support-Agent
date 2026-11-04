@@ -3,7 +3,8 @@
 {% block content %}
 <h1>Đặt hàng</h1>
 <div class="two">
-  <form action="/checkout" method="post" class="form">
+  <form action="/checkout" method="post" class="form" onsubmit="this.querySelector('button.big').disabled = true">
+    <input type="hidden" name="checkout_key" value="{{ checkout_key }}">
     <label>Người nhận <input name="ship_name" required value="{{ user.full_name }}"></label>
     <label>Số điện thoại <input name="ship_phone" required pattern="[0-9+ ]{9,15}" value="{{ user.phone or '' }}"></label>
     <label>Địa chỉ giao hàng <textarea name="ship_address" required rows="3">{{ user.address or '' }}</textarea></label>
@@ -23,6 +24,9 @@
     <div class="line"><span>Tạm tính</span><span>{{ subtotal|vnd }}</span></div>
     <div class="line"><span>Vận chuyển</span><span>{{ fee|vnd if fee else 'Miễn phí' }}</span></div>
     {% if discount %}<div class="line"><span>Giảm giá ({{ coupon }})</span><span class="green">-{{ discount|vnd }}</span></div>{% endif %}
+    {% if event_discount %}<div class="line"><span>Ưu đãi sự kiện ({{ events|join(", ") }})</span><span class="green">-{{ event_discount|vnd }}</span></div>{% endif %}
+    {% for g in gifts %}<div class="line"><span>{{ g }}</span><span class="green">Quà tặng</span></div>{% endfor %}
+    {% for h in event_hints %}<div class="line muted"><span>{{ h }}: giảm thêm khi thanh toán chuyển khoản</span><span></span></div>{% endfor %}
     <div class="line total"><span>Tổng</span><span>{{ total|vnd }}</span></div>
     <hr>
     {% if coupon %}

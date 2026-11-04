@@ -1,0 +1,349 @@
+"""The agent's tools: JSON schemas for the model, Pydantic re-validation, and execution.
+
+The model never supplies a customer ID: every commerce call uses the ID from the verified chat
+token (TurnContext.customer_id). Arguments are validated again on the server, and unknown fields
+are rejected, so a prompt-injected "customer_id" argument fails validation instead of being used.
+"""
+
+import asyncio
+import json
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from agent_server import store
+from agent_server.commerce import ORDER_STATUSES, CommerceAdapter, CommerceError
+from shared.pii import PiiFilter, mask_address, mask_email, mask_phone
+from shared.text import source_label
+
+VIETNAM = timezone(timedelta(hours=7))  # The shops' time zone; also used for today's date.
+
+logger = logging.getLogger(__name__)
+logger.addFilter(PiiFilter())
+
+
+class Args(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class SearchArgs(Args):
+    # No category argument: in evaluation v2 the model's guessed category excluded the right
+    # document (a battery-safety guide filed under product guides was searched as "warranty").
+    query: str = Field(min_length=2, max_length=300)
+
+
+class OrderArgs(Args):
+    # Letters (also accented, "ĐH10293"), digits and _ - . #, up to 64 characters; a number is read
+    # as text. Sent as typed, because some shops' codes are case-sensitive; the adapter URL-encodes it.
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
+    order_id: str = Field(pattern=r"^[\w#][\w.#-]{0,63}$")
+
+
+class ListOrdersArgs(Args):
+    limit: int = Field(default=5, ge=1, le=10)
+    status: Literal[ORDER_STATUSES] | None = None  # type: ignore[valid-type]
+
+
+class NoArgs(Args):
+    pass
+
+
+class ProductArgs(Args):
+    query: str = Field(default="", max_length=120)
+    category: str | None = Field(default=None, max_length=60)
+    max_price: int | None = Field(default=None, ge=0, le=1_000_000_000)
+
+
+class PromotionArgs(Args):
+    kind: Literal["promotion", "event", "all"] = "all"
+
+
+class EscalateArgs(Args):
+    reason: Literal["customer_request", "complaint", "needs_staff_action", "unanswered"]
+    transcript_summary: str = Field(min_length=5, max_length=1000)
+
+
+@dataclass
+class TurnContext:
+    shop: dict
+    customer_id: str
+    conversation_id: str
+    turn_key: str
+    adapter: CommerceAdapter | None
+    search: Callable[..., list[dict]]
+    sources: dict[int, dict] = field(default_factory=dict)  # citation number -> {label, href}
+    links: list[dict] = field(default_factory=list)          # order / product / promotion pages
+    english: bool = False  # the customer's message is in English (set by agent.run)
+
+    def cite(self, label: str, href: str | None) -> int:
+        """One number per section: found again by a second search, it keeps its first number."""
+        source = {"label": label, "href": href}
+        for number, known in self.sources.items():
+            if known == source:
+                return number
+        number = len(self.sources) + 1
+        self.sources[number] = source
+        return number
+
+    @property
+    def guest(self) -> bool:
+        """A visitor of a guest-enabled shop, not a logged-in customer (see require_customer)."""
+        return self.customer_id.startswith("guest:")
+
+
+@dataclass
+class Outcome:
+    content: dict
+    ok: bool = True
+    final_text: str | None = None  # Set when the tool ends the turn (escalation).
+
+
+@dataclass(frozen=True)
+class Tool:
+    name: str
+    description: str
+    args: type[Args]
+    status: str
+    capability: str | None
+    run: Callable
+
+
+def schema(model: type[Args]) -> dict:
+    result = model.model_json_schema()
+    result.pop("title", None)
+    for prop in result.get("properties", {}).values():
+        prop.pop("title", None)
+        if "anyOf" in prop:  # Optional[...] -> plain type, and null is allowed by omission.
+            options = [item for item in prop.pop("anyOf") if item.get("type") != "null"]
+            prop.update(options[0])
+        if prop.get("default", 0) is None:
+            del prop["default"]
+    result["additionalProperties"] = False
+    return result
+
+
+async def search_knowledge_base(ctx: TurnContext, args: SearchArgs) -> Outcome:
+    hits = await asyncio.to_thread(ctx.search, args.query, ctx.shop["shop_id"], None)
+    if not hits:
+        return Outcome({"no_results": True,
+                        "note": "No section matched this query. If you have not yet, search once "
+                                "more with different words (the topic's usual name); if that also "
+                                "finds nothing, the documents do not cover it. Do not guess."})
+    results = []
+    for hit in hits:
+        number = ctx.cite(source_label(hit), hit.get("url"))
+        results.append({"ref": number, "document": hit["doc_title"], "section": hit["section"],
+                        "text": hit["content"].split("\n", 1)[-1]})
+    return Outcome({"results": results})
+
+
+def _day(value) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10])
+    except ValueError:
+        return None
+
+
+def date_facts(order: dict, today: date | None = None) -> dict:
+    """Day counts computed here, not by the model: it states them, and they are exact and checkable."""
+    today = today or datetime.now(VIETNAM).date()
+    eta, delivered = _day(order.get("eta") or ""), _day(order.get("delivered_at") or "")
+    facts = {}
+    if order.get("status") in ("pending", "confirmed", "shipping") and eta and eta < today:
+        facts["days_past_eta"] = (today - eta).days
+    if delivered:
+        facts["days_since_delivery"] = (today - delivered).days
+    elif order.get("status") in ("delivered", "returned") and eta:
+        facts["days_since_eta"] = (today - eta).days  # no delivery date: approximate
+    return facts
+
+
+def _order_for_model(order: dict) -> dict:
+    keep = ("id", "status", "status_label", "placed_at", "eta", "delivered_at", "tracking_code", "total",
+            "shipping_fee", "discount", "payment_method", "items")
+    return {**{key: order[key] for key in keep if order.get(key) not in (None, [], "")}, **date_facts(order)}
+
+
+def _link(ctx: TurnContext, label: str, href: str | None) -> None:
+    if href and all(link["href"] != href for link in ctx.links):
+        ctx.links.append({"label": label, "href": href})
+
+
+async def get_order_status(ctx: TurnContext, args: OrderArgs) -> Outcome:
+    order = await ctx.adapter.get_order(args.order_id, ctx.customer_id)
+    if order is None:
+        return Outcome({"not_found": True, "order_id": args.order_id,
+                        "note": "No such order in this customer's account."})
+    _link(ctx, f"Xem đơn {order['id']}", order.get("url"))
+    return Outcome({"order": _order_for_model(order)})
+
+
+async def list_customer_orders(ctx: TurnContext, args: ListOrdersArgs) -> Outcome:
+    orders = await ctx.adapter.list_orders(ctx.customer_id, args.limit, args.status)
+    if ctx.adapter and orders:
+        page = ctx.adapter.orders_page()
+        if page:
+            _link(ctx, "Đơn hàng của tôi", page)
+        else:  # No order-list page mapped: link the newest order under its own name.
+            _link(ctx, f"Xem đơn {orders[0]['id']}", orders[0].get("url"))
+    return Outcome({"orders": [_order_for_model({**order, "items": None}) for order in orders],
+                    "shown": len(orders),
+                    # A full page means there may be older orders; "shown" is not the customer's total.
+                    "may_have_more": len(orders) == args.limit})
+
+
+async def get_customer_profile(ctx: TurnContext, args: NoArgs) -> Outcome:
+    customer = await ctx.adapter.get_customer(ctx.customer_id)
+    if customer is None:
+        return Outcome({"not_found": True})
+    return Outcome({"customer": {
+        "full_name": customer.get("full_name"), "tier": customer.get("tier"),
+        "email": mask_email(customer.get("email")), "phone": mask_phone(customer.get("phone")),
+        "address": mask_address(customer.get("address")), "member_since": customer.get("created_at"),
+    }})
+
+
+async def search_products(ctx: TurnContext, args: ProductArgs) -> Outcome:
+    products = await ctx.adapter.search_products(args.query, args.category, args.max_price, 5)
+    for product in products[:3]:
+        _link(ctx, f"Xem {product.get('name') or 'sản phẩm'}", product.get("url"))
+    return Outcome({"products": [{key: value for key, value in product.items()
+                                  if key != "url" and value is not None} for product in products],
+                    "count": len(products)})
+
+
+async def get_promotions(ctx: TurnContext, args: PromotionArgs) -> Outcome:
+    snapshot = await asyncio.to_thread(store.list_offers, ctx.shop["shop_id"])
+    if not snapshot["revision"]:
+        return Outcome({"published": False,
+                        "note": "This shop has not published promotions to the assistant."})
+    now = datetime.now(timezone.utc)
+    current, upcoming = [], []
+    for offer in snapshot["offers"]:
+        if args.kind != "all" and offer["kind"] != args.kind:
+            continue
+        start = datetime.fromisoformat(offer["starts_at"]) if offer["starts_at"] else None
+        end = datetime.fromisoformat(offer["ends_at"]) if offer["ends_at"] else None
+        if end and end < now:
+            continue
+        item = {key: offer[key] for key in ("kind", "title", "description") if offer[key]}
+        # The database returns UTC; the model reads "2026-11-10T17:00+00:00" as 10/11, not 11/11.
+        item.update({key: moment.astimezone(VIETNAM).strftime("%Y-%m-%d %H:%M")
+                     for key, moment in (("starts_at", start), ("ends_at", end)) if moment})
+        (upcoming if start and start > now else current).append(item)
+        if len(current) + len(upcoming) <= 3:  # a few links, not one chip per published offer
+            _link(ctx, offer["title"], offer.get("source_url"))
+    return Outcome({"current": current, "upcoming": upcoming,
+                    "published_at": local_time(snapshot["updated_at"])})
+
+
+def local_time(value: str | None) -> str | None:
+    return datetime.fromisoformat(value).astimezone(VIETNAM).strftime("%Y-%m-%d %H:%M") if value else None
+
+
+async def escalate_to_human(ctx: TurnContext, args: EscalateArgs) -> Outcome:
+    code = await asyncio.to_thread(
+        store.create_ticket, conversation_id=ctx.conversation_id, shop_id=ctx.shop["shop_id"],
+        customer_id=ctx.customer_id, reason=args.reason, summary=args.transcript_summary,
+        idempotency_key=ctx.turn_key)
+    # The follow-up promise is the shop's own (handover_note); without one, no time is promised.
+    if ctx.english:
+        note = ctx.shop.get("handover_note_en") or "Our staff will get back to you as soon as possible."
+        text = f"I have passed your request to our support staff (ticket {code}). {note}"
+    else:
+        note = ctx.shop.get("handover_note") or "Nhân viên của shop sẽ liên hệ lại với bạn sớm nhất có thể."
+        text = f"Mình đã chuyển yêu cầu của bạn cho nhân viên hỗ trợ (mã phiếu {code}). {note}"
+    return Outcome({"ticket": code}, final_text=text)
+
+
+TOOLS = [
+    Tool("search_knowledge_base",
+         "Search this shop's help-center documents: policies, fees, returns, warranty, shipping, "
+         "payment, installment, membership, account, store and contact information, and product "
+         "how-to guides. Use it for every question whose answer is a rule, fee, procedure or "
+         "instruction rather than the customer's own data. `query` must be a complete, "
+         "self-contained question in Vietnamese with diacritics that resolves references from "
+         "earlier turns and keeps the customer's own key words (product, symptom, fee), e.g. "
+         "'thời hạn đổi trả điện thoại lỗi', not 'còn cái kia thì sao'. Results are "
+         "numbered; cite them as [n]. `no_results` after two different queries means the documents do not cover it.",
+         SearchArgs, "Đang tra cứu tài liệu của shop...", None, search_knowledge_base),
+    Tool("get_order_status",
+         "Get one of the logged-in customer's own orders by its order ID (e.g. SO10293): status, "
+         "estimated delivery date, tracking code, total and items. `not_found` means that ID is "
+         "not an order of this customer.",
+         OrderArgs, "Đang kiểm tra đơn hàng...", "get_order", get_order_status),
+    Tool("list_customer_orders",
+         "List the logged-in customer's most recent orders, newest first, optionally filtered by "
+         "status. Use it when they ask about their orders without giving an ID.",
+         ListOrdersArgs, "Đang xem các đơn hàng gần đây...", "list_orders", list_customer_orders),
+    Tool("get_customer_profile",
+         "Get the logged-in customer's account summary: name, membership tier, member since, and "
+         "masked e-mail, phone and address.",
+         NoArgs, "Đang xem thông tin tài khoản...", "get_customer", get_customer_profile),
+    Tool("search_products",
+         "Search this shop's live product catalogue for current price, old price, stock and basic "
+         "specs. `query` is one to three words of the product name as the shop writes it, in "
+         "Vietnamese even if the customer writes English (e.g. 'cáp Lightning', 'sạc 20W', "
+         "'Galaxy S25'); every word must appear in the name, so keep it short. Leave `category` "
+         "empty unless you know the shop's exact category name. `max_price` is in VND.",
+         ProductArgs, "Đang tìm sản phẩm...", "search_products", search_products),
+    Tool("get_promotions",
+         "Get the promotions and dated events this shop has currently published, with dates.",
+         PromotionArgs, "Đang xem ưu đãi của shop...", None, get_promotions),
+    Tool("escalate_to_human",
+         "Open a support ticket so that a human agent takes over. Call it at once when the "
+         "customer asks for a person or makes a complaint. For something only staff can do (a "
+         "refund, cancelling or changing an order that is already shipping, changing the delivery "
+         "address) or a question the documents could not answer, first explain what you found and "
+         "ask whether they want a handover; call it only after they agree. Do not use it for "
+         "questions the other tools can answer. The customer then gets a fixed confirmation with "
+         "the shop's own follow-up promise.",
+         EscalateArgs, "Đang chuyển cho nhân viên hỗ trợ...", None, escalate_to_human),
+]
+BY_NAME = {tool.name: tool for tool in TOOLS}
+
+
+def toolset_for(adapter: CommerceAdapter | None, guest: bool = False) -> list[Tool]:
+    """Offer only the tools the shop's integration supports (level 0 has no commerce tools).
+    A guest gets no commerce tools and no handover: staff could not reach someone without an account."""
+    capabilities = adapter.capabilities if adapter and not guest else frozenset()
+    return [tool for tool in TOOLS if (tool.capability is None or tool.capability in capabilities)
+            and not (guest and tool.name == "escalate_to_human")]
+
+
+def definitions(tools: list[Tool]) -> list[dict]:
+    return [{"type": "function", "function": {"name": tool.name, "description": tool.description,
+                                              "parameters": schema(tool.args)}} for tool in tools]
+
+
+async def execute(ctx: TurnContext, tools: list[Tool], name: str, raw_arguments: str) -> tuple[dict, Outcome]:
+    """Validate and run one tool call; failures become data the model can explain, never crashes."""
+    tool = BY_NAME.get(name)
+    if tool is None or tool not in tools:  # a tool this shop or customer is not offered
+        return {}, Outcome({"error": "unknown_tool", "tool": name}, ok=False)
+    try:
+        raw = json.loads(raw_arguments or "{}")
+        if not isinstance(raw, dict):
+            raise ValueError("arguments must be an object")
+        # Models sometimes send null for optional fields; treat it as omitted.
+        raw = {key: value for key, value in raw.items() if value is not None}
+        args = tool.args.model_validate(raw)
+    except (ValueError, ValidationError) as error:
+        return {}, Outcome({"error": "invalid_arguments", "details": str(error)[:300]}, ok=False)
+    try:
+        outcome = await tool.run(ctx, args)
+    except CommerceError as error:
+        logger.warning("shop API failed for shop %s: %s", ctx.shop["shop_id"], error)
+        outcome = Outcome({"error": "shop_system_unavailable",
+                           "note": "The shop's order system did not respond. Apologise and offer "
+                                   "to hand over to staff; do not guess."}, ok=False)
+    except Exception:  # A failing tool (database, search model) must not end the whole turn.
+        logger.exception("tool %s failed for shop %s", name, ctx.shop["shop_id"])
+        outcome = Outcome({"error": "tool_failed",
+                           "note": "This lookup failed. Apologise briefly; do not guess the answer."},
+                          ok=False)
+    return args.model_dump(exclude_none=True), outcome

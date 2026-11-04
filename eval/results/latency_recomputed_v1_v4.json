@@ -1,0 +1,45 @@
+{
+ "method": "nearest-rank percentile (ceil); recomputed from the saved answers; runs used 3 concurrent sessions",
+ "runs": {
+  "v1": {
+   "n": 125,
+   "first_token_p50": 2474,
+   "first_token_p95": 8159,
+   "total_p50": 3358,
+   "total_p95": 9036,
+   "one_tool_p95": 9586
+  },
+  "v2": {
+   "n": 125,
+   "first_token_p50": 2202,
+   "first_token_p95": 4951,
+   "total_p50": 2822,
+   "total_p95": 5824,
+   "one_tool_p95": 7979
+  },
+  "v3": {
+   "n": 125,
+   "first_token_p50": 2188,
+   "first_token_p95": 4929,
+   "total_p50": 2833,
+   "total_p95": 5300,
+   "one_tool_p95": 6747
+  },
+  "v4": {
+   "n": 125,
+   "first_token_p50": 2246,
+   "first_token_p95": 3987,
+   "total_p50": 2886,
+   "total_p95": 4476,
+   "one_tool_p95": 4720
+  },
+  "v4-thinking": {
+   "n": 90,
+   "first_token_p50": 2728,
+   "first_token_p95": 7448,
+   "total_p50": 3499,
+   "total_p95": 7989,
+   "one_tool_p95": 7989
+  }
+ }
+}

@@ -1,0 +1,44 @@
+{
+  "events": [
+    {
+      "title": "Tuần lễ Samsung Galaxy",
+      "description": "Giảm thêm 5% (tối đa 1.000.000₫) cho điện thoại Samsung Galaxy khi thanh toán chuyển khoản; tặng ốp lưng chính hãng cho dòng Galaxy S và Z.",
+      "starts_at": "2026-10-26T00:00:00+07:00",
+      "ends_at": "2026-11-02T23:59:59+07:00",
+      "url": "/?brand=Samsung",
+      "rule": {
+        "brand": "Samsung",
+        "categories": [
+          "Điện thoại"
+        ],
+        "percent": 5,
+        "max_discount": 1000000,
+        "payment": "bank",
+        "gift": {
+          "name_prefixes": [
+            "Galaxy S",
+            "Galaxy Z"
+          ],
+          "text": "Tặng ốp lưng chính hãng"
+        }
+      }
+    },
+    {
+      "title": "Sale 11.11",
+      "description": "Giảm 20% phụ kiện (ốp lưng, sạc & cáp, tai nghe, pin dự phòng) và miễn phí vận chuyển mọi đơn trong ngày 11/11.",
+      "starts_at": "2026-11-11T00:00:00+07:00",
+      "ends_at": "2026-11-11T23:59:59+07:00",
+      "url": "/?sort=hot",
+      "rule": {
+        "categories": [
+          "Ốp lưng",
+          "Sạc & cáp",
+          "Tai nghe",
+          "Pin dự phòng"
+        ],
+        "percent": 20,
+        "free_shipping": true
+      }
+    }
+  ]
+}

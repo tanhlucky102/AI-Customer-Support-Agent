@@ -1,0 +1,1063 @@
+{
+ "contextual_share": 1.0,
+ "configs": {
+  "vector": {
+   "n": 90,
+   "recall@1": 0.689,
+   "recall@5": 0.867,
+   "mrr@10": 0.767,
+   "latency_ms_p50": 40,
+   "latency_ms_p95": 46,
+   "misses": [
+    {
+     "id": "r-pol-003",
+     "question": "may bi tray nhe o vien thi con doi tra duoc khong",
+     "expected": [
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "kiem-tra-hang-khi-nhan#Quay video khi mở hộp sản phẩm"
+     ]
+    },
+    {
+     "id": "r-pol-007",
+     "question": "don COD tra hang thi hoan tien bang cach nao",
+     "expected": [
+      "hoan-tien#Phương thức nhận tiền hoàn"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "thanh-toan#Thanh toán khi nhận hàng (COD)",
+      "thanh-toan#Chọn hoặc đổi phương thức thanh toán khi đặt hàng"
+     ]
+    },
+    {
+     "id": "r-pol-022",
+     "question": "ck nội dung ghi gì shop ơi",
+     "expected": [
+      "chuyen-khoan#Nội dung và số tiền chuyển khoản"
+     ],
+     "got": [
+      "hot-sale-cuoi-tuan#Sự kiện và khuyến mãi khác của Demo Mobile",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "tro-ly-chat#Trợ lý chat hỗ trợ những nội dung nào"
+     ]
+    },
+    {
+     "id": "r-pol-025",
+     "question": "mua tai nghe tra gop duoc ko, the atm thi sao",
+     "expected": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Bảo hành tai nghe mua tại Demo Mobile",
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-035",
+     "question": "chi bao nhieu tien thi len hang vang",
+     "expected": [
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
+     ],
+     "got": [
+      "tra-gop#Kỳ hạn, lãi suất và số tiền góp hằng tháng",
+      "giao-hang-tre#Sử dụng voucher 100.000₫ bồi thường giao trễ",
+      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới"
+     ]
+    },
+    {
+     "id": "r-pol-038",
+     "question": "quen mat khau dang nhap thi lay lai sao",
+     "expected": [
+      "quen-mat-khau#Lấy lại mật khẩu qua hotline"
+     ],
+     "got": [
+      "sac-nhanh-va-cu-sac-gan#Chọn củ sạc và cáp phù hợp tại Demo Mobile",
+      "sac-nhanh-va-cu-sac-gan#Bảo hành củ sạc và cáp mua tại Demo Mobile",
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao"
+     ]
+    },
+    {
+     "id": "r-pol-042",
+     "question": "gửi mail cho shop thì bao lâu có người rep",
+     "expected": [
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
+     ],
+     "got": [
+      "lien-he-ho-tro#Thời gian phản hồi yêu cầu chuyển cho nhân viên",
+      "chuyen-khoan#Shop xác nhận đã nhận tiền chuyển khoản",
+      "quy-trinh-bao-hanh#Gửi bảo hành trực tiếp tại showroom"
+     ]
+    },
+    {
+     "id": "r-gd-003",
+     "question": "app mua tren google play co mang qua iphone dc ko",
+     "expected": [
+      "chuyen-du-lieu-android-sang-iphone#Dữ liệu nào được chuyển và dữ liệu nào không"
+     ],
+     "got": [
+      "chon-dien-thoai-theo-ngan-sach#Chọn giữa iPhone và điện thoại Android",
+      "tat-tim-iphone-va-frp#Gỡ tài khoản hãng trên điện thoại Samsung, Xiaomi và các hãng khác",
+      "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google"
+     ]
+    },
+    {
+     "id": "r-gd-010",
+     "question": "lưng đt tự nhiên cong vênh hở mép, có nguy hiểm gì ko",
+     "expected": [
+      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay"
+     ],
+     "got": [
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile",
+      "chon-op-lung#Vệ sinh và bảo quản ốp lưng",
+      "chon-op-lung#Bảo hành và đổi ốp lưng lỗi"
+     ]
+    },
+    {
+     "id": "r-gd-014",
+     "question": "dat may len de sac khong day ma no ko vo pin",
+     "expected": [
+      "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
+     ],
+     "got": [
+      "sac-nhanh-va-cu-sac-gan#Bảo hành củ sạc và cáp mua tại Demo Mobile",
+      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày",
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao"
+     ]
+    },
+    {
+     "id": "r-gd-028",
+     "question": "may moi mua ve ma nong qua, vay co binh thuong ko",
+     "expected": [
+      "may-nong-va-cach-xu-ly#Khi nào điện thoại nóng là bình thường"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "sac-nhanh-va-cu-sac-gan#Bảo hành củ sạc và cáp mua tại Demo Mobile",
+      "cap-nhat-phan-mem#Không root, jailbreak hoặc cài ROM không chính thức"
+     ]
+    },
+    {
+     "id": "r-gd-030",
+     "question": "upate ios xong bi dung o logo tao tao hon 1 tieng roi",
+     "expected": [
+      "cap-nhat-phan-mem#Xử lý khi cập nhật bị treo hoặc lỗi"
+     ],
+     "got": [
+      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal",
+      "cai-dat-iphone-moi#Các bước thiết lập ban đầu cho iPhone",
+      "khoi-phuc-cai-dat-goc#Sau khi khôi phục cài đặt gốc"
+     ]
+    }
+   ]
+  },
+  "bm25": {
+   "n": 90,
+   "recall@1": 0.467,
+   "recall@5": 0.778,
+   "mrr@10": 0.602,
+   "latency_ms_p50": 3,
+   "latency_ms_p95": 5,
+   "misses": [
+    {
+     "id": "r-pol-002",
+     "question": "Can I return a phone if I just changed my mind? The box is still sealed",
+     "expected": [
+      "doi-tra#Trả điện thoại do không còn nhu cầu"
+     ],
+     "got": [
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp",
+      "quen-mat-khau#Thông tin cần chuẩn bị để xác minh danh tính",
+      "showroom#Giấy tờ cần mang khi đến showroom"
+     ]
+    },
+    {
+     "id": "r-pol-004",
+     "question": "tai nghe bluetooth mua đc 10 ngày tự nhiên bên trái ko nghe gì, shop đổi cho ko",
+     "expected": [
+      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Sửa lỗi tai nghe không kết nối hoặc chỉ nghe một bên",
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-009",
+     "question": "điện thoại mua ở shop được bảo hành mấy tháng, phải mang đi đâu",
+     "expected": [
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm"
+     ],
+     "got": [
+      "bao-hanh-mo-rong#Thời hạn và cách đăng ký gói bảo hành mở rộng",
+      "bao-hanh-mo-rong#Trường hợp gói bảo hành mở rộng không áp dụng",
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ]
+    },
+    {
+     "id": "r-pol-013",
+     "question": "gửi máy bảo hàng qua shop thì bao lâu mới lấy lại đc",
+     "expected": [
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
+      "quy-trinh-bao-hanh#Thời gian xử lý bảo hành"
+     ],
+     "got": [
+      "sao-luu-du-lieu#Vì sao cần sao lưu dữ liệu thường xuyên",
+      "quen-mat-khau#Lấy lại mật khẩu qua hotline",
+      "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-014",
+     "question": "don 450k co mat phi ship ko",
+     "expected": [
+      "van-chuyen#Phí vận chuyển theo giá trị đơn hàng"
+     ],
+     "got": [
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
+      "quen-mat-khau#Đăng nhập lại sau khi được cấp mật khẩu tạm thời",
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
+     ]
+    },
+    {
+     "id": "r-pol-015",
+     "question": "how many days does shipping usually take?",
+     "expected": [
+      "van-chuyen#Thời gian giao hàng dự kiến"
+     ],
+     "got": []
+    },
+    {
+     "id": "r-pol-033",
+     "question": "đơn 8 triệu nhập GIAM5 thì được bớt bao nhiêu",
+     "expected": [
+      "ma-giam-gia#Cách tính số tiền được giảm"
+     ],
+     "got": [
+      "tro-ly-chat#Trợ lý chat hỗ trợ những nội dung nào",
+      "sac-nhanh-va-cu-sac-gan#Sạc nhanh hoạt động như thế nào",
+      "hot-sale-cuoi-tuan#Dùng mã giảm giá cùng giá HOT SALE"
+     ]
+    },
+    {
+     "id": "r-pol-035",
+     "question": "chi bao nhieu tien thi len hang vang",
+     "expected": [
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
+     ],
+     "got": [
+      "bao-hanh-mo-rong#Bảo hành mở rộng miễn phí 6 tháng cho thành viên hạng Vàng",
+      "lien-he-ho-tro#Tổng đài hotline 1900 6868",
+      "ma-giam-gia#Mỗi đơn hàng chỉ áp dụng một mã giảm giá"
+     ]
+    },
+    {
+     "id": "r-pol-039",
+     "question": "How long do you keep my chat history?",
+     "expected": [
+      "bao-mat-du-lieu#Lưu trữ lịch sử trò chuyện với trợ lý chat"
+     ],
+     "got": [
+      "khang-nuoc-ip68#Cách xử lý khi điện thoại bị vào nước",
+      "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat",
+      "tai-khoan-dang-ky#Các chức năng cần đăng nhập tài khoản"
+     ]
+    },
+    {
+     "id": "r-pol-042",
+     "question": "gửi mail cho shop thì bao lâu có người rep",
+     "expected": [
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
+     ],
+     "got": [
+      "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại",
+      "bao-mat-du-lieu#Dữ liệu cá nhân Demo Mobile thu thập",
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành"
+     ]
+    },
+    {
+     "id": "r-pol-043",
+     "question": "Why can't I type anything in the chat box?",
+     "expected": [
+      "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Báo lỗi sau khi đã nhận hàng",
+      "bao-mat-du-lieu#Chia sẻ dữ liệu với đơn vị vận chuyển và đối tác",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng"
+     ]
+    },
+    {
+     "id": "r-gd-002",
+     "question": "chép hết data từ con ip cũ sang ip mới được ko, để 2 máy sát nhau thì phải",
+     "expected": [
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud"
+     ],
+     "got": [
+      "samsung-smart-switch#Chuyển dữ liệu không dây giữa hai điện thoại",
+      "khang-nuoc-ip68#Ý nghĩa chỉ số IP trên điện thoại",
+      "chuyen-du-lieu-android-sang-iphone#Các bước dùng ứng dụng Chuyển sang iOS"
+     ]
+    },
+    {
+     "id": "r-gd-008",
+     "question": "reset máy thì sim điện tử có bị mất luôn ko",
+     "expected": [
+      "kich-hoat-esim#Lưu ý khi đổi máy, khôi phục cài đặt gốc hoặc gửi bảo hành với eSIM"
+     ],
+     "got": [
+      "kich-hoat-esim#eSIM là gì và điều kiện sử dụng",
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
+      "khoi-phuc-cai-dat-goc#Khôi phục cài đặt gốc trên điện thoại Android"
+     ]
+    },
+    {
+     "id": "r-gd-020",
+     "question": "airpods xài với đt samsung đc ko ad",
+     "expected": [
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ],
+     "got": [
+      "samsung-smart-switch#Smart Switch là gì và dùng khi nào",
+      "samsung-smart-switch#Chuyển dữ liệu từ iPhone sang Samsung Galaxy",
+      "samsung-smart-switch#Chuyển dữ liệu không dây giữa hai điện thoại"
+     ]
+    },
+    {
+     "id": "r-gd-022",
+     "question": "Can I use my power bank to charge my phone while on the plane?",
+     "expected": [
+      "pin-du-phong-tren-may-bay#Sử dụng pin dự phòng trong chuyến bay"
+     ],
+     "got": [
+      "sac-nhanh-va-cu-sac-gan#Các chuẩn sạc nhanh phổ biến",
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp",
+      "quen-mat-khau#Thông tin cần chuẩn bị để xác minh danh tính"
+     ]
+    },
+    {
+     "id": "r-gd-023",
+     "question": "tầm 5 triệu thì shop có con nào ngon",
+     "expected": [
+      "chon-dien-thoai-theo-ngan-sach#Bảng phân khúc giá điện thoại tại Demo Mobile"
+     ],
+     "got": [
+      "dan-kinh-cuong-luc#Các bước tự dán kính cường lực tại nhà",
+      "cai-dat-iphone-moi#Các bước thiết lập ban đầu cho iPhone",
+      "doi-tra-phu-kien#Điều kiện đổi và bảo hành phụ kiện"
+     ]
+    },
+    {
+     "id": "r-gd-035",
+     "question": "how do i back up my iphone to my laptop",
+     "expected": [
+      "sao-luu-du-lieu#Sao lưu iPhone bằng iCloud hoặc máy tính"
+     ],
+     "got": [
+      "bao-hanh#Chuẩn bị điện thoại trước khi gửi bảo hành",
+      "quy-trinh-bao-hanh#Sao lưu dữ liệu và gỡ khoá tài khoản trước khi bảo hành",
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ]
+    },
+    {
+     "id": "r-gd-036",
+     "question": "mua cáp về chưa xài mà ko ưng màu, trả lại đc ko",
+     "expected": [
+      "doi-tra#Đổi trả theo nhu cầu trong 14 ngày"
+     ],
+     "got": [
+      "diem-thuong#Điểm thưởng khi huỷ hoặc trả hàng",
+      "thanh-toan#Thanh toán qua ví MoMo",
+      "doi-tra#Thời gian và hình thức hoàn tiền"
+     ]
+    },
+    {
+     "id": "r-gd-040",
+     "question": "Do I have to pay shipping on a 250k order?",
+     "expected": [
+      "van-chuyen#Phí giao hàng"
+     ],
+     "got": []
+    },
+    {
+     "id": "r-gd-043",
+     "question": "How many points do I need to get 50k off?",
+     "expected": [
+      "diem-thuong#Đổi điểm lấy giảm giá"
+     ],
+     "got": []
+    }
+   ]
+  },
+  "tsrank": {
+   "n": 90,
+   "recall@1": 0.367,
+   "recall@5": 0.689,
+   "mrr@10": 0.506,
+   "latency_ms_p50": 75,
+   "latency_ms_p95": 119,
+   "misses": [
+    {
+     "id": "r-pol-002",
+     "question": "Can I return a phone if I just changed my mind? The box is still sealed",
+     "expected": [
+      "doi-tra#Trả điện thoại do không còn nhu cầu"
+     ],
+     "got": [
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp",
+      "tra-gop#Điều kiện áp dụng trả góp 0%",
+      "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì"
+     ]
+    },
+    {
+     "id": "r-pol-004",
+     "question": "tai nghe bluetooth mua đc 10 ngày tự nhiên bên trái ko nghe gì, shop đổi cho ko",
+     "expected": [
+      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
+      "ket-noi-tai-nghe-bluetooth#Ghép đôi tai nghe Bluetooth với iPhone",
+      "ket-noi-tai-nghe-bluetooth#Ghép đôi tai nghe Bluetooth với điện thoại Android"
+     ]
+    },
+    {
+     "id": "r-pol-005",
+     "question": "cục sạc 300k còn nguyên seal, ko xài nữa trả lại thì đc hoàn bao nhiêu",
+     "expected": [
+      "doi-tra-phu-kien#Trả phụ kiện do không còn nhu cầu"
+     ],
+     "got": [
+      "sac-nhanh-va-cu-sac-gan#Sạc nhanh hoạt động như thế nào",
+      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal",
+      "magsafe-va-sac-khong-day#So sánh sạc không dây và sạc có dây"
+     ]
+    },
+    {
+     "id": "r-pol-006",
+     "question": "trả hàng xong bao lâu thì nhận lại tiền vậy",
+     "expected": [
+      "doi-tra#Thời gian hoàn tiền khi trả điện thoại",
+      "hoan-tien#Thời gian hoàn tiền"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "chuyen-khoan#Shop xác nhận đã nhận tiền chuyển khoản"
+     ]
+    },
+    {
+     "id": "r-pol-008",
+     "question": "lam rot vo man hinh co duoc bao hang free k",
+     "expected": [
+      "bao-hanh#Trường hợp không được bảo hành"
+     ],
+     "got": [
+      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
+      "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile",
+      "van-chuyen#Khu vực giao hàng và hình thức nhận hàng"
+     ]
+    },
+    {
+     "id": "r-pol-010",
+     "question": "gói bh mở rộng cho máy 24 triệu tốn bao nhiêu tiền",
+     "expected": [
+      "bao-hanh-mo-rong#Phí gói Bảo hành mở rộng +12 tháng"
+     ],
+     "got": [
+      "bao-hanh-mo-rong#Quyền lợi của gói Bảo hành mở rộng +12 tháng",
+      "chon-dien-thoai-theo-ngan-sach#Gói bảo hành mở rộng khi mua điện thoại",
+      "bao-hanh-mo-rong#Thời hạn và cách đăng ký gói bảo hành mở rộng"
+     ]
+    },
+    {
+     "id": "r-pol-015",
+     "question": "how many days does shipping usually take?",
+     "expected": [
+      "van-chuyen#Thời gian giao hàng dự kiến"
+     ],
+     "got": []
+    },
+    {
+     "id": "r-pol-019",
+     "question": "shipper giao tới mà thùng bị móp méo, băng keo rách thì sao",
+     "expected": [
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng"
+     ],
+     "got": [
+      "sao-luu-du-lieu#Sao lưu iPhone bằng iCloud hoặc máy tính",
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "sao-luu-du-lieu#Sao lưu điện thoại Android bằng tài khoản Google"
+     ]
+    },
+    {
+     "id": "r-pol-032",
+     "question": "WELCOME100 xài cho đơn từ bao nhiu",
+     "expected": [
+      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng"
+     ],
+     "got": [
+      "huy-don-hang#Điều kiện tự huỷ đơn hàng trên website",
+      "trang-thai-don-hang#Mã đơn hàng",
+      "trang-thai-don-hang#Ý nghĩa các trạng thái đơn hàng"
+     ]
+    },
+    {
+     "id": "r-pol-033",
+     "question": "đơn 8 triệu nhập GIAM5 thì được bớt bao nhiêu",
+     "expected": [
+      "ma-giam-gia#Cách tính số tiền được giảm"
+     ],
+     "got": [
+      "trang-thai-don-hang#Mã đơn hàng",
+      "trang-thai-don-hang#Hỏi trợ lý chat về trạng thái đơn hàng",
+      "huy-don-hang#Các bước huỷ đơn hàng trên website"
+     ]
+    },
+    {
+     "id": "r-pol-036",
+     "question": "mua đủ 10 củ rồi mà sao tài khoản vẫn chưa lên bạc",
+     "expected": [
+      "thanh-vien#Cách tính chi tiêu và thời điểm xét hạng"
+     ],
+     "got": [
+      "tat-tim-iphone-va-frp#Đăng xuất tài khoản Google để gỡ khoá FRP",
+      "tat-tim-iphone-va-frp#Gỡ tài khoản hãng trên điện thoại Samsung, Xiaomi và các hãng khác",
+      "sao-luu-du-lieu#Sao lưu điện thoại Android bằng tài khoản Google"
+     ]
+    },
+    {
+     "id": "r-pol-040",
+     "question": "shop có đem thông tin của mình bán cho bên thứ 3 ko",
+     "expected": [
+      "bao-mat-du-lieu#Chia sẻ dữ liệu với đơn vị vận chuyển và đối tác",
+      "bao-mat-du-lieu#Mục đích sử dụng dữ liệu cá nhân"
+     ],
+     "got": [
+      "cap-nhat-phan-mem#Cập nhật phần mềm trên điện thoại Android",
+      "quen-mat-khau#Thông tin cần chuẩn bị để xác minh danh tính",
+      "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-042",
+     "question": "gửi mail cho shop thì bao lâu có người rep",
+     "expected": [
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
+     ],
+     "got": [
+      "bao-hanh#Thời hạn bảo hành theo loại sản phẩm",
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "quy-trinh-bao-hanh#Gửi bảo hành từ xa khi không đến được showroom"
+     ]
+    },
+    {
+     "id": "r-pol-043",
+     "question": "Why can't I type anything in the chat box?",
+     "expected": [
+      "tro-ly-chat#Yêu cầu đăng nhập để dùng trợ lý chat"
+     ],
+     "got": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%",
+      "tro-ly-chat#Những việc trợ lý chat không thực hiện được",
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp"
+     ]
+    },
+    {
+     "id": "r-gd-008",
+     "question": "reset máy thì sim điện tử có bị mất luôn ko",
+     "expected": [
+      "kich-hoat-esim#Lưu ý khi đổi máy, khôi phục cài đặt gốc hoặc gửi bảo hành với eSIM"
+     ],
+     "got": [
+      "may-nong-va-cach-xu-ly#Cách làm mát điện thoại an toàn",
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
+      "may-nong-va-cach-xu-ly#Dấu hiệu nóng máy bất thường cần kiểm tra"
+     ]
+    },
+    {
+     "id": "r-gd-010",
+     "question": "lưng đt tự nhiên cong vênh hở mép, có nguy hiểm gì ko",
+     "expected": [
+      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay"
+     ],
+     "got": [
+      "chon-op-lung#Ốp lưng và sạc không dây",
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile",
+      "magsafe-va-sac-khong-day#Ốp lưng dùng được với sạc không dây và MagSafe"
+     ]
+    },
+    {
+     "id": "r-gd-012",
+     "question": "Which charger and cable should I get for an older iPhone that still uses the Lightning port?",
+     "expected": [
+      "sac-nhanh-va-cu-sac-gan#Chọn củ sạc và cáp phù hợp tại Demo Mobile"
+     ],
+     "got": [
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud",
+      "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone",
+      "chuyen-du-lieu-android-sang-iphone#Chuyển dữ liệu khi iPhone đã được thiết lập xong"
+     ]
+    },
+    {
+     "id": "r-gd-020",
+     "question": "airpods xài với đt samsung đc ko ad",
+     "expected": [
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ],
+     "got": [
+      "samsung-smart-switch#Smart Switch là gì và dùng khi nào",
+      "samsung-smart-switch#Chuyển dữ liệu từ iPhone sang Samsung Galaxy",
+      "samsung-smart-switch#Lưu ý sau khi chuyển dữ liệu bằng Smart Switch"
+     ]
+    },
+    {
+     "id": "r-gd-022",
+     "question": "Can I use my power bank to charge my phone while on the plane?",
+     "expected": [
+      "pin-du-phong-tren-may-bay#Sử dụng pin dự phòng trong chuyến bay"
+     ],
+     "got": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%",
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp",
+      "magsafe-va-sac-khong-day#MagSafe trên iPhone là gì"
+     ]
+    },
+    {
+     "id": "r-gd-023",
+     "question": "tầm 5 triệu thì shop có con nào ngon",
+     "expected": [
+      "chon-dien-thoai-theo-ngan-sach#Bảng phân khúc giá điện thoại tại Demo Mobile"
+     ],
+     "got": [
+      "quen-mat-khau#Đăng nhập lại sau khi được cấp mật khẩu tạm thời",
+      "ma-giam-gia#Thông báo lỗi khi áp dụng mã giảm giá",
+      "ma-giam-gia#Danh sách mã giảm giá đang áp dụng"
+     ]
+    },
+    {
+     "id": "r-gd-025",
+     "question": "reset máy oppo về như mới vô mục nào vậy",
+     "expected": [
+      "khoi-phuc-cai-dat-goc#Khôi phục cài đặt gốc trên điện thoại Android"
+     ],
+     "got": [
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
+      "may-nong-va-cach-xu-ly#Dấu hiệu nóng máy bất thường cần kiểm tra",
+      "may-nong-va-cach-xu-ly#Cách làm mát điện thoại an toàn"
+     ]
+    },
+    {
+     "id": "r-gd-027",
+     "question": "quên mk icloud nên ko tắt được định vị iphone, shop mở khoá giúp đc ko",
+     "expected": [
+      "tat-tim-iphone-va-frp#Quên mật khẩu tài khoản Apple hoặc Google"
+     ],
+     "got": [
+      "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone",
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google",
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud"
+     ]
+    },
+    {
+     "id": "r-gd-029",
+     "question": "bỏ đt vô tủ lạnh cho nhanh nguội được ko",
+     "expected": [
+      "may-nong-va-cach-xu-ly#Cách làm mát điện thoại an toàn"
+     ],
+     "got": [
+      "chon-dien-thoai-theo-ngan-sach#Chọn dung lượng bộ nhớ phù hợp",
+      "sac-nhanh-va-cu-sac-gan#Sạc nhanh hoạt động như thế nào",
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud"
+     ]
+    },
+    {
+     "id": "r-gd-031",
+     "question": "jailbreak iphone rồi thì còn đc 1 đổi 1 ko",
+     "expected": [
+      "cap-nhat-phan-mem#Không root, jailbreak hoặc cài ROM không chính thức"
+     ],
+     "got": [
+      "doi-tra#Đổi 1 đổi 1 khi điện thoại lỗi do nhà sản xuất",
+      "tat-tim-iphone-va-frp#Vì sao phải tắt Tìm iPhone và đăng xuất tài khoản Google",
+      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal"
+     ]
+    },
+    {
+     "id": "r-gd-035",
+     "question": "how do i back up my iphone to my laptop",
+     "expected": [
+      "sao-luu-du-lieu#Sao lưu iPhone bằng iCloud hoặc máy tính"
+     ],
+     "got": [
+      "cai-dat-iphone-moi#Khôi phục dữ liệu từ iPhone cũ hoặc bản sao lưu iCloud",
+      "chuyen-du-lieu-android-sang-iphone#Chuyển dữ liệu khi iPhone đã được thiết lập xong",
+      "tat-tim-iphone-va-frp#Cách tắt Tìm iPhone"
+     ]
+    },
+    {
+     "id": "r-gd-040",
+     "question": "Do I have to pay shipping on a 250k order?",
+     "expected": [
+      "van-chuyen#Phí giao hàng"
+     ],
+     "got": []
+    },
+    {
+     "id": "r-gd-041",
+     "question": "shop co cho mua gop hang thang ko",
+     "expected": [
+      "thanh-toan#Phụ Kiện Xanh không hỗ trợ trả góp"
+     ],
+     "got": [
+      "van-chuyen#Phí giao hàng",
+      "thanh-toan#Thanh toán khi nhận hàng (COD)",
+      "theo-doi-don-hang#Các trạng thái đơn hàng"
+     ]
+    },
+    {
+     "id": "r-gd-043",
+     "question": "How many points do I need to get 50k off?",
+     "expected": [
+      "diem-thuong#Đổi điểm lấy giảm giá"
+     ],
+     "got": []
+    }
+   ]
+  },
+  "hybrid": {
+   "n": 90,
+   "recall@1": 0.644,
+   "recall@5": 0.911,
+   "mrr@10": 0.757,
+   "latency_ms_p50": 43,
+   "latency_ms_p95": 48,
+   "misses": [
+    {
+     "id": "r-pol-002",
+     "question": "Can I return a phone if I just changed my mind? The box is still sealed",
+     "expected": [
+      "doi-tra#Trả điện thoại do không còn nhu cầu"
+     ],
+     "got": [
+      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal",
+      "kich-hoat-esim#Lưu ý khi đổi máy, khôi phục cài đặt gốc hoặc gửi bảo hành với eSIM",
+      "doi-tra#Bảng tóm tắt các trường hợp đổi trả điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-003",
+     "question": "may bi tray nhe o vien thi con doi tra duoc khong",
+     "expected": [
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ],
+     "got": [
+      "dan-kinh-cuong-luc#Khi nào cần thay miếng dán màn hình mới",
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "doi-tra-phu-kien#Điều kiện đổi và bảo hành phụ kiện"
+     ]
+    },
+    {
+     "id": "r-pol-007",
+     "question": "don COD tra hang thi hoan tien bang cach nao",
+     "expected": [
+      "hoan-tien#Phương thức nhận tiền hoàn"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "thanh-toan#Thanh toán khi nhận hàng (COD)"
+     ]
+    },
+    {
+     "id": "r-pol-013",
+     "question": "gửi máy bảo hàng qua shop thì bao lâu mới lấy lại đc",
+     "expected": [
+      "bao-hanh#Bảo hành chính hãng 12 tháng cho điện thoại",
+      "quy-trinh-bao-hanh#Thời gian xử lý bảo hành"
+     ],
+     "got": [
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "may-nong-va-cach-xu-ly#Gửi bảo hành điện thoại nóng máy tại Demo Mobile",
+      "cham-soc-pin#Pin điện thoại và chính sách bảo hành tại Demo Mobile"
+     ]
+    },
+    {
+     "id": "r-pol-025",
+     "question": "mua tai nghe tra gop duoc ko, the atm thi sao",
+     "expected": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Bảo hành tai nghe mua tại Demo Mobile",
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
+      "showroom#Dịch vụ tại showroom Demo Mobile"
+     ]
+    },
+    {
+     "id": "r-pol-035",
+     "question": "chi bao nhieu tien thi len hang vang",
+     "expected": [
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
+     ],
+     "got": [
+      "bao-hanh-mo-rong#Bảo hành mở rộng miễn phí 6 tháng cho thành viên hạng Vàng",
+      "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại",
+      "chon-dien-thoai-theo-ngan-sach#Gói bảo hành mở rộng khi mua điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-042",
+     "question": "gửi mail cho shop thì bao lâu có người rep",
+     "expected": [
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
+     ],
+     "got": [
+      "quy-trinh-bao-hanh#Nhận lại máy sau khi bảo hành",
+      "lien-he-ho-tro#Thời gian phản hồi yêu cầu chuyển cho nhân viên",
+      "chon-dien-thoai-theo-ngan-sach#Xác định nhu cầu trước khi chọn điện thoại"
+     ]
+    },
+    {
+     "id": "r-gd-020",
+     "question": "airpods xài với đt samsung đc ko ad",
+     "expected": [
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Ghép đôi tai nghe Bluetooth với điện thoại Android",
+      "samsung-smart-switch#Chuyển dữ liệu không dây giữa hai điện thoại",
+      "samsung-smart-switch#Chuyển dữ liệu bằng cáp kết nối"
+     ]
+    }
+   ]
+  },
+  "hybrid_tsrank": {
+   "n": 90,
+   "recall@1": 0.544,
+   "recall@5": 0.878,
+   "mrr@10": 0.69,
+   "latency_ms_p50": 116,
+   "latency_ms_p95": 161,
+   "misses": [
+    {
+     "id": "r-pol-002",
+     "question": "Can I return a phone if I just changed my mind? The box is still sealed",
+     "expected": [
+      "doi-tra#Trả điện thoại do không còn nhu cầu"
+     ],
+     "got": [
+      "bao-hanh#Chuẩn bị điện thoại trước khi gửi bảo hành",
+      "doi-tra#Bảng tóm tắt các trường hợp đổi trả điện thoại",
+      "tra-gop#Hồ sơ và thời gian duyệt trả góp"
+     ]
+    },
+    {
+     "id": "r-pol-003",
+     "question": "may bi tray nhe o vien thi con doi tra duoc khong",
+     "expected": [
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "cai-dat-iphone-moi#Kiểm tra hộp máy trước khi bóc seal"
+     ]
+    },
+    {
+     "id": "r-pol-007",
+     "question": "don COD tra hang thi hoan tien bang cach nao",
+     "expected": [
+      "hoan-tien#Phương thức nhận tiền hoàn"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Kiểm tra kiện hàng trước mặt nhân viên giao hàng",
+      "kiem-tra-hang-khi-nhan#Trường hợp nên từ chối nhận hàng",
+      "trang-thai-don-hang#Đơn hàng không cập nhật trạng thái"
+     ]
+    },
+    {
+     "id": "r-pol-025",
+     "question": "mua tai nghe tra gop duoc ko, the atm thi sao",
+     "expected": [
+      "tra-gop#Điều kiện áp dụng trả góp 0%"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Đưa tai nghe vào chế độ ghép đôi",
+      "ket-noi-tai-nghe-bluetooth#Bảo hành tai nghe mua tại Demo Mobile",
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ]
+    },
+    {
+     "id": "r-pol-035",
+     "question": "chi bao nhieu tien thi len hang vang",
+     "expected": [
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng"
+     ],
+     "got": [
+      "bao-hanh-mo-rong#Bảo hành mở rộng miễn phí 6 tháng cho thành viên hạng Vàng",
+      "tra-gop#Kỳ hạn, lãi suất và số tiền góp hằng tháng",
+      "doi-dia-chi-giao-hang#Thời điểm được đổi địa chỉ giao hàng"
+     ]
+    },
+    {
+     "id": "r-pol-036",
+     "question": "mua đủ 10 củ rồi mà sao tài khoản vẫn chưa lên bạc",
+     "expected": [
+      "thanh-vien#Cách tính chi tiêu và thời điểm xét hạng"
+     ],
+     "got": [
+      "thanh-vien#Các hạng thành viên và điều kiện đạt hạng",
+      "hoan-tien#Chưa nhận được tiền hoàn",
+      "tat-tim-iphone-va-frp#Đăng xuất tài khoản Google để gỡ khoá FRP"
+     ]
+    },
+    {
+     "id": "r-pol-042",
+     "question": "gửi mail cho shop thì bao lâu có người rep",
+     "expected": [
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
+     ],
+     "got": [
+      "quy-trinh-bao-hanh#Gửi bảo hành trực tiếp tại showroom",
+      "quy-trinh-bao-hanh#Thời gian xử lý bảo hành",
+      "quy-trinh-bao-hanh#Gửi bảo hành từ xa khi không đến được showroom"
+     ]
+    },
+    {
+     "id": "r-gd-008",
+     "question": "reset máy thì sim điện tử có bị mất luôn ko",
+     "expected": [
+      "kich-hoat-esim#Lưu ý khi đổi máy, khôi phục cài đặt gốc hoặc gửi bảo hành với eSIM"
+     ],
+     "got": [
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
+      "sao-luu-du-lieu#Sao lưu trước khi gửi bảo hành hoặc đổi trả tại Demo Mobile",
+      "bao-hanh#Chuẩn bị điện thoại trước khi gửi bảo hành"
+     ]
+    },
+    {
+     "id": "r-gd-010",
+     "question": "lưng đt tự nhiên cong vênh hở mép, có nguy hiểm gì ko",
+     "expected": [
+      "cham-soc-pin#Dấu hiệu pin bất thường cần xử lý ngay"
+     ],
+     "got": [
+      "chon-op-lung#Ốp lưng và sạc không dây",
+      "chon-op-lung#Các loại ốp lưng tại Demo Mobile",
+      "chon-op-lung#Vệ sinh và bảo quản ốp lưng"
+     ]
+    },
+    {
+     "id": "r-gd-020",
+     "question": "airpods xài với đt samsung đc ko ad",
+     "expected": [
+      "ket-noi-tai-nghe-bluetooth#Dùng tai nghe khác hãng với điện thoại"
+     ],
+     "got": [
+      "ket-noi-tai-nghe-bluetooth#Ghép đôi tai nghe Bluetooth với điện thoại Android",
+      "ket-noi-tai-nghe-bluetooth#Bảo hành tai nghe mua tại Demo Mobile",
+      "samsung-smart-switch#Chuyển dữ liệu không dây giữa hai điện thoại"
+     ]
+    },
+    {
+     "id": "r-gd-025",
+     "question": "reset máy oppo về như mới vô mục nào vậy",
+     "expected": [
+      "khoi-phuc-cai-dat-goc#Khôi phục cài đặt gốc trên điện thoại Android"
+     ],
+     "got": [
+      "khoi-phuc-cai-dat-goc#Khi nào nên khôi phục cài đặt gốc",
+      "tat-tim-iphone-va-frp#Gỡ tài khoản hãng trên điện thoại Samsung, Xiaomi và các hãng khác",
+      "tat-tim-iphone-va-frp#Đăng xuất tài khoản Google để gỡ khoá FRP"
+     ]
+    }
+   ]
+  },
+  "hybrid_rerank": {
+   "n": 90,
+   "recall@1": 0.789,
+   "recall@5": 0.967,
+   "mrr@10": 0.862,
+   "latency_ms_p50": 234,
+   "latency_ms_p95": 263,
+   "misses": [
+    {
+     "id": "r-pol-003",
+     "question": "may bi tray nhe o vien thi con doi tra duoc khong",
+     "expected": [
+      "doi-tra#Điều kiện để điện thoại được đổi trả"
+     ],
+     "got": [
+      "doi-tra#Bảng tóm tắt các trường hợp đổi trả điện thoại",
+      "doi-tra-phu-kien#Điều kiện đổi và bảo hành phụ kiện",
+      "dan-kinh-cuong-luc#Các loại miếng dán màn hình tại Demo Mobile"
+     ]
+    },
+    {
+     "id": "r-pol-042",
+     "question": "gửi mail cho shop thì bao lâu có người rep",
+     "expected": [
+      "lien-he-ho-tro#Các kênh liên hệ Demo Mobile",
+      "lien-he-ho-tro#Email hỗ trợ hotro@demomobile.vn"
+     ],
+     "got": [
+      "kiem-tra-hang-khi-nhan#Báo lỗi sau khi đã nhận hàng",
+      "lien-he-ho-tro#Thời gian phản hồi yêu cầu chuyển cho nhân viên",
+      "hoan-tien#Thời gian hoàn tiền"
+     ]
+    },
+    {
+     "id": "r-gd-014",
+     "question": "dat may len de sac khong day ma no ko vo pin",
+     "expected": [
+      "magsafe-va-sac-khong-day#Khắc phục khi sạc không dây không nhận hoặc sạc chậm"
+     ],
+     "got": [
+      "doi-tra-phu-kien#Đổi mới phụ kiện bị lỗi trong 15 ngày",
+      "magsafe-va-sac-khong-day#Sạc không dây chuẩn Qi hoạt động ra sao",
+      "magsafe-va-sac-khong-day#Ốp lưng dùng được với sạc không dây và MagSafe"
+     ]
+    }
+   ]
+  }
+ },
+ "index": {
+  "options": {
+   "contextual": true,
+   "max_tokens": 250,
+   "overlap": 50
+  },
+  "stats": {
+   "demo_shop": {
+    "documents": 44,
+    "indexed": 44,
+    "skipped": 0,
+    "removed": 0,
+    "chunks": 253,
+    "llm_calls": 52,
+    "seconds": 33.9
+   },
+   "second_shop": {
+    "documents": 8,
+    "indexed": 8,
+    "skipped": 0,
+    "removed": 0,
+    "chunks": 40,
+    "llm_calls": 10,
+    "seconds": 8.8
+   }
+  }
+ }
+}

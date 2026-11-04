@@ -1,0 +1,14 @@
+# Never in the image: secrets, local environments, data and caches.
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+.git/
+**/__pycache__/
+node_modules/
+data/pgdata/
+*.db
+*.log
+eval/cache/
+eval/runs/
